@@ -10,7 +10,7 @@ using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Data;
 
-namespace Schuly.Plugin.Schulware
+namespace Schuly.Plugin.Schulware.Services
 {
     public class SchulwareSyncTask : IPluginBackgroundTask
     {

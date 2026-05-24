@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications
         {
         }
         /// <summary>
-        /// Get Mobile Notifications
+        /// Get Notifications
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.NotificationDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Mobile Notifications
+        /// Get Notifications
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
