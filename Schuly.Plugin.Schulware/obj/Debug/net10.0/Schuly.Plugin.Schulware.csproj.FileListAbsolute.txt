@@ -1,0 +1,13 @@
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\bin\Debug\net10.0\Schuly.Plugin.Schulware.deps.json
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\bin\Debug\net10.0\Schuly.Plugin.Schulware.dll
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\bin\Debug\net10.0\Schuly.Plugin.Schulware.pdb
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.csproj.AssemblyReference.cache
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.GeneratedMSBuildEditorConfig.editorconfig
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.AssemblyInfoInputs.cache
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.AssemblyInfo.cs
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.csproj.CoreCompileInputs.cache
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.sourcelink.json
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.dll
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\refint\Schuly.Plugin.Schulware.dll
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\Schuly.Plugin.Schulware.pdb
+C:\Coding\schulydev\SchulyPlugins\Schuly.Plugin.Schulware\obj\Debug\net10.0\ref\Schuly.Plugin.Schulware.dll
