@@ -16,11 +16,7 @@
     <PackageReference Include="Microsoft.Kiota.Serialization.Multipart" Version="1.22.1" />
     <PackageReference Include="Microsoft.Kiota.Authentication.Azure" Version="1.22.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Schuly.Plugin.Abstractions\Schuly.Plugin.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\Schuly.Application\Schuly.Application.csproj" />
+    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.2.*" />
   </ItemGroup>
 
 </Project>
