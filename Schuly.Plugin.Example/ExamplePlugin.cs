@@ -13,7 +13,6 @@ namespace Schuly.Plugin.Example
 
         public void ConfigureServices(IServiceCollection services, PluginServiceContext context)
         {
-            services.AddScoped<IPluginEventHandler<Schuly.Application.Commands.SchoolUser.CreateSchoolUserCommand>, OnSchoolUserCreatedHandler>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints)
