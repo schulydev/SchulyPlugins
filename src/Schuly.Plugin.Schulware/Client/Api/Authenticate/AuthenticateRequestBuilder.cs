@@ -4,6 +4,7 @@ using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Mobile;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Unified;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Web;
 using System.Collections.Generic;
@@ -27,6 +28,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.OauthRequestBuilder Oauth
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.OauthRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The refresh property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder Refresh
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The unified property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Unified.UnifiedRequestBuilder Unified

@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Exams
         {
         }
         /// <summary>
-        /// Get Mobile Exams
+        /// Get Exams
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.ExamDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Exams
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Mobile Exams
+        /// Get Exams
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

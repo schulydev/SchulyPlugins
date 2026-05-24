@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Lateness
         {
         }
         /// <summary>
-        /// Get Mobile Lateness
+        /// Get Lateness
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.LatenessDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Lateness
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Mobile Lateness
+        /// Get Lateness
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

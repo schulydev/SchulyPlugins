@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Topics
         {
         }
         /// <summary>
-        /// Get Mobile Topics
+        /// Get Topics
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.TopicDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Topics
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Mobile Topics
+        /// Get Topics
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

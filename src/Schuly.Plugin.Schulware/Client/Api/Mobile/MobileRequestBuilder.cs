@@ -6,14 +6,20 @@ using Schuly.Plugin.Schulware.Client.Api.Mobile.Absencenotices;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Absencenoticestatus;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Absences;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Customfields;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Events;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Exams;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Grades;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Homework;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Lateness;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Settings;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Topics;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.UserInfo;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Vacations;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -46,15 +52,35 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda.AgendaRequestBuilder(PathParameters, RequestAdapter);
         }
+        /// <summary>The customfields property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Customfields.CustomfieldsRequestBuilder Customfields
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Customfields.CustomfieldsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The events property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Events.EventsRequestBuilder Events
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Events.EventsRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The exams property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Exams.ExamsRequestBuilder Exams
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Exams.ExamsRequestBuilder(PathParameters, RequestAdapter);
         }
+        /// <summary>The filecategories property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories.FilecategoriesRequestBuilder Filecategories
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories.FilecategoriesRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The grades property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Grades.GradesRequestBuilder Grades
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Grades.GradesRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The homework property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Homework.HomeworkRequestBuilder Homework
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Homework.HomeworkRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The lateness property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Lateness.LatenessRequestBuilder Lateness
@@ -65,6 +91,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.NotificationsRequestBuilder Notifications
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.NotificationsRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The objectives property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder Objectives
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The settings property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Settings.SettingsRequestBuilder Settings
@@ -85,6 +116,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.UserInfo.UserInfoRequestBuilder UserInfo
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.UserInfo.UserInfoRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The vacations property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Vacations.VacationsRequestBuilder Vacations
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Vacations.VacationsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.MobileRequestBuilder"/> and sets the default values.

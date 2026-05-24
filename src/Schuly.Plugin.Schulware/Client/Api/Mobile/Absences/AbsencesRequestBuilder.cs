@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Absences.Confirmed;
 using Schuly.Plugin.Schulware.Client.Models;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +18,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Absences
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class AbsencesRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The confirmed property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Absences.Confirmed.ConfirmedRequestBuilder Confirmed
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Absences.Confirmed.ConfirmedRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Absences.AbsencesRequestBuilder"/> and sets the default values.
         /// </summary>
@@ -34,7 +40,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Absences
         {
         }
         /// <summary>
-        /// Get Mobile Absences
+        /// Get Absences
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.AbsenceDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -53,7 +59,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Absences
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Mobile Absences
+        /// Get Absences
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
