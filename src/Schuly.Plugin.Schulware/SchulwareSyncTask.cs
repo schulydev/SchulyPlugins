@@ -130,28 +130,40 @@ namespace Schuly.Plugin.Schulware
                 logger.LogWarning(ex, "Direct token refresh error, trying Playwright refresher");
             }
 
-            // Fall back to Playwright refresher service
-            return await TryPlaywrightRefresh(httpClientFactory, account, db, logger, ct);
+            // Fall back to SchulwareAPI's stateless /api/authenticate/refresh.
+            // Replays the user's captured browser context server-side; passwordless.
+            return await TryRefreshViaSchulwareApi(httpClientFactory, account, db, logger, ct);
         }
 
-        private static async Task<bool> TryPlaywrightRefresh(
+        private static async Task<bool> TryRefreshViaSchulwareApi(
             IHttpClientFactory httpClientFactory, SchulwareAccount account,
             SchulwareDbContext db, ILogger logger, CancellationToken ct)
         {
+            if (string.IsNullOrWhiteSpace(account.ContextStateJson))
+            {
+                logger.LogWarning("Account {AccountId} has no stored context_state. " +
+                    "User must complete an interactive OAuth login (mobile app) to seed it.", account.Id);
+                return false;
+            }
+
             try
             {
-                var refresherUrl = Environment.GetEnvironmentVariable("SCHULWARE_REFRESHER_URL") ?? "http://localhost:8001";
-
                 using var httpClient = httpClientFactory.CreateClient();
-                var response = await httpClient.PostAsJsonAsync($"{refresherUrl}/refresh", new
-                {
-                    schulnetz_base_url = account.SchulnetzBaseUrl,
-                    user_id = account.Id.ToString(),
-                }, ct);
+                using var contextStateDoc = System.Text.Json.JsonDocument.Parse(account.ContextStateJson);
+
+                var response = await httpClient.PostAsJsonAsync(
+                    $"{account.SchulwareApiBaseUrl.TrimEnd('/')}/api/authenticate/refresh",
+                    new
+                    {
+                        schulnetz_base_url = account.SchulnetzBaseUrl,
+                        context_state = contextStateDoc.RootElement,
+                        user_agent = account.UserAgent,
+                    },
+                    ct);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    logger.LogWarning("Playwright refresher returned {Status}", response.StatusCode);
+                    logger.LogWarning("SchulwareAPI /refresh returned {Status}", response.StatusCode);
                     return false;
                 }
 
@@ -159,7 +171,7 @@ namespace Schuly.Plugin.Schulware
                 if (!result.TryGetProperty("success", out var success) || !success.GetBoolean())
                 {
                     var msg = result.TryGetProperty("message", out var m) ? m.GetString() : "unknown error";
-                    logger.LogWarning("Playwright refresher failed: {Message}", msg);
+                    logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}", account.Id, msg);
                     return false;
                 }
 
@@ -180,12 +192,17 @@ namespace Schuly.Plugin.Schulware
                 if (result.TryGetProperty("web_session_trans_id", out var wtid) && wtid.ValueKind == System.Text.Json.JsonValueKind.String)
                     account.WebSessionTransId = wtid.GetString();
 
+                // Persist the rotated context_state — cookies may have been refreshed
+                // server-side and we MUST replay the latest blob on the next call.
+                if (result.TryGetProperty("context_state", out var cs) && cs.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    account.ContextStateJson = cs.GetRawText();
+
                 account.UpdatedAt = DateTime.UtcNow;
                 try
                 {
                     db.Accounts.Update(account);
                     await db.SaveChangesAsync(ct);
-                    logger.LogInformation("Refreshed tokens via Playwright for account {AccountId}. Expires: {Expires}", account.Id, account.MobileTokenExpiresAt);
+                    logger.LogInformation("Refreshed tokens via SchulwareAPI for account {AccountId}. Expires: {Expires}", account.Id, account.MobileTokenExpiresAt);
                 }
                 catch (Exception saveEx)
                 {
@@ -196,7 +213,7 @@ namespace Schuly.Plugin.Schulware
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Playwright refresh error for account {AccountId}", account.Id);
+                logger.LogError(ex, "SchulwareAPI /refresh error for account {AccountId}", account.Id);
                 return false;
             }
         }
