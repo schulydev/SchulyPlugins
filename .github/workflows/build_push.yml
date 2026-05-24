@@ -1,0 +1,151 @@
+name: Build + publish plugins to repo branch
+
+# Aniyomi-style distribution:
+#   main branch = C# plugin source projects
+#   repo branch = built DLLs under dll/ + index.json + index.min.json
+# Operators fetch DLLs from raw.githubusercontent.com/schulydev/SchulyPlugins/repo/dll/<name>-v<version>.dll
+# and the index from .../repo/index.min.json.
+#
+# Adding a new plugin = creating a new Schuly.Plugin.<Name>/ folder with a csproj. No workflow change needed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Schuly.Plugin.*/**'
+      - '.github/workflows/build_push.yml'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  discover:
+    name: Discover plugin projects
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: find
+        run: |
+          plugins=$(find . -maxdepth 2 -type f -name 'Schuly.Plugin.*.csproj' | sort)
+          if [ -z "$plugins" ]; then
+            echo "No plugin csprojs found"
+            echo 'matrix={"include":[]}' >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          matrix=$(echo "$plugins" | jq -R '.' | jq -sc '{include: map({csproj: .})}')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "Plugins to build:"
+          echo "$plugins"
+
+  build:
+    name: Build plugin
+    needs: discover
+    if: ${{ fromJson(needs.discover.outputs.matrix).include[0] != null }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Read plugin metadata
+        id: meta
+        run: |
+          csproj='${{ matrix.csproj }}'
+          name=$(dotnet msbuild "$csproj" -getProperty:AssemblyName -nologo | tail -n1 | tr -d ' \r\n')
+          version=$(dotnet msbuild "$csproj" -getProperty:Version -nologo | tail -n1 | tr -d ' \r\n')
+          desc=$(dotnet msbuild "$csproj" -getProperty:Description -nologo | tail -n1 | tr -d ' \r\n')
+          authors=$(dotnet msbuild "$csproj" -getProperty:Authors -nologo | tail -n1 | tr -d ' \r\n')
+          pkg=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+          echo "name=$name" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "desc=$desc" >> $GITHUB_OUTPUT
+          echo "authors=$authors" >> $GITHUB_OUTPUT
+          echo "pkg=$pkg" >> $GITHUB_OUTPUT
+          echo "Plugin: $name v$version"
+
+      - name: Build
+        run: dotnet publish '${{ matrix.csproj }}' -c Release -o ./out
+
+      - name: Stage DLL + per-plugin metadata
+        run: |
+          mkdir -p staging/dll
+          dll_name='${{ steps.meta.outputs.name }}-v${{ steps.meta.outputs.version }}.dll'
+          cp "./out/${{ steps.meta.outputs.name }}.dll" "staging/dll/$dll_name"
+          jq -n \
+            --arg name '${{ steps.meta.outputs.name }}' \
+            --arg pkg '${{ steps.meta.outputs.pkg }}' \
+            --arg dll "$dll_name" \
+            --arg version '${{ steps.meta.outputs.version }}' \
+            --arg description '${{ steps.meta.outputs.desc }}' \
+            --arg authors '${{ steps.meta.outputs.authors }}' \
+            '{name: $name, pkg: $pkg, dll: $dll, version: $version, description: $description, authors: $authors}' \
+            > 'staging/${{ steps.meta.outputs.pkg }}.json'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ steps.meta.outputs.pkg }}
+          path: staging
+          retention-days: 1
+
+  publish:
+    name: Publish to repo branch
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download plugin artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: plugin-*
+          merge-multiple: true
+
+      - name: Build index.json + index.min.json
+        run: |
+          mkdir -p out
+          # Merge per-plugin metadata into a single index array
+          jq -s '. | sort_by(.name)' artifacts/*.json > out/index.json
+          jq -c '.' out/index.json > out/index.min.json
+          mkdir -p out/dll
+          cp artifacts/dll/*.dll out/dll/
+          ls -R out
+
+      - name: Checkout (or init) repo branch
+        run: |
+          git clone --branch repo https://x-access-token:${{ secrets.MAIN_PUSH_TOKEN }}@github.com/${{ github.repository }}.git repo-branch 2>/dev/null || {
+            mkdir repo-branch && cd repo-branch
+            git init -q -b repo
+            git remote add origin https://x-access-token:${{ secrets.MAIN_PUSH_TOKEN }}@github.com/${{ github.repository }}.git
+            echo "# Schuly plugins (repo branch)" > README.md
+            echo "DLLs and index are auto-generated. Source lives on main." >> README.md
+            git add README.md
+            git -c user.name=PianoNic -c user.email=79938743+PianoNic@users.noreply.github.com commit -q -m "Init repo branch"
+            git push origin repo
+            cd ..
+          }
+
+      - name: Sync DLLs + index into repo branch
+        run: |
+          cd repo-branch
+          rm -rf dll index.json index.min.json
+          cp -r ../out/dll .
+          cp ../out/index.json ../out/index.min.json .
+          git config user.name "PianoNic"
+          git config user.email "79938743+PianoNic@users.noreply.github.com"
+          git add -A
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to plugin distribution."
+            exit 0
+          fi
+          git commit -m "Publish plugins from main @ ${{ github.sha }}"
+          git push origin repo
