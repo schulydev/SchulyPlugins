@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Schuly.Plugin.*/**'
+      - 'src/Schuly.Plugin.*/**'
       - '.github/workflows/build_push.yml'
   workflow_dispatch:
 
@@ -30,7 +30,7 @@ jobs:
 
       - id: find
         run: |
-          plugins=$(find . -maxdepth 2 -type f -name 'Schuly.Plugin.*.csproj' | sort)
+          plugins=$(find src -maxdepth 2 -type f -name 'Schuly.Plugin.*.csproj' | sort)
           if [ -z "$plugins" ]; then
             echo "No plugin csprojs found"
             echo 'matrix={"include":[]}' >> $GITHUB_OUTPUT
