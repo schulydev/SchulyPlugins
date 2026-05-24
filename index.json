@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Schuly.Plugin.Example",
+    "pkg": "schuly.plugin.example",
+    "dll": "Schuly.Plugin.Example-v1.0.0.dll",
+    "version": "1.0.0",
+    "description": "Reference/scaffoldingplugindemonstratingtheSchulypluginsystem.",
+    "authors": "schulydev"
+  },
+  {
+    "name": "Schuly.Plugin.Schulware",
+    "pkg": "schuly.plugin.schulware",
+    "dll": "Schuly.Plugin.Schulware-v0.1.0.dll",
+    "version": "0.1.0",
+    "description": "SchulnetzintegrationviaSchulwareAPI.Syncsschools,classes,exams,grades,andabsencesintotheSchulybackend.",
+    "authors": "schulydev"
+  }
+]
