@@ -1,62 +1,76 @@
 # Notes for Claude (and humans) — SchulyPlugins
 
-Official plugins for the Schuly backend. Each plugin lives in its own folder and implements `ISchulyPlugin` from [Schuly.Plugin.Abstractions](https://github.com/schulydev/SchulyPluginAbstractions) (NuGet).
+Official plugins for the Schuly backend. Each plugin lives in its own folder under `src/` and implements `ISchulyPlugin` from [Schuly.Plugin.Abstractions](https://github.com/schulydev/SchulyPluginAbstractions) (NuGet).
 
 ## Layout
 
 ```
-.
-├── application.properties          # version source
-├── Directory.Build.props           # propagates version to all plugin csprojs
-├── Schuly.Plugin.Example/          # reference / scaffolding plugin
-│   ├── ExamplePlugin.cs            # implements ISchulyPlugin
+src/
+├── Schuly.Plugin.Example/         # reference / scaffolding plugin
+│   ├── ExamplePlugin.cs
 │   ├── OnSchoolUserCreatedHandler.cs
 │   └── Schuly.Plugin.Example.csproj
-└── Schuly.Plugin.Schulware/        # Schulnetz integration via SchulwareAPI
-    ├── SchulwarePlugin.cs
-    ├── SchulwareSyncTask.cs        # IPluginBackgroundTask
-    ├── Client/                     # SchulwareAPI client
-    ├── Data/                       # entities / DTOs
-    ├── refresher/
-    ├── config.json
+└── Schuly.Plugin.Schulware/       # Schulnetz integration via SchulwareAPI
+    ├── SchulwarePlugin.cs         # entry point (slim, like ASP.NET Program.cs)
+    ├── Endpoints/                 # endpoint mapping extensions
+    │   ├── StatusEndpoints.cs
+    │   ├── AccountEndpoints.cs
+    │   ├── OAuthEndpoints.cs
+    │   └── SyncEndpoints.cs
+    ├── Services/                  # background tasks
+    │   └── SchulwareSyncTask.cs
+    ├── Dtos/                      # one record per file
+    ├── Data/                      # EF entities + DbContext + Migrations
+    ├── Infrastructure/            # external client factories
+    ├── Client/                    # Kiota-generated SchulwareAPI client
     └── Schuly.Plugin.Schulware.csproj
 ```
 
-## ⚠ Build is currently broken (cross-repo refs)
-
-Each plugin csproj has:
-
-```xml
-<ProjectReference Include="..\..\src\Schuly.Plugin.Abstractions\..." />
-<ProjectReference Include="..\..\src\Schuly.Application\..." />
-```
-
-Those paths point to the old monorepo. Tracked in [#5](https://github.com/schulydev/SchulyPlugins/issues/5). Resolution: swap to `<PackageReference Include="Schuly.Plugin.Abstractions" />` and either publish `Schuly.Application.Contracts` as NuGet or refactor plugins not to reference Application command types directly.
-
-Until resolved: **don't try to `dotnet build` this repo standalone — it will fail.** You can edit plugin source for review/refactor purposes.
-
 ## Add a new plugin
 
-1. Copy `Schuly.Plugin.Example/` to `Schuly.Plugin.<Name>/`.
-2. Rename `ExamplePlugin.cs` → `<Name>Plugin.cs`. Class implements `ISchulyPlugin`:
-   ```csharp
-   public string Name => "<Name>";
-   public string Version => "1.0.0";
-   public void ConfigureServices(IServiceCollection services, PluginServiceContext ctx) { … }
-   public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { … }
-   public Task MigrateAsync(IServiceProvider sp, CancellationToken ct = default) => Task.CompletedTask;
-   ```
-3. Open an issue with the `new-plugin` label.
-4. Follow the standard branch + PR + squash-merge flow.
+1. Copy `src/Schuly.Plugin.Example/` to `src/Schuly.Plugin.<Name>/`.
+2. Rename `ExamplePlugin.cs` → `<Name>Plugin.cs`. Class implements `ISchulyPlugin`.
+3. Open an issue with the `new-plugin` label, then standard branch + PR + squash-merge.
 
-## Plugin lifecycle (when the backend loads it)
+The publish workflow (`build_push.yml`) auto-picks up any `src/Schuly.Plugin.*/*.csproj`.
 
-- `ConfigureServices` — register your services, handlers, options
-- `ConfigureEndpoints` — map any custom endpoints
-- `MigrateAsync` — run plugin-owned EF Core migrations
+## Plugin lifecycle
+
+- `ConfigureServices` — register services, handlers, options
+- `ConfigureEndpoints` — map endpoints (use extension methods in `Endpoints/`)
+- `MigrateAsync` — run plugin-owned EF Core migrations via `db.Database.MigrateAsync()`
 - `IPluginBackgroundTask` — recurring work (the backend's `PluginBackgroundTaskHost` invokes `ExecuteAsync` on `Interval`)
-- `IPluginEventHandler<TCommand>` — listen to backend commands and react
 
-## Release / versioning
+## EF Core migrations
 
-Single version for the whole repo, driven by `application.properties`. Cut a release and the sync workflow updates the file. Plugins don't (yet) publish anywhere — they ship inside the backend Docker image at deploy time (see [SchulyBackend#7](https://github.com/schulydev/SchulyBackend/issues/7)).
+Each plugin's DbContext gets a dedicated Postgres database (the backend's `PluginExtensions` mutates the connection string to `schuly_plugin_<name>`).
+
+Add a migration:
+
+```sh
+dotnet ef migrations add <Name> --project src/Schuly.Plugin.Schulware
+```
+
+A `IDesignTimeDbContextFactory<T>` lives next to each DbContext so the `dotnet ef` tooling can construct it without going through the runtime DI pipeline.
+
+**Don't use `EnsureCreatedAsync`** — it creates the DB on first run but does nothing on schema changes. Use `MigrateAsync()` so column/index additions actually land on existing databases.
+
+## Kiota client (Schulware)
+
+Always regenerate **directly from the live URL** — never commit the OpenAPI JSON locally:
+
+```sh
+cd src/Schuly.Plugin.Schulware
+kiota generate \
+  --openapi https://schlwr.pianonic.ch/openapi.json \
+  --language CSharp \
+  --output Client \
+  --namespace-name Schuly.Plugin.Schulware.Client \
+  --class-name SchulwareApiClient
+```
+
+`kiota update` (run from inside `Client/`) does the same once the lockfile is established.
+
+## Release / distribution
+
+Plugins ship as DLLs to the `repo` branch under `dll/<AssemblyName>-v<Version>.dll`, indexed in `index.min.json` (Aniyomi pattern). Operators download via `curl` into `/app/plugins/`.

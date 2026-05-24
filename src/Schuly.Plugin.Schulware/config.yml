@@ -1,0 +1,9 @@
+# Schulware plugin runtime config.
+# Loaded by the backend's PluginBackgroundTaskHost on startup, exposed to
+# the plugin via PluginServiceContext.Configuration.
+
+SchulwareApi:
+  BaseUrl: https://schlwr.pianonic.ch
+
+Sync:
+  IntervalMinutes: 30

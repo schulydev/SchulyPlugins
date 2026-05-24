@@ -9,9 +9,17 @@ namespace Schuly.Plugin.Schulware.Client.Models
 {
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     #pragma warning disable CS1591
-    public partial class AgendaDto : IAdditionalDataHolder, IParsable
+    public partial class EventDto : IAdditionalDataHolder, IParsable
     #pragma warning restore CS1591
     {
+        /// <summary>The absTrackedTimestamp property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? AbsTrackedTimestamp { get; set; }
+#nullable restore
+#else
+        public string AbsTrackedTimestamp { get; set; }
+#endif
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
         /// <summary>The client property</summary>
@@ -45,6 +53,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #nullable restore
 #else
         public string Comment { get; set; }
+#endif
+        /// <summary>The courseCurriculum property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? CourseCurriculum { get; set; }
+#nullable restore
+#else
+        public string CourseCurriculum { get; set; }
 #endif
         /// <summary>The courseId property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -223,29 +239,23 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public string TimetableText { get; set; }
 #endif
         /// <summary>The weight property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Weight { get; set; }
-#nullable restore
-#else
-        public string Weight { get; set; }
-#endif
+        public double? Weight { get; set; }
         /// <summary>
-        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.AgendaDto"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.EventDto"/> and sets the default values.
         /// </summary>
-        public AgendaDto()
+        public EventDto()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.AgendaDto"/></returns>
+        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.EventDto"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::Schuly.Plugin.Schulware.Client.Models.AgendaDto CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::Schuly.Plugin.Schulware.Client.Models.EventDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::Schuly.Plugin.Schulware.Client.Models.AgendaDto();
+            return new global::Schuly.Plugin.Schulware.Client.Models.EventDto();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -255,10 +265,12 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "absTrackedTimestamp", n => { AbsTrackedTimestamp = n.GetStringValue(); } },
                 { "client", n => { Client = n.GetStringValue(); } },
                 { "clientname", n => { Clientname = n.GetStringValue(); } },
                 { "color", n => { Color = n.GetStringValue(); } },
                 { "comment", n => { Comment = n.GetStringValue(); } },
+                { "courseCurriculum", n => { CourseCurriculum = n.GetStringValue(); } },
                 { "courseId", n => { CourseId = n.GetStringValue(); } },
                 { "courseName", n => { CourseName = n.GetStringValue(); } },
                 { "courseToken", n => { CourseToken = n.GetStringValue(); } },
@@ -281,7 +293,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "teachers", n => { Teachers = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "text", n => { Text = n.GetStringValue(); } },
                 { "timetableText", n => { TimetableText = n.GetStringValue(); } },
-                { "weight", n => { Weight = n.GetStringValue(); } },
+                { "weight", n => { Weight = n.GetDoubleValue(); } },
             };
         }
         /// <summary>
@@ -291,10 +303,12 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteStringValue("absTrackedTimestamp", AbsTrackedTimestamp);
             writer.WriteStringValue("client", Client);
             writer.WriteStringValue("clientname", Clientname);
             writer.WriteStringValue("color", Color);
             writer.WriteStringValue("comment", Comment);
+            writer.WriteStringValue("courseCurriculum", CourseCurriculum);
             writer.WriteStringValue("courseId", CourseId);
             writer.WriteStringValue("courseName", CourseName);
             writer.WriteStringValue("courseToken", CourseToken);
@@ -317,7 +331,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteCollectionOfPrimitiveValues<string>("teacherTokens", TeacherTokens);
             writer.WriteStringValue("text", Text);
             writer.WriteStringValue("timetableText", TimetableText);
-            writer.WriteStringValue("weight", Weight);
+            writer.WriteDoubleValue("weight", Weight);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

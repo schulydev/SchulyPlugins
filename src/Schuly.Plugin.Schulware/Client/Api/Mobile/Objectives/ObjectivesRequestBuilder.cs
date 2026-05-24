@@ -9,55 +9,51 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
-namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item
+namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives
 {
     /// <summary>
-    /// Builds and executes requests for operations under \api\mobile\studentidcard\{report_id}
+    /// Builds and executes requests for operations under \api\mobile\objectives
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    public partial class WithReport_ItemRequestBuilder : BaseRequestBuilder
+    public partial class ObjectivesRequestBuilder : BaseRequestBuilder
     {
         /// <summary>
-        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item.WithReport_ItemRequestBuilder"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder"/> and sets the default values.
         /// </summary>
         /// <param name="pathParameters">Path parameters for the request</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithReport_ItemRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/api/mobile/studentidcard/{report_id}", pathParameters)
+        public ObjectivesRequestBuilder(Dictionary<string, object> pathParameters, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/api/mobile/objectives", pathParameters)
         {
         }
         /// <summary>
-        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item.WithReport_ItemRequestBuilder"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder"/> and sets the default values.
         /// </summary>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
         /// <param name="requestAdapter">The request adapter to use to execute the requests.</param>
-        public WithReport_ItemRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/api/mobile/studentidcard/{report_id}", rawUrl)
+        public ObjectivesRequestBuilder(string rawUrl, IRequestAdapter requestAdapter) : base(requestAdapter, "{+baseurl}/api/mobile/objectives", rawUrl)
         {
         }
         /// <summary>
-        /// Get Student Id Card
+        /// Get Objectives
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto"/></returns>
+        /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.ObjectiveDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
-        /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<List<global::Schuly.Plugin.Schulware.Client.Models.ObjectiveDto>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<List<global::Schuly.Plugin.Schulware.Client.Models.ObjectiveDto>> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
-            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
-            {
-                { "422", global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError.CreateFromDiscriminatorValue },
-            };
-            return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
+            var collectionResult = await RequestAdapter.SendCollectionAsync<global::Schuly.Plugin.Schulware.Client.Models.ObjectiveDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.ObjectiveDto.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Student Id Card
+        /// Get Objectives
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -78,18 +74,18 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item
         /// <summary>
         /// Returns a request builder with the provided arbitrary URL. Using this method means any other path or query parameters are ignored.
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item.WithReport_ItemRequestBuilder"/></returns>
+        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder"/></returns>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
-        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item.WithReport_ItemRequestBuilder WithUrl(string rawUrl)
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder WithUrl(string rawUrl)
         {
-            return new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item.WithReport_ItemRequestBuilder(rawUrl, RequestAdapter);
+            return new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Objectives.ObjectivesRequestBuilder(rawUrl, RequestAdapter);
         }
         /// <summary>
         /// Configuration for the request such as headers, query parameters, and middleware options.
         /// </summary>
         [Obsolete("This class is deprecated. Please use the generic RequestConfiguration class generated by the generator.")]
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-        public partial class WithReport_ItemRequestBuilderGetRequestConfiguration : RequestConfiguration<DefaultQueryParameters>
+        public partial class ObjectivesRequestBuilderGetRequestConfiguration : RequestConfiguration<DefaultQueryParameters>
         {
         }
     }
