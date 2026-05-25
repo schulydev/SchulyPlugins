@@ -33,60 +33,93 @@ namespace Schuly.Plugin.Schulware.Services
 
             foreach (var account in accounts)
             {
-                var syncState = await db.SyncStates
-                    .FirstOrDefaultAsync(s => s.AccountId == account.Id, cancellationToken);
+                await SyncSingleAccountAsync(account, db, mainDb, httpClientFactory, logger, cancellationToken);
+            }
+        }
 
-                if (syncState is null)
-                {
-                    syncState = new SyncState { AccountId = account.Id };
-                    db.SyncStates.Add(syncState);
-                }
+        /// <summary>
+        /// Sync one account on demand. Same logic as the periodic loop: refresh
+        /// token if expired (token.php → SchulwareAPI /refresh fallback), then
+        /// pull grades + absences into the main DB. Returns the persisted
+        /// SyncState so endpoints can surface status/error to the caller.
+        /// </summary>
+        public async Task<SyncState> SyncAccountAsync(
+            Guid accountId, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
+            var mainDb = scope.ServiceProvider.GetRequiredService<Schuly.Infrastructure.SchulyDbContext>();
+            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
-                try
+            var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken)
+                ?? throw new InvalidOperationException($"Account {accountId} not found");
+
+            return await SyncSingleAccountAsync(account, db, mainDb, httpClientFactory, logger, cancellationToken);
+        }
+
+        private static async Task<SyncState> SyncSingleAccountAsync(
+            SchulwareAccount account, SchulwareDbContext db,
+            Schuly.Infrastructure.SchulyDbContext mainDb,
+            IHttpClientFactory httpClientFactory, ILogger logger,
+            CancellationToken cancellationToken)
+        {
+            var syncState = await db.SyncStates
+                .FirstOrDefaultAsync(s => s.AccountId == account.Id, cancellationToken);
+
+            if (syncState is null)
+            {
+                syncState = new SyncState { AccountId = account.Id };
+                db.SyncStates.Add(syncState);
+            }
+
+            try
+            {
+                if (account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow)
                 {
-                    if (account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow)
+                    if (account.MobileRefreshToken is not null)
                     {
-                        if (account.MobileRefreshToken is not null)
-                        {
-                            var refreshed = await TryRefreshToken(httpClientFactory, account, db, logger, cancellationToken);
-                            if (!refreshed)
-                            {
-                                syncState.LastSyncAt = DateTime.UtcNow;
-                                syncState.LastSyncStatus = "TokenExpired";
-                                syncState.LastSyncError = "Token expired and refresh failed. User needs to re-authenticate.";
-                                continue;
-                            }
-                        }
-                        else
+                        var refreshed = await TryRefreshToken(httpClientFactory, account, db, logger, cancellationToken);
+                        if (!refreshed)
                         {
                             syncState.LastSyncAt = DateTime.UtcNow;
                             syncState.LastSyncStatus = "TokenExpired";
-                            syncState.LastSyncError = "Token expired. No refresh token available. User needs to re-authenticate.";
-                            continue;
+                            syncState.LastSyncError = "Token expired and refresh failed. User needs to re-authenticate.";
+                            await db.SaveChangesAsync(cancellationToken);
+                            return syncState;
                         }
                     }
-
-                    var client = CreateAuthenticatedClient(httpClientFactory, account);
-                    await SyncGrades(client, account, mainDb, logger, cancellationToken);
-                    await SyncAbsences(client, account, mainDb, logger, cancellationToken);
-
-                    syncState.LastSyncAt = DateTime.UtcNow;
-                    syncState.LastSyncStatus = "Success";
-                    syncState.LastSyncError = null;
-
-                    logger.LogInformation("Synced account {AccountId} ({Url})", account.Id, account.SchulnetzBaseUrl);
-                }
-                catch (Exception ex)
-                {
-                    syncState.LastSyncAt = DateTime.UtcNow;
-                    syncState.LastSyncStatus = "Failed";
-                    syncState.LastSyncError = ex.Message;
-
-                    logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
+                    else
+                    {
+                        syncState.LastSyncAt = DateTime.UtcNow;
+                        syncState.LastSyncStatus = "TokenExpired";
+                        syncState.LastSyncError = "Token expired. No refresh token available. User needs to re-authenticate.";
+                        await db.SaveChangesAsync(cancellationToken);
+                        return syncState;
+                    }
                 }
 
-                await db.SaveChangesAsync(cancellationToken);
+                var client = CreateAuthenticatedClient(httpClientFactory, account);
+                await SyncGrades(client, account, mainDb, logger, cancellationToken);
+                await SyncAbsences(client, account, mainDb, logger, cancellationToken);
+
+                syncState.LastSyncAt = DateTime.UtcNow;
+                syncState.LastSyncStatus = "Success";
+                syncState.LastSyncError = null;
+
+                logger.LogInformation("Synced account {AccountId} ({Url})", account.Id, account.SchulnetzBaseUrl);
             }
+            catch (Exception ex)
+            {
+                syncState.LastSyncAt = DateTime.UtcNow;
+                syncState.LastSyncStatus = "Failed";
+                syncState.LastSyncError = ex.Message;
+
+                logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            return syncState;
         }
 
         private static async Task<bool> TryRefreshToken(

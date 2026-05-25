@@ -35,7 +35,9 @@ namespace Schuly.Plugin.Schulware.Endpoints
                 IPluginUserContext userContext,
                 SchulwareDbContext db,
                 IHttpClientFactory httpClientFactory,
-                Schuly.Infrastructure.SchulyDbContext mainDb) =>
+                Schuly.Infrastructure.SchulyDbContext mainDb,
+                IServiceProvider services,
+                IEnumerable<Schuly.Plugin.Abstractions.IPluginBackgroundTask> backgroundTasks) =>
             {
                 var userId = await userContext.GetCurrentUserIdAsync();
                 var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.ApplicationUserId == userId);
@@ -58,6 +60,13 @@ namespace Schuly.Plugin.Schulware.Endpoints
                 account.MobileAccessToken = tokenResult.AccessToken;
                 account.MobileRefreshToken = tokenResult.RefreshToken;
                 account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
+
+                // Persist the SSO snapshot the app captured. Without these the
+                // stateless /api/authenticate/refresh path can't replay the chain.
+                if (!string.IsNullOrWhiteSpace(request.ContextState))
+                    account.ContextStateJson = request.ContextState;
+                if (!string.IsNullOrWhiteSpace(request.UserAgent))
+                    account.UserAgent = request.UserAgent;
 
                 // 2. Capture web session
                 var captureRes = await httpClient.PostAsJsonAsync(
@@ -137,7 +146,38 @@ namespace Schuly.Plugin.Schulware.Endpoints
                 account.UpdatedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
 
-                return Results.Ok(new { Success = true, Message = "Authenticated and session captured" });
+                // Kick off an initial sync so the user doesn't have to wait for the
+                // 30-min background tick to see grades/absences appear. Failures
+                // here are non-fatal — the periodic sync will retry.
+                string? initialSyncStatus = null;
+                string? initialSyncError = null;
+                if (account.SchoolUserId is not null && account.MobileAccessToken is not null)
+                {
+                    try
+                    {
+                        var syncTask = backgroundTasks
+                            .OfType<Schuly.Plugin.Schulware.Services.SchulwareSyncTask>()
+                            .FirstOrDefault();
+                        if (syncTask is not null)
+                        {
+                            var syncState = await syncTask.SyncAccountAsync(account.Id, services);
+                            initialSyncStatus = syncState.LastSyncStatus;
+                            initialSyncError = syncState.LastSyncError;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        initialSyncError = ex.Message;
+                    }
+                }
+
+                return Results.Ok(new
+                {
+                    Success = true,
+                    Message = "Authenticated and session captured",
+                    InitialSyncStatus = initialSyncStatus,
+                    InitialSyncError = initialSyncError,
+                });
             }).RequireAuthorization();
 
             return endpoints;
