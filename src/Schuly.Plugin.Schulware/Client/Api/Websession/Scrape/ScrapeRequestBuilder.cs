@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Websession.Scrape
         {
         }
         /// <summary>
-        /// Scrape and parse a Schulnetz page.Available pages: home, grades, absences, agenda, lessons, documents, student_id, scheduleRequires session_id (PHPSESSID), id, and transid from a previous /capture call.
+        /// Scrape and parse a Schulnetz page.Available pages: home, grades, absences, agenda, lessons, documents, student_id, schedule.Requires session_id (PHPSESSID), id, and transid from a previous /capture call.
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.WebScrapeResponseDto"/></returns>
         /// <param name="body">Request DTO for scraping a Schulnetz page.</param>
@@ -59,7 +59,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Websession.Scrape
             return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.WebScrapeResponseDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.WebScrapeResponseDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Scrape and parse a Schulnetz page.Available pages: home, grades, absences, agenda, lessons, documents, student_id, scheduleRequires session_id (PHPSESSID), id, and transid from a previous /capture call.
+        /// Scrape and parse a Schulnetz page.Available pages: home, grades, absences, agenda, lessons, documents, student_id, schedule.Requires session_id (PHPSESSID), id, and transid from a previous /capture call.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">Request DTO for scraping a Schulnetz page.</param>

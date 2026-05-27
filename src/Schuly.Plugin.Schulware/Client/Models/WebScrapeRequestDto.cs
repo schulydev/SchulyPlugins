@@ -47,6 +47,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Transid { get; set; }
 #endif
+        /// <summary>The WebView UA that created the session (Schulnetz binds PHPSESSID to UA)</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? UserAgent { get; set; }
+#nullable restore
+#else
+        public string UserAgent { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.WebScrapeRequestDto"/> and sets the default values.
         /// </summary>
@@ -76,6 +84,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "page", n => { Page = n.GetStringValue(); } },
                 { "session_id", n => { SessionId = n.GetStringValue(); } },
                 { "transid", n => { Transid = n.GetStringValue(); } },
+                { "user_agent", n => { UserAgent = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -89,6 +98,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteStringValue("page", Page);
             writer.WriteStringValue("session_id", SessionId);
             writer.WriteStringValue("transid", Transid);
+            writer.WriteStringValue("user_agent", UserAgent);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

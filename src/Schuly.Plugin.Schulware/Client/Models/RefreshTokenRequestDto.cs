@@ -7,36 +7,21 @@ using System.IO;
 using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
+    /// <summary>
+    /// Stateless refresh using a previously captured browser context.This is the recommended refresh path. No credentials are sent — the requestsucceeds only if the supplied `context_state` is still valid. When itexpires, re-authenticate via `/api/authenticate/oauth/mobile/url` ratherthan reaching for the deprecated credentials endpoint.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
     public partial class RefreshTokenRequestDto : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>Browser context state (cookies + localStorage) from a previous successful refresh. None on first call.</summary>
+        /// <summary>Browser context state (cookies + localStorage) from a previous successful refresh or OAuth capture.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto_context_state? ContextState { get; set; }
 #nullable restore
 #else
         public global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto_context_state ContextState { get; set; }
-#endif
-        /// <summary>Required only when context_state is missing/expired and Microsoft SSO must be performed.</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Email { get; set; }
-#nullable restore
-#else
-        public string Email { get; set; }
-#endif
-        /// <summary>Required only when context_state is missing/expired and Microsoft SSO must be performed.</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public string? Password { get; set; }
-#nullable restore
-#else
-        public string Password { get; set; }
 #endif
         /// <summary>The Schulnetz instance base URL, e.g. https://schulnetz.example.ch</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -80,8 +65,6 @@ namespace Schuly.Plugin.Schulware.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "context_state", n => { ContextState = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto_context_state>(global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto_context_state.CreateFromDiscriminatorValue); } },
-                { "email", n => { Email = n.GetStringValue(); } },
-                { "password", n => { Password = n.GetStringValue(); } },
                 { "schulnetz_base_url", n => { SchulnetzBaseUrl = n.GetStringValue(); } },
                 { "user_agent", n => { UserAgent = n.GetStringValue(); } },
             };
@@ -94,8 +77,6 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto_context_state>("context_state", ContextState);
-            writer.WriteStringValue("email", Email);
-            writer.WriteStringValue("password", Password);
             writer.WriteStringValue("schulnetz_base_url", SchulnetzBaseUrl);
             writer.WriteStringValue("user_agent", UserAgent);
             writer.WriteAdditionalData(AdditionalData);

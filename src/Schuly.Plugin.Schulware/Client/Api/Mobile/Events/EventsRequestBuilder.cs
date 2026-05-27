@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Events
         {
         }
         /// <summary>
-        /// Get Events
+        /// Mobileproxycontroller.Get Events
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.EventDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -58,7 +58,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Events
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Events
+        /// Mobileproxycontroller.Get Events
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -86,7 +86,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Events
             return new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Events.EventsRequestBuilder(rawUrl, RequestAdapter);
         }
         /// <summary>
-        /// Get Events
+        /// Mobileproxycontroller.Get Events
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
         public partial class EventsRequestBuilderGetQueryParameters 

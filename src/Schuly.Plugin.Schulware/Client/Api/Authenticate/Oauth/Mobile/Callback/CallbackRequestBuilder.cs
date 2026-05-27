@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.Mobile.Callback
         {
         }
         /// <summary>
-        /// Mobile Oauth Callback
+        /// Authcontroller.Mobile Oauth Callback
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.MobileCallbackResponseDto"/></returns>
         /// <param name="body">Request DTO for mobile OAuth callback.</param>
@@ -59,7 +59,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.Mobile.Callback
             return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.MobileCallbackResponseDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.MobileCallbackResponseDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Mobile Oauth Callback
+        /// Authcontroller.Mobile Oauth Callback
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">Request DTO for mobile OAuth callback.</param>

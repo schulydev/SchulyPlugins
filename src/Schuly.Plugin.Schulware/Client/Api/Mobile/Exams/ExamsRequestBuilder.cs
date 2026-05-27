@@ -34,11 +34,12 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Exams
         {
         }
         /// <summary>
-        /// Get Exams
+        /// Mobileproxycontroller.Get Exams
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.ExamDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<List<global::Schuly.Plugin.Schulware.Client.Models.ExamDto>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -49,11 +50,15 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Exams
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
-            var collectionResult = await RequestAdapter.SendCollectionAsync<global::Schuly.Plugin.Schulware.Client.Models.ExamDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.ExamDto.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "422", global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError.CreateFromDiscriminatorValue },
+            };
+            var collectionResult = await RequestAdapter.SendCollectionAsync<global::Schuly.Plugin.Schulware.Client.Models.ExamDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.ExamDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Exams
+        /// Mobileproxycontroller.Get Exams
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

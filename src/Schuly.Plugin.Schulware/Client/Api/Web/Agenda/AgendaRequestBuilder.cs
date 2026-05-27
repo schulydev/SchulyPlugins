@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Agenda
         {
         }
         /// <summary>
-        /// Get Agenda
+        /// Webapicontroller.Get Agenda
         /// </summary>
         /// <returns>A <see cref="UntypedNode"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -57,7 +57,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Agenda
             return await RequestAdapter.SendAsync<UntypedNode>(requestInfo, UntypedNode.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Get Agenda
+        /// Webapicontroller.Get Agenda
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -85,7 +85,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Agenda
             return new global::Schuly.Plugin.Schulware.Client.Api.Web.Agenda.AgendaRequestBuilder(rawUrl, RequestAdapter);
         }
         /// <summary>
-        /// Get Agenda
+        /// Webapicontroller.Get Agenda
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
         public partial class AgendaRequestBuilderGetQueryParameters 

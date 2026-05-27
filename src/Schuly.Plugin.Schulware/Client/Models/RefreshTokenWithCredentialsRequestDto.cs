@@ -7,14 +7,15 @@ using System.IO;
 using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
+    /// <summary>
+    /// ⚠️ DEPRECATED. Refresh by replaying full Microsoft SSO with credentials.Provided only as a last-resort fallback for the very first refresh aftercold-start. Use `/api/authenticate/refresh` with a stored `context_state`for every subsequent call.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
-    public partial class Body_authenticateMobile : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
+    public partial class RefreshTokenWithCredentialsRequestDto : IAdditionalDataHolder, IParsable
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The email property</summary>
+        /// <summary>Microsoft SSO email.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? Email { get; set; }
@@ -22,7 +23,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Email { get; set; }
 #endif
-        /// <summary>The password property</summary>
+        /// <summary>Microsoft SSO password.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? Password { get; set; }
@@ -30,22 +31,38 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Password { get; set; }
 #endif
+        /// <summary>The Schulnetz instance base URL, e.g. https://schulnetz.example.ch</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? SchulnetzBaseUrl { get; set; }
+#nullable restore
+#else
+        public string SchulnetzBaseUrl { get; set; }
+#endif
+        /// <summary>UA string to use for the new session.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? UserAgent { get; set; }
+#nullable restore
+#else
+        public string UserAgent { get; set; }
+#endif
         /// <summary>
-        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.Body_authenticateMobile"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenWithCredentialsRequestDto"/> and sets the default values.
         /// </summary>
-        public Body_authenticateMobile()
+        public RefreshTokenWithCredentialsRequestDto()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.Body_authenticateMobile"/></returns>
+        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenWithCredentialsRequestDto"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::Schuly.Plugin.Schulware.Client.Models.Body_authenticateMobile CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenWithCredentialsRequestDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::Schuly.Plugin.Schulware.Client.Models.Body_authenticateMobile();
+            return new global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenWithCredentialsRequestDto();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -57,6 +74,8 @@ namespace Schuly.Plugin.Schulware.Client.Models
             {
                 { "email", n => { Email = n.GetStringValue(); } },
                 { "password", n => { Password = n.GetStringValue(); } },
+                { "schulnetz_base_url", n => { SchulnetzBaseUrl = n.GetStringValue(); } },
+                { "user_agent", n => { UserAgent = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -68,6 +87,8 @@ namespace Schuly.Plugin.Schulware.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("email", Email);
             writer.WriteStringValue("password", Password);
+            writer.WriteStringValue("schulnetz_base_url", SchulnetzBaseUrl);
+            writer.WriteStringValue("user_agent", UserAgent);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

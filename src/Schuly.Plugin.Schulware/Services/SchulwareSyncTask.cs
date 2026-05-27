@@ -9,6 +9,7 @@ using Schuly.Domain.Enums;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
@@ -181,67 +182,48 @@ namespace Schuly.Plugin.Schulware.Services
 
             try
             {
-                using var httpClient = httpClientFactory.CreateClient();
-                using var contextStateDoc = System.Text.Json.JsonDocument.Parse(account.ContextStateJson);
+                // The SchulwareAPI /refresh contract treats context_state as an
+                // opaque JSON blob. Kiota types it as a closed DTO, so we hydrate
+                // the AdditionalData bag from the persisted JSON.
+                var contextState = new Client.Models.RefreshTokenRequestDto_context_state
+                {
+                    AdditionalData = ParseJsonObjectToDict(account.ContextStateJson),
+                };
 
-                var response = await httpClient.PostAsJsonAsync(
-                    $"{account.SchulwareApiBaseUrl.TrimEnd('/')}/api/authenticate/refresh",
-                    new
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
+                var result = await client.Api.Authenticate.Refresh.PostAsync(
+                    new Client.Models.RefreshTokenRequestDto
                     {
-                        schulnetz_base_url = account.SchulnetzBaseUrl,
-                        context_state = contextStateDoc.RootElement,
-                        user_agent = account.UserAgent,
+                        SchulnetzBaseUrl = account.SchulnetzBaseUrl,
+                        UserAgent = account.UserAgent,
+                        ContextState = contextState,
                     },
-                    ct);
+                    cancellationToken: ct);
 
-                if (!response.IsSuccessStatusCode)
+                if (result is null || result.Success != true)
                 {
-                    logger.LogWarning("SchulwareAPI /refresh returned {Status}", response.StatusCode);
+                    logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}",
+                        account.Id, result?.Message ?? "no response");
                     return false;
                 }
 
-                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(ct);
-                if (!result.TryGetProperty("success", out var success) || !success.GetBoolean())
-                {
-                    var msg = result.TryGetProperty("message", out var m) ? m.GetString() : "unknown error";
-                    logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}", account.Id, msg);
-                    return false;
-                }
-
-                if (result.TryGetProperty("access_token", out var at) && at.ValueKind == System.Text.Json.JsonValueKind.String)
-                    account.MobileAccessToken = at.GetString();
-
-                if (result.TryGetProperty("refresh_token", out var rtk) && rtk.ValueKind == System.Text.Json.JsonValueKind.String)
-                    account.MobileRefreshToken = rtk.GetString();
-
+                if (!string.IsNullOrEmpty(result.AccessToken)) account.MobileAccessToken = result.AccessToken;
+                if (!string.IsNullOrEmpty(result.RefreshToken)) account.MobileRefreshToken = result.RefreshToken;
                 account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
-
-                if (result.TryGetProperty("session_id", out var sid) && sid.ValueKind == System.Text.Json.JsonValueKind.String)
-                    account.WebSessionId = sid.GetString();
-
-                if (result.TryGetProperty("web_session_user_id", out var wuid) && wuid.ValueKind == System.Text.Json.JsonValueKind.String)
-                    account.WebSessionUserId = wuid.GetString();
-
-                if (result.TryGetProperty("web_session_trans_id", out var wtid) && wtid.ValueKind == System.Text.Json.JsonValueKind.String)
-                    account.WebSessionTransId = wtid.GetString();
+                if (!string.IsNullOrEmpty(result.SessionId)) account.WebSessionId = result.SessionId;
+                if (!string.IsNullOrEmpty(result.WebSessionUserId)) account.WebSessionUserId = result.WebSessionUserId;
+                if (!string.IsNullOrEmpty(result.WebSessionTransId)) account.WebSessionTransId = result.WebSessionTransId;
 
                 // Persist the rotated context_state — cookies may have been refreshed
                 // server-side and we MUST replay the latest blob on the next call.
-                if (result.TryGetProperty("context_state", out var cs) && cs.ValueKind == System.Text.Json.JsonValueKind.Object)
-                    account.ContextStateJson = cs.GetRawText();
+                if (result.ContextState?.AdditionalData is { Count: > 0 } rotated)
+                    account.ContextStateJson = System.Text.Json.JsonSerializer.Serialize(rotated);
 
                 account.UpdatedAt = DateTime.UtcNow;
-                try
-                {
-                    db.Accounts.Update(account);
-                    await db.SaveChangesAsync(ct);
-                    logger.LogInformation("Refreshed tokens via SchulwareAPI for account {AccountId}. Expires: {Expires}", account.Id, account.MobileTokenExpiresAt);
-                }
-                catch (Exception saveEx)
-                {
-                    logger.LogError(saveEx, "Failed to save refreshed tokens for account {AccountId}", account.Id);
-                    return false;
-                }
+                db.Accounts.Update(account);
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation("Refreshed tokens via SchulwareAPI for account {AccountId}. Expires: {Expires}",
+                    account.Id, account.MobileTokenExpiresAt);
                 return true;
             }
             catch (Exception ex)
@@ -251,16 +233,33 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        private static SchulwareApiClient CreateAuthenticatedClient(IHttpClientFactory httpClientFactory, SchulwareAccount account)
+        private static Dictionary<string, object> ParseJsonObjectToDict(string json)
         {
-            var httpClient = httpClientFactory.CreateClient("Schulware");
-            httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", account.MobileAccessToken);
-
-            var adapter = new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient);
-            adapter.BaseUrl = account.SchulwareApiBaseUrl;
-            return new SchulwareApiClient(adapter);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var dict = new Dictionary<string, object>();
+            foreach (var prop in doc.RootElement.EnumerateObject())
+                dict[prop.Name] = ConvertJsonElement(prop.Value);
+            return dict;
         }
+
+        private static object ConvertJsonElement(System.Text.Json.JsonElement el) => el.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.Object => el.EnumerateObject()
+                .ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
+            System.Text.Json.JsonValueKind.Array => el.EnumerateArray().Select(ConvertJsonElement).ToList(),
+            System.Text.Json.JsonValueKind.String => el.GetString()!,
+            System.Text.Json.JsonValueKind.Number => el.TryGetInt64(out var l) ? l : el.GetDouble(),
+            System.Text.Json.JsonValueKind.True => true,
+            System.Text.Json.JsonValueKind.False => false,
+            _ => null!,
+        };
+
+        private static SchulwareApiClient CreateAuthenticatedClient(IHttpClientFactory httpClientFactory, SchulwareAccount account) =>
+            SchulwareApiClientFactory.Create(
+                httpClientFactory,
+                account.SchulwareApiBaseUrl,
+                account.SchulnetzBaseUrl,
+                account.MobileAccessToken);
 
         private static async Task SyncGrades(
             SchulwareApiClient client, SchulwareAccount account,

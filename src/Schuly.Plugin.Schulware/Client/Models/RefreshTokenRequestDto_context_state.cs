@@ -8,7 +8,7 @@ using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
     /// <summary>
-    /// Browser context state (cookies + localStorage) from a previous successful refresh. None on first call.
+    /// Browser context state (cookies + localStorage) from a previous successful refresh or OAuth capture.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class RefreshTokenRequestDto_context_state : IAdditionalDataHolder, IParsable
