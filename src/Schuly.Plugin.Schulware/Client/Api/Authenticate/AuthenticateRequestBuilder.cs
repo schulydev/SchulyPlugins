@@ -2,11 +2,9 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
-using Schuly.Plugin.Schulware.Client.Api.Authenticate.Mobile;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh;
-using Schuly.Plugin.Schulware.Client.Api.Authenticate.Unified;
-using Schuly.Plugin.Schulware.Client.Api.Authenticate.Web;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.RefreshWithCredentials;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -19,11 +17,6 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class AuthenticateRequestBuilder : BaseRequestBuilder
     {
-        /// <summary>The mobile property</summary>
-        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Mobile.MobileRequestBuilder Mobile
-        {
-            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Mobile.MobileRequestBuilder(PathParameters, RequestAdapter);
-        }
         /// <summary>The oauth property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.OauthRequestBuilder Oauth
         {
@@ -34,15 +27,10 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder(PathParameters, RequestAdapter);
         }
-        /// <summary>The unified property</summary>
-        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Unified.UnifiedRequestBuilder Unified
+        /// <summary>The refreshWithCredentials property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.RefreshWithCredentials.RefreshWithCredentialsRequestBuilder RefreshWithCredentials
         {
-            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Unified.UnifiedRequestBuilder(PathParameters, RequestAdapter);
-        }
-        /// <summary>The web property</summary>
-        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Web.WebRequestBuilder Web
-        {
-            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Web.WebRequestBuilder(PathParameters, RequestAdapter);
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.RefreshWithCredentials.RefreshWithCredentialsRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Authenticate.AuthenticateRequestBuilder"/> and sets the default values.

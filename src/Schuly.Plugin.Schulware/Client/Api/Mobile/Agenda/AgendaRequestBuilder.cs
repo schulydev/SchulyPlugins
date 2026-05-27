@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda
         {
         }
         /// <summary>
-        /// Get Agenda
+        /// Mobileproxycontroller.Get Agenda
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.EventDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -58,7 +58,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Agenda
+        /// Mobileproxycontroller.Get Agenda
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -86,7 +86,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda
             return new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda.AgendaRequestBuilder(rawUrl, RequestAdapter);
         }
         /// <summary>
-        /// Get Agenda
+        /// Mobileproxycontroller.Get Agenda
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
         public partial class AgendaRequestBuilderGetQueryParameters 

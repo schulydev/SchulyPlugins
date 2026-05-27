@@ -34,11 +34,12 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications
         {
         }
         /// <summary>
-        /// Get Notifications
+        /// Mobileproxycontroller.Get Notifications
         /// </summary>
         /// <returns>A List&lt;global::Schuly.Plugin.Schulware.Client.Models.NotificationDto&gt;</returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<List<global::Schuly.Plugin.Schulware.Client.Models.NotificationDto>?> GetAsync(Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -49,11 +50,15 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications
         {
 #endif
             var requestInfo = ToGetRequestInformation(requestConfiguration);
-            var collectionResult = await RequestAdapter.SendCollectionAsync<global::Schuly.Plugin.Schulware.Client.Models.NotificationDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.NotificationDto.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
+            var errorMapping = new Dictionary<string, ParsableFactory<IParsable>>
+            {
+                { "422", global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError.CreateFromDiscriminatorValue },
+            };
+            var collectionResult = await RequestAdapter.SendCollectionAsync<global::Schuly.Plugin.Schulware.Client.Models.NotificationDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.NotificationDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
             return collectionResult?.AsList();
         }
         /// <summary>
-        /// Get Notifications
+        /// Mobileproxycontroller.Get Notifications
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

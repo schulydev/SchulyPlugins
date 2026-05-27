@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.App.AppInfo
         {
         }
         /// <summary>
-        /// App Info
+        /// Appcontroller.App Info
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.AppInfoDto"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -52,7 +52,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.App.AppInfo
             return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.AppInfoDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.AppInfoDto.CreateFromDiscriminatorValue, default, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// App Info
+        /// Appcontroller.App Info
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

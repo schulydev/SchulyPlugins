@@ -33,7 +33,15 @@ namespace Schuly.Plugin.Schulware
                     "SchulwareApi.BaseUrl set. See the source repo for the example schema.");
 
             services.AddDbContext<SchulwareDbContext>(options => options.UseNpgsql(context.ConnectionString));
-            services.AddSingleton<IPluginBackgroundTask, SchulwareSyncTask>();
+
+            // Sync task is the public entry point; the work is split across
+            // focused scoped services so each file stays small and testable.
+            services.AddSingleton<SchulwareSyncTask>();
+            services.AddSingleton<IPluginBackgroundTask>(sp => sp.GetRequiredService<SchulwareSyncTask>());
+            services.AddScoped<TokenRefreshService>();
+            services.AddScoped<GradesSyncService>();
+            services.AddScoped<AbsencesSyncService>();
+            services.AddScoped<OAuthCallbackService>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints)

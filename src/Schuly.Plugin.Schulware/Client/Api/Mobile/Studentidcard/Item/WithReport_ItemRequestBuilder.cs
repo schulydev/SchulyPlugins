@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item
         {
         }
         /// <summary>
-        /// Get Student Id Card
+        /// Mobileproxycontroller.Get Student Id Card
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -57,7 +57,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Studentidcard.Item
             return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.StudentIdCardDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Get Student Id Card
+        /// Mobileproxycontroller.Get Student Id Card
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>

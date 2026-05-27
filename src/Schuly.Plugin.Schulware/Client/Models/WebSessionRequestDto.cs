@@ -23,6 +23,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Code { get; set; }
 #endif
+        /// <summary>PKCE code_verifier from /websession/oauth/url</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? CodeVerifier { get; set; }
+#nullable restore
+#else
+        public string CodeVerifier { get; set; }
+#endif
         /// <summary>OAuth state parameter</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -57,6 +65,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "code", n => { Code = n.GetStringValue(); } },
+                { "code_verifier", n => { CodeVerifier = n.GetStringValue(); } },
                 { "state", n => { State = n.GetStringValue(); } },
             };
         }
@@ -68,6 +77,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("code", Code);
+            writer.WriteStringValue("code_verifier", CodeVerifier);
             writer.WriteStringValue("state", State);
             writer.WriteAdditionalData(AdditionalData);
         }
