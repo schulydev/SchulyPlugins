@@ -56,6 +56,7 @@ namespace Schuly.Plugin.Schulware.Services
         {
             var db = scopedSp.GetRequiredService<SchulwareDbContext>();
             var refresh = scopedSp.GetRequiredService<TokenRefreshService>();
+            var provisioning = scopedSp.GetRequiredService<SchoolProvisioningService>();
             var grades = scopedSp.GetRequiredService<GradesSyncService>();
             var absences = scopedSp.GetRequiredService<AbsencesSyncService>();
             var agenda = scopedSp.GetRequiredService<AgendaSyncService>();
@@ -82,6 +83,12 @@ namespace Schuly.Plugin.Schulware.Services
                         return await FailAsync(db, syncState, "TokenExpired",
                             "Token expired and refresh failed. User needs to re-authenticate.", ct);
                 }
+
+                // Pick up newly-exposed profile fields (PrivateEmail, City…)
+                // on every sync, not only first connect. EnsureAsync only
+                // overwrites blanks, so manual edits stay intact.
+                await provisioning.EnsureAsync(account, account.ApplicationUserId);
+                await db.SaveChangesAsync(ct);
 
                 var client = SchulwareApiClientFactory.Create(
                     httpClientFactory, account.SchulwareApiBaseUrl,

@@ -24,7 +24,7 @@ namespace Schuly.Plugin.Schulware.Services
         /// </summary>
         public async Task EnsureAsync(SchulwareAccount account, Guid userId)
         {
-            if (account.SchoolUserId is not null || account.MobileAccessToken is null) return;
+            if (account.MobileAccessToken is null) return;
 
             try
             {
@@ -38,8 +38,10 @@ namespace Schuly.Plugin.Schulware.Services
                 var school = await GetOrCreateSchoolAsync(account);
                 var schoolUser = await GetOrCreateSchoolUserAsync(school, userId, info);
 
-                account.SchoolUserId = schoolUser.Id;
-                account.SchulnetzStudentId = info.IdNr;
+                // Stamp the account on first connect; ignore on subsequent
+                // calls since the IDs don't change.
+                account.SchoolUserId ??= schoolUser.Id;
+                account.SchulnetzStudentId ??= info.IdNr;
             }
             catch (Exception ex)
             {
