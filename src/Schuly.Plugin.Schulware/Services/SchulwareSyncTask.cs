@@ -1,18 +1,18 @@
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Kiota.Abstractions.Authentication;
-using Microsoft.Kiota.Http.HttpClientLibrary;
-using Schuly.Domain;
-using Schuly.Domain.Enums;
 using Schuly.Plugin.Abstractions;
-using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
+    /// <summary>
+    /// Periodic Schulware sync. Iterates every authenticated account, refreshes
+    /// expired tokens, and pulls grades + absences into the main Schuly DB.
+    /// The actual work is delegated to <see cref="TokenRefreshService"/>,
+    /// <see cref="GradesSyncService"/>, and <see cref="AbsencesSyncService"/>.
+    /// </summary>
     public class SchulwareSyncTask : IPluginBackgroundTask
     {
         public string Name => "Schulware Data Sync";
@@ -22,8 +22,6 @@ namespace Schuly.Plugin.Schulware.Services
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
-            var mainDb = scope.ServiceProvider.GetRequiredService<Schuly.Infrastructure.SchulyDbContext>();
-            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
             var accounts = await db.Accounts
@@ -34,40 +32,37 @@ namespace Schuly.Plugin.Schulware.Services
 
             foreach (var account in accounts)
             {
-                await SyncSingleAccountAsync(account, db, mainDb, httpClientFactory, logger, cancellationToken);
+                await SyncInternalAsync(scope.ServiceProvider, account, cancellationToken);
             }
         }
 
         /// <summary>
-        /// Sync one account on demand. Same logic as the periodic loop: refresh
-        /// token if expired (token.php → SchulwareAPI /refresh fallback), then
-        /// pull grades + absences into the main DB. Returns the persisted
-        /// SyncState so endpoints can surface status/error to the caller.
+        /// Sync one account on demand. Same logic as the periodic loop. Returns
+        /// the persisted SyncState so callers can surface status/error.
         /// </summary>
         public async Task<SyncState> SyncAccountAsync(
             Guid accountId, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
-            var mainDb = scope.ServiceProvider.GetRequiredService<Schuly.Infrastructure.SchulyDbContext>();
-            var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-            var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwareSyncTask>>();
-
             var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken)
                 ?? throw new InvalidOperationException($"Account {accountId} not found");
 
-            return await SyncSingleAccountAsync(account, db, mainDb, httpClientFactory, logger, cancellationToken);
+            return await SyncInternalAsync(scope.ServiceProvider, account, cancellationToken);
         }
 
-        private static async Task<SyncState> SyncSingleAccountAsync(
-            SchulwareAccount account, SchulwareDbContext db,
-            Schuly.Infrastructure.SchulyDbContext mainDb,
-            IHttpClientFactory httpClientFactory, ILogger logger,
-            CancellationToken cancellationToken)
+        private static async Task<SyncState> SyncInternalAsync(
+            IServiceProvider scopedSp, SchulwareAccount account, CancellationToken ct)
         {
-            var syncState = await db.SyncStates
-                .FirstOrDefaultAsync(s => s.AccountId == account.Id, cancellationToken);
+            var db = scopedSp.GetRequiredService<SchulwareDbContext>();
+            var refresh = scopedSp.GetRequiredService<TokenRefreshService>();
+            var grades = scopedSp.GetRequiredService<GradesSyncService>();
+            var absences = scopedSp.GetRequiredService<AbsencesSyncService>();
+            var httpClientFactory = scopedSp.GetRequiredService<IHttpClientFactory>();
+            var logger = scopedSp.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
+            var syncState = await db.SyncStates
+                .FirstOrDefaultAsync(s => s.AccountId == account.Id, ct);
             if (syncState is null)
             {
                 syncState = new SyncState { AccountId = account.Id };
@@ -76,38 +71,27 @@ namespace Schuly.Plugin.Schulware.Services
 
             try
             {
-                if (account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow)
+                if (TokenExpired(account))
                 {
-                    if (account.MobileRefreshToken is not null)
-                    {
-                        var refreshed = await TryRefreshToken(httpClientFactory, account, db, logger, cancellationToken);
-                        if (!refreshed)
-                        {
-                            syncState.LastSyncAt = DateTime.UtcNow;
-                            syncState.LastSyncStatus = "TokenExpired";
-                            syncState.LastSyncError = "Token expired and refresh failed. User needs to re-authenticate.";
-                            await db.SaveChangesAsync(cancellationToken);
-                            return syncState;
-                        }
-                    }
-                    else
-                    {
-                        syncState.LastSyncAt = DateTime.UtcNow;
-                        syncState.LastSyncStatus = "TokenExpired";
-                        syncState.LastSyncError = "Token expired. No refresh token available. User needs to re-authenticate.";
-                        await db.SaveChangesAsync(cancellationToken);
-                        return syncState;
-                    }
+                    if (account.MobileRefreshToken is null)
+                        return await FailAsync(db, syncState, "TokenExpired",
+                            "Token expired. No refresh token available. User needs to re-authenticate.", ct);
+
+                    if (!await refresh.RefreshAsync(account, ct))
+                        return await FailAsync(db, syncState, "TokenExpired",
+                            "Token expired and refresh failed. User needs to re-authenticate.", ct);
                 }
 
-                var client = CreateAuthenticatedClient(httpClientFactory, account);
-                await SyncGrades(client, account, mainDb, logger, cancellationToken);
-                await SyncAbsences(client, account, mainDb, logger, cancellationToken);
+                var client = SchulwareApiClientFactory.Create(
+                    httpClientFactory, account.SchulwareApiBaseUrl,
+                    account.SchulnetzBaseUrl, account.MobileAccessToken);
+
+                await grades.SyncAsync(client, account, ct);
+                await absences.SyncAsync(client, account, ct);
 
                 syncState.LastSyncAt = DateTime.UtcNow;
                 syncState.LastSyncStatus = "Success";
                 syncState.LastSyncError = null;
-
                 logger.LogInformation("Synced account {AccountId} ({Url})", account.Id, account.SchulnetzBaseUrl);
             }
             catch (Exception ex)
@@ -115,287 +99,24 @@ namespace Schuly.Plugin.Schulware.Services
                 syncState.LastSyncAt = DateTime.UtcNow;
                 syncState.LastSyncStatus = "Failed";
                 syncState.LastSyncError = ex.Message;
-
                 logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
             }
 
-            await db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(ct);
             return syncState;
         }
 
-        private static async Task<bool> TryRefreshToken(
-            IHttpClientFactory httpClientFactory, SchulwareAccount account,
-            SchulwareDbContext db, ILogger logger, CancellationToken ct)
+        private static bool TokenExpired(SchulwareAccount account) =>
+            account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow;
+
+        private static async Task<SyncState> FailAsync(
+            SchulwareDbContext db, SyncState state, string status, string error, CancellationToken ct)
         {
-            // Try direct token.php refresh first
-            try
-            {
-                using var httpClient = httpClientFactory.CreateClient("Schulware");
-                var tokenUrl = $"{account.SchulnetzBaseUrl}/token.php";
-
-                var content = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                    new KeyValuePair<string, string>("refresh_token", account.MobileRefreshToken!),
-                    new KeyValuePair<string, string>("client_id", "ppyybShnMerHdtBQ"),
-                });
-
-                var response = await httpClient.PostAsync(tokenUrl, content, ct);
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(ct);
-                    var accessToken = json.GetProperty("access_token").GetString();
-                    var refreshToken = json.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : account.MobileRefreshToken;
-
-                    account.MobileAccessToken = accessToken;
-                    account.MobileRefreshToken = refreshToken;
-                    account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
-                    account.UpdatedAt = DateTime.UtcNow;
-                    await db.SaveChangesAsync(ct);
-
-                    logger.LogInformation("Refreshed token via token.php for account {AccountId}", account.Id);
-                    return true;
-                }
-
-                logger.LogWarning("Direct token refresh failed ({Status}), trying Playwright refresher", response.StatusCode);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Direct token refresh error, trying Playwright refresher");
-            }
-
-            // Fall back to SchulwareAPI's stateless /api/authenticate/refresh.
-            // Replays the user's captured browser context server-side; passwordless.
-            return await TryRefreshViaSchulwareApi(httpClientFactory, account, db, logger, ct);
-        }
-
-        private static async Task<bool> TryRefreshViaSchulwareApi(
-            IHttpClientFactory httpClientFactory, SchulwareAccount account,
-            SchulwareDbContext db, ILogger logger, CancellationToken ct)
-        {
-            if (string.IsNullOrWhiteSpace(account.ContextStateJson))
-            {
-                logger.LogWarning("Account {AccountId} has no stored context_state. " +
-                    "User must complete an interactive OAuth login (mobile app) to seed it.", account.Id);
-                return false;
-            }
-
-            try
-            {
-                // The SchulwareAPI /refresh contract treats context_state as an
-                // opaque JSON blob. Kiota types it as a closed DTO, so we hydrate
-                // the AdditionalData bag from the persisted JSON.
-                var contextState = new Client.Models.RefreshTokenRequestDto_context_state
-                {
-                    AdditionalData = ParseJsonObjectToDict(account.ContextStateJson),
-                };
-
-                var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
-                var result = await client.Api.Authenticate.Refresh.PostAsync(
-                    new Client.Models.RefreshTokenRequestDto
-                    {
-                        SchulnetzBaseUrl = account.SchulnetzBaseUrl,
-                        UserAgent = account.UserAgent,
-                        ContextState = contextState,
-                    },
-                    cancellationToken: ct);
-
-                if (result is null || result.Success != true)
-                {
-                    logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}",
-                        account.Id, result?.Message ?? "no response");
-                    return false;
-                }
-
-                if (!string.IsNullOrEmpty(result.AccessToken)) account.MobileAccessToken = result.AccessToken;
-                if (!string.IsNullOrEmpty(result.RefreshToken)) account.MobileRefreshToken = result.RefreshToken;
-                account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
-                if (!string.IsNullOrEmpty(result.SessionId)) account.WebSessionId = result.SessionId;
-                if (!string.IsNullOrEmpty(result.WebSessionUserId)) account.WebSessionUserId = result.WebSessionUserId;
-                if (!string.IsNullOrEmpty(result.WebSessionTransId)) account.WebSessionTransId = result.WebSessionTransId;
-
-                // Persist the rotated context_state — cookies may have been refreshed
-                // server-side and we MUST replay the latest blob on the next call.
-                if (result.ContextState?.AdditionalData is { Count: > 0 } rotated)
-                    account.ContextStateJson = System.Text.Json.JsonSerializer.Serialize(rotated);
-
-                account.UpdatedAt = DateTime.UtcNow;
-                db.Accounts.Update(account);
-                await db.SaveChangesAsync(ct);
-                logger.LogInformation("Refreshed tokens via SchulwareAPI for account {AccountId}. Expires: {Expires}",
-                    account.Id, account.MobileTokenExpiresAt);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "SchulwareAPI /refresh error for account {AccountId}", account.Id);
-                return false;
-            }
-        }
-
-        private static Dictionary<string, object> ParseJsonObjectToDict(string json)
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var dict = new Dictionary<string, object>();
-            foreach (var prop in doc.RootElement.EnumerateObject())
-                dict[prop.Name] = ConvertJsonElement(prop.Value);
-            return dict;
-        }
-
-        private static object ConvertJsonElement(System.Text.Json.JsonElement el) => el.ValueKind switch
-        {
-            System.Text.Json.JsonValueKind.Object => el.EnumerateObject()
-                .ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
-            System.Text.Json.JsonValueKind.Array => el.EnumerateArray().Select(ConvertJsonElement).ToList(),
-            System.Text.Json.JsonValueKind.String => el.GetString()!,
-            System.Text.Json.JsonValueKind.Number => el.TryGetInt64(out var l) ? l : el.GetDouble(),
-            System.Text.Json.JsonValueKind.True => true,
-            System.Text.Json.JsonValueKind.False => false,
-            _ => null!,
-        };
-
-        private static SchulwareApiClient CreateAuthenticatedClient(IHttpClientFactory httpClientFactory, SchulwareAccount account) =>
-            SchulwareApiClientFactory.Create(
-                httpClientFactory,
-                account.SchulwareApiBaseUrl,
-                account.SchulnetzBaseUrl,
-                account.MobileAccessToken);
-
-        private static async Task SyncGrades(
-            SchulwareApiClient client, SchulwareAccount account,
-            Schuly.Infrastructure.SchulyDbContext mainDb, ILogger logger, CancellationToken ct)
-        {
-            var grades = await client.Api.Mobile.Grades.GetAsync(cancellationToken: ct);
-            if (grades is null || grades.Count == 0) return;
-
-            var schoolUserId = account.SchoolUserId!.Value;
-            var synced = 0;
-
-            foreach (var grade in grades)
-            {
-                if (grade.Mark is null || grade.ExamId is null) continue;
-
-                var exam = await FindOrCreateExam(mainDb, grade, schoolUserId, ct);
-
-                var existing = await mainDb.Grades
-                    .FirstOrDefaultAsync(g => g.SchoolUserId == schoolUserId && g.ExamId == exam.Id, ct);
-
-                if (existing is null)
-                {
-                    mainDb.Grades.Add(new Grade
-                    {
-                        SchoolUserId = schoolUserId,
-                        ExamId = exam.Id,
-                        Score = (decimal)grade.Mark,
-                        Weighting = (decimal)(grade.Weight ?? 1),
-                    });
-                    synced++;
-                }
-                else if (existing.Score != (decimal)grade.Mark)
-                {
-                    existing.Score = (decimal)grade.Mark;
-                    existing.Weighting = (decimal)(grade.Weight ?? 1);
-                    synced++;
-                }
-            }
-
-            if (synced > 0)
-            {
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Synced {Count} grades for account {AccountId}", synced, account.Id);
-            }
-        }
-
-        private static async Task<Exam> FindOrCreateExam(
-            Schuly.Infrastructure.SchulyDbContext mainDb,
-            Client.Models.GradeDto grade, Guid schoolUserId, CancellationToken ct)
-        {
-            var examName = grade.Title ?? grade.Subject ?? $"Exam {grade.ExamId}";
-
-            var schoolUser = await mainDb.SchoolUsers
-                .Include(su => su.Classes)
-                .FirstOrDefaultAsync(su => su.Id == schoolUserId, ct);
-
-            var cls = schoolUser?.Classes.FirstOrDefault();
-            if (cls is null && schoolUser is not null)
-            {
-                var className = grade.Course ?? grade.Subject ?? "Default";
-                cls = await mainDb.Classes.FirstOrDefaultAsync(c => c.Name == className && c.SchoolId == schoolUser.SchoolId, ct);
-                if (cls is null)
-                {
-                    cls = new Schuly.Domain.Class
-                    {
-                        Name = className,
-                        SchoolId = schoolUser.SchoolId,
-                    };
-                    mainDb.Classes.Add(cls);
-                    await mainDb.SaveChangesAsync(ct);
-                }
-            }
-
-            var classId = cls?.Id ?? Guid.Empty;
-            if (classId == Guid.Empty) return new Exam { Id = Guid.NewGuid(), Name = examName, Type = ExamType.Classic, ClassId = classId };
-
-            var existing = await mainDb.Exams
-                .FirstOrDefaultAsync(e => e.Name == examName && e.ClassId == classId, ct);
-
-            if (existing is not null) return existing;
-
-            var exam = new Exam
-            {
-                Name = examName,
-                Type = ExamType.Classic,
-                ClassId = classId,
-            };
-            mainDb.Exams.Add(exam);
-            await mainDb.SaveChangesAsync(ct);
-            return exam;
-        }
-
-        private static async Task SyncAbsences(
-            SchulwareApiClient client, SchulwareAccount account,
-            Schuly.Infrastructure.SchulyDbContext mainDb, ILogger logger, CancellationToken ct)
-        {
-            var absences = await client.Api.Mobile.Absences.GetAsync(cancellationToken: ct);
-            if (absences is null || absences.Count == 0) return;
-
-            var schoolUserId = account.SchoolUserId!.Value;
-            var synced = 0;
-
-            foreach (var absence in absences)
-            {
-                if (absence.DateFrom is null || absence.DateTo is null) continue;
-
-                if (!DateTime.TryParse(absence.DateFrom, out var from) ||
-                    !DateTime.TryParse(absence.DateTo, out var to))
-                    continue;
-
-                from = DateTime.SpecifyKind(from, DateTimeKind.Utc);
-                to = DateTime.SpecifyKind(to, DateTimeKind.Utc);
-
-                var existing = await mainDb.Absences
-                    .FirstOrDefaultAsync(a => a.SchoolUserId == schoolUserId
-                        && a.From == from && a.Until == to, ct);
-
-                if (existing is null)
-                {
-                    mainDb.Absences.Add(new Absence
-                    {
-                        SchoolUserId = schoolUserId,
-                        From = from,
-                        Until = to,
-                        Reason = absence.Reason ?? "Imported from Schulnetz",
-                        Type = AbsenceType.Absence,
-                    });
-                    synced++;
-                }
-            }
-
-            if (synced > 0)
-            {
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Synced {Count} absences for account {AccountId}", synced, account.Id);
-            }
+            state.LastSyncAt = DateTime.UtcNow;
+            state.LastSyncStatus = status;
+            state.LastSyncError = error;
+            await db.SaveChangesAsync(ct);
+            return state;
         }
     }
 }
