@@ -1,6 +1,4 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Schuly.Domain;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Dtos;
@@ -16,15 +14,15 @@ namespace Schuly.Plugin.Schulware.Services
 
     /// <summary>
     /// Drives the back half of the Schulnetz OAuth login: exchanges the code
-    /// for tokens, captures the web session, auto-provisions the
-    /// <see cref="School"/> + <see cref="SchoolUser"/>, persists the SSO
-    /// snapshot, and triggers an initial sync.
+    /// for tokens, captures the web session, delegates School/SchoolUser
+    /// provisioning to <see cref="SchoolProvisioningService"/>, persists the
+    /// SSO snapshot, and triggers an initial sync.
     /// </summary>
     public class OAuthCallbackService(
         IHttpClientFactory httpClientFactory,
         SchulwareDbContext db,
-        Schuly.Infrastructure.SchulyDbContext mainDb,
         SchulwareSyncTask syncTask,
+        SchoolProvisioningService provisioning,
         ILogger<OAuthCallbackService> logger)
     {
         public async Task<OAuthCallbackResult> HandleAsync(
@@ -47,7 +45,7 @@ namespace Schuly.Plugin.Schulware.Services
 
                 ApplyTokens(account, tokens, request);
                 await CaptureWebSessionAsync(account, anonClient, request);
-                await EnsureSchoolAndUserAsync(account, userId);
+                await provisioning.EnsureAsync(account, userId);
 
                 account.UpdatedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync();
@@ -115,73 +113,6 @@ namespace Schuly.Plugin.Schulware.Services
             {
                 logger.LogDebug(ex, "Web session capture failed (best-effort) for {AccountId}", account.Id);
             }
-        }
-
-        private async Task EnsureSchoolAndUserAsync(SchulwareAccount account, Guid userId)
-        {
-            if (account.SchoolUserId is not null || account.MobileAccessToken is null) return;
-
-            try
-            {
-                var authedClient = SchulwareApiClientFactory.Create(
-                    httpClientFactory, account.SchulwareApiBaseUrl,
-                    account.SchulnetzBaseUrl, account.MobileAccessToken);
-
-                var info = await authedClient.Api.Mobile.UserInfo.GetAsync();
-                if (info is null) return;
-
-                var school = await GetOrCreateSchoolAsync(account);
-                var schoolUser = await GetOrCreateSchoolUserAsync(school, userId, info);
-
-                account.SchoolUserId = schoolUser.Id;
-                account.SchulnetzStudentId = info.IdNr;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Auto-provisioning School/SchoolUser failed for {AccountId}", account.Id);
-            }
-        }
-
-        private async Task<School> GetOrCreateSchoolAsync(SchulwareAccount account)
-        {
-            var name = account.DisplayName ?? account.SchulnetzBaseUrl;
-            var school = await mainDb.Schools.FirstOrDefaultAsync(s => s.Name == name);
-            if (school is null)
-            {
-                // Store the Schulnetz URL on the School so the main DB has
-                // the canonical link too, not just the plugin's account row.
-                school = new School { Name = name, Website = account.SchulnetzBaseUrl };
-                mainDb.Schools.Add(school);
-                await mainDb.SaveChangesAsync();
-            }
-            else if (string.IsNullOrWhiteSpace(school.Website))
-            {
-                school.Website = account.SchulnetzBaseUrl;
-                await mainDb.SaveChangesAsync();
-            }
-            return school;
-        }
-
-        private async Task<SchoolUser> GetOrCreateSchoolUserAsync(School school, Guid userId, UserInfoDto info)
-        {
-            var existing = await mainDb.SchoolUsers
-                .FirstOrDefaultAsync(su => su.ApplicationUserId == userId && su.SchoolId == school.Id);
-            if (existing is not null) return existing;
-
-            var schoolUser = new SchoolUser
-            {
-                ApplicationUserId = userId,
-                SchoolId = school.Id,
-                FirstName = info.FirstName ?? "",
-                LastName = info.LastName ?? "",
-                Email = info.Email ?? "",
-                Birthday = DateOnly.TryParse(info.Birthday, out var bd) ? bd : DateOnly.FromDateTime(DateTime.UtcNow),
-                EntryDate = DateOnly.TryParse(info.EntryDate, out var ed) ? ed : DateOnly.FromDateTime(DateTime.UtcNow),
-                Role = Schuly.Domain.Enums.Roles.Student,
-            };
-            mainDb.SchoolUsers.Add(schoolUser);
-            await mainDb.SaveChangesAsync();
-            return schoolUser;
         }
     }
 }
