@@ -58,6 +58,7 @@ namespace Schuly.Plugin.Schulware.Services
             var refresh = scopedSp.GetRequiredService<TokenRefreshService>();
             var grades = scopedSp.GetRequiredService<GradesSyncService>();
             var absences = scopedSp.GetRequiredService<AbsencesSyncService>();
+            var agenda = scopedSp.GetRequiredService<AgendaSyncService>();
             var httpClientFactory = scopedSp.GetRequiredService<IHttpClientFactory>();
             var logger = scopedSp.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
@@ -86,7 +87,10 @@ namespace Schuly.Plugin.Schulware.Services
                     httpClientFactory, account.SchulwareApiBaseUrl,
                     account.SchulnetzBaseUrl, account.MobileAccessToken);
 
+                // Grades first so Classes are populated, then agenda (which
+                // looks up Class by name) and absences.
                 await grades.SyncAsync(client, account, ct);
+                await agenda.SyncAsync(client, account, ct);
                 await absences.SyncAsync(client, account, ct);
 
                 syncState.LastSyncAt = DateTime.UtcNow;
