@@ -16,6 +16,12 @@ on:
       - '.github/workflows/build_push.yml'
   workflow_dispatch:
 
+# Cancel an in-flight run if a newer push to the same ref starts a new one
+# (e.g. force-push from a Co-Authored-By scrub). Keeps only the newest run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
