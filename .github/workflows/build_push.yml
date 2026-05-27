@@ -81,19 +81,49 @@ jobs:
       - name: Build
         run: dotnet publish '${{ matrix.csproj }}' -c Release -o ./out
 
-      - name: Stage DLL + per-plugin metadata
+      - name: Stage DLL + dependency zip + per-plugin metadata
         run: |
           mkdir -p staging/dll
-          dll_name='${{ steps.meta.outputs.name }}-v${{ steps.meta.outputs.version }}.dll'
-          cp "./out/${{ steps.meta.outputs.name }}.dll" "staging/dll/$dll_name"
+          name='${{ steps.meta.outputs.name }}'
+          version='${{ steps.meta.outputs.version }}'
+          dll_name="${name}-v${version}.dll"
+          deps_name="${name}-v${version}-deps.zip"
+
+          # The plugin's own DLL ships standalone — operators can pin/swap it
+          # independently from its bundled dependencies.
+          cp "./out/${name}.dll" "staging/dll/${dll_name}"
+
+          # Drop host-provided / framework assemblies from the deps payload.
+          # The backend already has these via its own NuGet refs or the .NET
+          # shared framework; shipping duplicates just wastes disk.
+          mkdir -p deps-staging
+          shopt -s extglob nullglob
+          for f in ./out/*.dll; do
+            base=$(basename "$f")
+            case "$base" in
+              # The plugin's own DLL ships separately (above).
+              "${name}.dll") continue ;;
+              # Host-provided assemblies.
+              Microsoft.AspNetCore.*|Microsoft.Extensions.*) continue ;;
+              Microsoft.EntityFrameworkCore.*|Npgsql.*) continue ;;
+              Mediator.*) continue ;;
+              Schuly.Plugin.Abstractions.dll|Schuly.Domain.dll|Schuly.Infrastructure.dll) continue ;;
+              *) cp "$f" "deps-staging/$base" ;;
+            esac
+          done
+          # Zip empty-safe: if a plugin has no third-party deps, still produce
+          # the file so the index schema is uniform.
+          (cd deps-staging && zip -q "../staging/dll/${deps_name}" -- *.dll 2>/dev/null || zip -q "../staging/dll/${deps_name}" -r .)
+
           jq -n \
-            --arg name '${{ steps.meta.outputs.name }}' \
+            --arg name "$name" \
             --arg pkg '${{ steps.meta.outputs.pkg }}' \
             --arg dll "$dll_name" \
-            --arg version '${{ steps.meta.outputs.version }}' \
+            --arg deps "$deps_name" \
+            --arg version "$version" \
             --arg description '${{ steps.meta.outputs.desc }}' \
             --arg authors '${{ steps.meta.outputs.authors }}' \
-            '{name: $name, pkg: $pkg, dll: $dll, version: $version, description: $description, authors: $authors}' \
+            '{name: $name, pkg: $pkg, dll: $dll, deps: $deps, version: $version, description: $description, authors: $authors}' \
             > 'staging/${{ steps.meta.outputs.pkg }}.json'
 
       - uses: actions/upload-artifact@v4
@@ -124,6 +154,8 @@ jobs:
           jq -c '.' out/index.json > out/index.min.json
           mkdir -p out/dll
           cp artifacts/dll/*.dll out/dll/
+          # Also the per-plugin dependency zips alongside the DLLs.
+          cp artifacts/dll/*-deps.zip out/dll/ 2>/dev/null || true
           ls -R out
 
       - name: Checkout (or init) repo branch
@@ -140,12 +172,46 @@ jobs:
             cd ..
           }
 
-      - name: Sync DLLs + index into repo branch
+      - name: Sync DLLs + index + README into repo branch
         run: |
           cd repo-branch
           rm -rf dll index.json index.min.json
           cp -r ../out/dll .
           cp ../out/index.json ../out/index.min.json .
+
+          # Install instructions live on the repo branch so operators landing
+          # via raw.githubusercontent get the README beside the artifacts.
+          cat > README.md <<'EOF'
+          # Schuly plugins (auto-generated)
+
+          DLLs + index built from `main`. Each plugin ships as:
+
+          - `dll/<name>-v<version>.dll` — the plugin assembly itself
+          - `dll/<name>-v<version>-deps.zip` — its third-party dependencies (zipped)
+          - `index.min.json` — machine-readable catalog
+
+          ## Install
+
+          ```sh
+          BASE=https://raw.githubusercontent.com/schulydev/SchulyPlugins/repo
+          NAME=Schuly.Plugin.Schulware
+          VERSION=2.2.2
+
+          # 1. Drop the plugin DLL into the backend's plugins/ folder
+          curl -L "$BASE/dll/$NAME-v$VERSION.dll" -o /app/plugins/$NAME.dll
+
+          # 2. Extract its dependencies into the same folder
+          curl -L "$BASE/dll/$NAME-v$VERSION-deps.zip" -o /tmp/deps.zip
+          unzip -o /tmp/deps.zip -d /app/plugins/
+
+          # 3. Drop the plugin's YAML config into plugins-config/
+          ```
+
+          Framework + host-shared assemblies are not in the deps zip; the
+          backend already provides them. Only the plugin's true third-party
+          NuGet dependencies (Kiota, etc.) are bundled.
+          EOF
+
           git config user.name "PianoNic"
           git config user.email "79938743+PianoNic@users.noreply.github.com"
           git add -A
