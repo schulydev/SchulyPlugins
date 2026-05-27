@@ -108,7 +108,6 @@ namespace Schuly.Plugin.Schulware.Services
             user.Street ??= Trim(info.Street);
             user.City ??= Trim(info.City);
             user.Zip ??= Trim(info.Zip);
-            user.StudentNumber ??= Trim(info.IdNr);
             user.LeaveDate ??= ParseDate(info.ExitDate);
         }
 
