@@ -16,7 +16,7 @@ namespace Schuly.Plugin.Schulware
     public class SchulwarePlugin : ISchulyPlugin
     {
         public const string PluginName = "Schulware Integration";
-        public const string PluginVersion = "2.1.0";
+        public const string PluginVersion = "2.2.0";
 
         public string Name => PluginName;
         public string Version => PluginVersion;
@@ -43,6 +43,8 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<TokenRefreshService>();
             services.AddScoped<GradesSyncService>();
             services.AddScoped<AbsencesSyncService>();
+            services.AddScoped<AgendaSyncService>();
+            services.AddScoped<SchoolProvisioningService>();
             services.AddScoped<OAuthCallbackService>();
         }
 

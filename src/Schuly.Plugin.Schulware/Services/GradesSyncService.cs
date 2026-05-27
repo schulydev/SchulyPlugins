@@ -66,16 +66,26 @@ namespace Schuly.Plugin.Schulware.Services
                 .Include(su => su.Classes)
                 .FirstOrDefaultAsync(su => su.Id == schoolUserId, ct);
 
-            var cls = schoolUser?.Classes.FirstOrDefault();
-            if (cls is null && schoolUser is not null)
+            Class? cls = null;
+            if (schoolUser is not null)
             {
                 var className = grade.Course ?? grade.Subject ?? "Default";
+
+                // Find-or-create the class for this subject at the school level.
                 cls = await mainDb.Classes
                     .FirstOrDefaultAsync(c => c.Name == className && c.SchoolId == schoolUser.SchoolId, ct);
                 if (cls is null)
                 {
                     cls = new Class { Name = className, SchoolId = schoolUser.SchoolId };
                     mainDb.Classes.Add(cls);
+                    await mainDb.SaveChangesAsync(ct);
+                }
+
+                // Link the student to the class if not already (populates the
+                // ClassSchoolUser join table).
+                if (!schoolUser.Classes.Any(c => c.Id == cls.Id))
+                {
+                    schoolUser.Classes.Add(cls);
                     await mainDb.SaveChangesAsync(ct);
                 }
             }
