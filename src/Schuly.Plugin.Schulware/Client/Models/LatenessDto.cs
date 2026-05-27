@@ -2,6 +2,7 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
+using Microsoft.Kiota.Abstractions;
 using System.Collections.Generic;
 using System.IO;
 using System;
@@ -47,13 +48,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public string Date { get; set; }
 #endif
         /// <summary>The dateExcused property</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public UntypedNode? DateExcused { get; set; }
-#nullable restore
-#else
-        public UntypedNode DateExcused { get; set; }
-#endif
+        public Date? DateExcused { get; set; }
         /// <summary>The duration property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -127,7 +122,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "courseId", n => { CourseId = n.GetStringValue(); } },
                 { "courseToken", n => { CourseToken = n.GetStringValue(); } },
                 { "date", n => { Date = n.GetStringValue(); } },
-                { "dateExcused", n => { DateExcused = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
+                { "dateExcused", n => { DateExcused = n.GetDateValue(); } },
                 { "duration", n => { Duration = n.GetStringValue(); } },
                 { "endTime", n => { EndTime = n.GetStringValue(); } },
                 { "excused", n => { Excused = n.GetBoolValue(); } },
@@ -148,7 +143,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteStringValue("courseId", CourseId);
             writer.WriteStringValue("courseToken", CourseToken);
             writer.WriteStringValue("date", Date);
-            writer.WriteObjectValue<UntypedNode>("dateExcused", DateExcused);
+            writer.WriteDateValue("dateExcused", DateExcused);
             writer.WriteStringValue("duration", Duration);
             writer.WriteStringValue("endTime", EndTime);
             writer.WriteBoolValue("excused", Excused);

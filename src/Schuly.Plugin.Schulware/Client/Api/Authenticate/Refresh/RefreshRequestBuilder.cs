@@ -34,10 +34,10 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh
         {
         }
         /// <summary>
-        /// Stateless token + session refresh. Caller provides `context_state` from aprior call and receives an updated `context_state` to persist.
+        /// Stateless token + session refresh using a stored browser context.Caller provides `context_state` from a prior call and receives anupdated `context_state` to persist. No credentials are sent. If thestored context has expired, re-authenticate via`/api/authenticate/oauth/mobile/url`.
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto"/></returns>
-        /// <param name="body">The request body</param>
+        /// <param name="body">Stateless refresh using a previously captured browser context.This is the recommended refresh path. No credentials are sent — the requestsucceeds only if the supplied `context_state` is still valid. When itexpires, re-authenticate via `/api/authenticate/oauth/mobile/url` ratherthan reaching for the deprecated credentials endpoint.</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
@@ -59,10 +59,10 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh
             return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Stateless token + session refresh. Caller provides `context_state` from aprior call and receives an updated `context_state` to persist.
+        /// Stateless token + session refresh using a stored browser context.Caller provides `context_state` from a prior call and receives anupdated `context_state` to persist. No credentials are sent. If thestored context has expired, re-authenticate via`/api/authenticate/oauth/mobile/url`.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">The request body</param>
+        /// <param name="body">Stateless refresh using a previously captured browser context.This is the recommended refresh path. No credentials are sent — the requestsucceeds only if the supplied `context_state` is still valid. When itexpires, re-authenticate via `/api/authenticate/oauth/mobile/url` ratherthan reaching for the deprecated credentials endpoint.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

@@ -34,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Noten
         {
         }
         /// <summary>
-        /// Get Noten
+        /// Webapicontroller.Get Noten
         /// </summary>
         /// <returns>A <see cref="UntypedNode"/></returns>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
@@ -57,7 +57,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Noten
             return await RequestAdapter.SendAsync<UntypedNode>(requestInfo, UntypedNode.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Get Noten
+        /// Webapicontroller.Get Noten
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
@@ -85,7 +85,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Web.Noten
             return new global::Schuly.Plugin.Schulware.Client.Api.Web.Noten.NotenRequestBuilder(rawUrl, RequestAdapter);
         }
         /// <summary>
-        /// Get Noten
+        /// Webapicontroller.Get Noten
         /// </summary>
         [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
         public partial class NotenRequestBuilderGetQueryParameters 
