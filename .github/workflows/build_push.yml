@@ -111,9 +111,14 @@ jobs:
               *) cp "$f" "deps-staging/$base" ;;
             esac
           done
-          # Zip empty-safe: if a plugin has no third-party deps, still produce
-          # the file so the index schema is uniform.
-          (cd deps-staging && zip -q "../staging/dll/${deps_name}" -- *.dll 2>/dev/null || zip -q "../staging/dll/${deps_name}" -r .)
+          # Always produce the zip so the index schema is uniform. If a plugin
+          # has zero third-party deps (everything is host-shared) the zip just
+          # carries a marker file — operators see no extra DLLs but the artifact
+          # still exists.
+          if [ -z "$(ls -A deps-staging)" ]; then
+            echo "Plugin has no third-party deps." > deps-staging/.empty
+          fi
+          (cd deps-staging && zip -q "../staging/dll/${deps_name}" -r .)
 
           jq -n \
             --arg name "$name" \
