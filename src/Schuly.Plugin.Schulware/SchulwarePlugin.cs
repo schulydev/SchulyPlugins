@@ -3,21 +3,23 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
-using Schuly.Plugin.Schulware.Endpoints;
 using Schuly.Plugin.Schulware.Services;
 
 namespace Schuly.Plugin.Schulware
 {
     /// <summary>
-    /// Schulware plugin entry point. Modeled after an ASP.NET Core composition root:
-    /// the plugin file itself is slim — DI registration lives here, route mapping is
-    /// delegated to <c>Endpoints/*EndpointsExtensions</c>, and the work happens in
-    /// <c>Services/</c>, <c>Data/</c>, <c>Infrastructure/</c>, <c>Dtos/</c>.
+    /// Schulware plugin composition root. DI registration happens here;
+    /// HTTP routes live in <c>Controllers/*Controller.cs</c> (regular ASP.NET
+    /// controllers — the host registers this assembly as an MVC
+    /// ApplicationPart, so they're discovered automatically).
     /// </summary>
     public class SchulwarePlugin : ISchulyPlugin
     {
-        public string Name => "Schulware Integration";
-        public string Version => "2.0.0";
+        public const string PluginName = "Schulware Integration";
+        public const string PluginVersion = "2.1.0";
+
+        public string Name => PluginName;
+        public string Version => PluginVersion;
 
         public void ConfigureServices(IServiceCollection services, PluginServiceContext context)
         {
@@ -44,14 +46,8 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<OAuthCallbackService>();
         }
 
-        public void ConfigureEndpoints(IEndpointRouteBuilder endpoints)
-        {
-            endpoints
-                .MapSchulwareStatus(Name, Version)
-                .MapSchulwareAccounts()
-                .MapSchulwareOAuth()
-                .MapSchulwareSync();
-        }
+        // Routes live in Controllers/, discovered via MVC ApplicationPart registration.
+        public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }
 
         public async Task MigrateAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
