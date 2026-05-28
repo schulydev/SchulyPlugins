@@ -1,0 +1,9 @@
+# OdaOrg plugin runtime config (optional).
+# The portal URL is per-account (entered when connecting), so there's nothing
+# strictly required here. This file documents the default and the sync cadence.
+
+OdaOrg:
+  DefaultBaseUrl: https://odaorg.ict-bbag.ch
+
+Sync:
+  IntervalMinutes: 30
