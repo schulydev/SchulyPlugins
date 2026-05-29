@@ -104,8 +104,10 @@ namespace Schuly.Plugin.Schulware.Services
 
                 // Persist the rotated context_state — cookies may have been refreshed
                 // server-side and we MUST replay the latest blob on the next call.
+                // Use JsonBag.Serialize: the bag holds Kiota UntypedNode values that
+                // System.Text.Json would otherwise mangle into empty {} objects.
                 if (result.ContextState?.AdditionalData is { Count: > 0 } rotated)
-                    account.ContextStateJson = System.Text.Json.JsonSerializer.Serialize(rotated);
+                    account.ContextStateJson = JsonBag.Serialize(rotated);
 
                 account.UpdatedAt = DateTime.UtcNow;
                 db.Accounts.Update(account);
