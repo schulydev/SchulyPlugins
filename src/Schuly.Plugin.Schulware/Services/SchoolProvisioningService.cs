@@ -52,22 +52,32 @@ namespace Schuly.Plugin.Schulware.Services
         private async Task<School> GetOrCreateSchoolAsync(SchulwareAccount account)
         {
             var name = account.DisplayName ?? account.SchulnetzBaseUrl;
+            var logo = LogoUrlFor(account.SchulnetzBaseUrl);
             var school = await mainDb.Schools.FirstOrDefaultAsync(s => s.Name == name);
             if (school is null)
             {
                 // Store the Schulnetz URL on the School so the main DB has
                 // the canonical link too, not just the plugin's account row.
-                school = new School { Name = name, Website = account.SchulnetzBaseUrl };
+                school = new School { Name = name, Website = account.SchulnetzBaseUrl, LogoUrl = logo };
                 mainDb.Schools.Add(school);
                 await mainDb.SaveChangesAsync();
             }
-            else if (string.IsNullOrWhiteSpace(school.Website))
+            else
             {
-                school.Website = account.SchulnetzBaseUrl;
+                // Backfill blanks only — don't clobber an admin-set website/logo.
+                if (string.IsNullOrWhiteSpace(school.Website)) school.Website = account.SchulnetzBaseUrl;
+                if (string.IsNullOrWhiteSpace(school.LogoUrl)) school.LogoUrl = logo;
                 await mainDb.SaveChangesAsync();
             }
             return school;
         }
+
+        /// <summary>School logo via a public favicon resolver keyed by host —
+        /// no auth, real per-school icon. Admins can override on the School row.</summary>
+        private static string? LogoUrlFor(string baseUrl) =>
+            Uri.TryCreate(baseUrl, UriKind.Absolute, out var u)
+                ? $"https://icons.duckduckgo.com/ip3/{u.Host}.ico"
+                : null;
 
         private async Task<SchoolUser> GetOrCreateSchoolUserAsync(School school, Guid userId, UserInfoDto info)
         {
