@@ -105,6 +105,10 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             var last = Field("Nachname");
             if (first is null && last is null) return null;
 
+            // The student photo is embedded as a self-contained data:image URI in
+            // the same profile box — store it verbatim (usable directly as img src).
+            var photo = doc.QuerySelector("img[src^='data:image']")?.GetAttribute("src");
+
             return new OdaProfile
             {
                 FirstName = first,
@@ -112,6 +116,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                 Gender = Field("Geschlecht"),
                 Birthday = ParseDate(Field("Geburtsdatum")),
                 Email = Field("E-Mail") ?? Field("E-Mail Adresse") ?? Field("Email"),
+                ProfilePictureUrl = string.IsNullOrWhiteSpace(photo) ? null : photo,
             };
         }
 
