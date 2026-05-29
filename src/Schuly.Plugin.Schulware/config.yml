@@ -3,7 +3,10 @@
 # the plugin via PluginServiceContext.Configuration.
 
 SchulwareApi:
-  BaseUrl: https://schlwr.pianonic.ch
+  # Default points at the local dev SchulwareAPI (compose `dev-schulware` on
+  # :8000), which tracks current code. Production operators override this in
+  # their own plugins-config to a deployed instance (e.g. https://schlwr.pianonic.ch).
+  BaseUrl: http://localhost:8000
 
 Sync:
   IntervalMinutes: 30
