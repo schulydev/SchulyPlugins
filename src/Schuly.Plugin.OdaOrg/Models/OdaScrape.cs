@@ -15,6 +15,8 @@ namespace Schuly.Plugin.OdaOrg.Models
         public string? Gender { get; set; }
         public DateOnly? Birthday { get; set; }
         public string? Email { get; set; }
+        /// <summary>Self-contained data:image/... URI scraped from the profile box.</summary>
+        public string? ProfilePictureUrl { get; set; }
     }
 
     /// <summary>A graded module — final mark from its evaluation page.</summary>

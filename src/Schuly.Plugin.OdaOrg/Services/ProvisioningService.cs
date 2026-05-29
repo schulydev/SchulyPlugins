@@ -38,6 +38,7 @@ namespace Schuly.Plugin.OdaOrg.Services
                     EntryDate = DateOnly.FromDateTime(DateTime.UtcNow),
                     Role = Roles.Student,
                     State = UserState.Active,
+                    ProfilePictureUrl = profile.ProfilePictureUrl,
                 };
                 mainDb.SchoolUsers.Add(existing);
                 await mainDb.SaveChangesAsync(ct);
@@ -49,6 +50,8 @@ namespace Schuly.Plugin.OdaOrg.Services
                 if (string.IsNullOrWhiteSpace(existing.FirstName)) existing.FirstName = profile.FirstName ?? existing.FirstName;
                 if (string.IsNullOrWhiteSpace(existing.LastName)) existing.LastName = profile.LastName ?? existing.LastName;
                 if (string.IsNullOrWhiteSpace(existing.Email) && profile.Email is not null) existing.Email = profile.Email;
+                // Photo is authoritative from the source — refresh whenever scraped.
+                if (!string.IsNullOrWhiteSpace(profile.ProfilePictureUrl)) existing.ProfilePictureUrl = profile.ProfilePictureUrl;
                 await mainDb.SaveChangesAsync(ct);
             }
 

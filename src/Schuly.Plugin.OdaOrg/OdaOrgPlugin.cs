@@ -16,7 +16,7 @@ namespace Schuly.Plugin.OdaOrg
     public class OdaOrgPlugin : ISchulyPlugin
     {
         public const string PluginName = "OdaOrg Integration";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         public string Name => PluginName;
         public string Version => PluginVersion;
