@@ -1,3 +1,5 @@
+using Microsoft.Kiota.Abstractions.Serialization;
+
 namespace Schuly.Plugin.Schulware.Infrastructure
 {
     /// <summary>
@@ -15,6 +17,38 @@ namespace Schuly.Plugin.Schulware.Infrastructure
                 dict[prop.Name] = Convert(prop.Value);
             return dict;
         }
+
+        /// <summary>
+        /// Serialize a Kiota <c>AdditionalData</c> bag back to a JSON object string.
+        /// Values deserialized by Kiota are <see cref="UntypedNode"/> instances
+        /// (UntypedArray/UntypedObject/…); <see cref="System.Text.Json"/> can't
+        /// serialize those directly — it writes arrays/objects as empty <c>{}</c>,
+        /// silently corrupting the data. We first lower the untyped tree to plain
+        /// CLR objects, then serialize.
+        /// </summary>
+        public static string Serialize(IDictionary<string, object> bag) =>
+            System.Text.Json.JsonSerializer.Serialize(
+                bag.ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)));
+
+        private static object? Plainify(object? node) => node switch
+        {
+            UntypedObject o => o.GetValue().ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)),
+            UntypedArray a => a.GetValue().Select(Plainify).ToList(),
+            UntypedString s => s.GetValue(),
+            UntypedBoolean b => b.GetValue(),
+            UntypedInteger i => i.GetValue(),
+            UntypedLong l => l.GetValue(),
+            UntypedDouble d => d.GetValue(),
+            UntypedDecimal m => m.GetValue(),
+            UntypedFloat f => f.GetValue(),
+            UntypedNull => null,
+            // Already-plain values (e.g. from ParseObject): recurse into nested
+            // collections so mixed trees normalize too.
+            IDictionary<string, object?> dict => dict.ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)),
+            string str => str,
+            System.Collections.IEnumerable seq => seq.Cast<object?>().Select(Plainify).ToList(),
+            _ => node,
+        };
 
         public static object Convert(System.Text.Json.JsonElement el) => el.ValueKind switch
         {
