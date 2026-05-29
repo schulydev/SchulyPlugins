@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Description>OdaOrg integration (ICT-BBAG apprenticeship portal). Scrapes profile, module grades, and ÜK course days into the Schuly backend via HttpClient + AngleSharp.</Description>
     <Authors>schulydev</Authors>
   </PropertyGroup>
