@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Schuly.Domain;
 using Schuly.Domain.Enums;
+using Schuly.Infrastructure.Storage;
 using Schuly.Plugin.OdaOrg.Data;
 using Schuly.Plugin.OdaOrg.Models;
 
@@ -14,6 +15,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     /// </summary>
     public class ProvisioningService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
+        IDocumentStorage storage,
         ILogger<ProvisioningService> logger)
     {
         public async Task<Guid?> EnsureAsync(OdaOrgAccount account, OdaProfile? profile, CancellationToken ct)
@@ -43,7 +45,7 @@ namespace Schuly.Plugin.OdaOrg.Services
                     EntryDate = DateOnly.FromDateTime(DateTime.UtcNow),
                     Role = Roles.Student,
                     State = UserState.Active,
-                    ProfilePictureUrl = profile.ProfilePictureUrl,
+                    ProfilePictureUrl = await ResolveAvatarAsync(profile.ProfilePictureUrl, null, ct),
                 };
                 mainDb.SchoolUsers.Add(existing);
                 await mainDb.SaveChangesAsync(ct);
@@ -60,13 +62,53 @@ namespace Schuly.Plugin.OdaOrg.Services
                 if (string.IsNullOrWhiteSpace(existing.Street) && profile.Street is not null) existing.Street = profile.Street;
                 if (string.IsNullOrWhiteSpace(existing.City) && profile.City is not null) existing.City = profile.City;
                 if (string.IsNullOrWhiteSpace(existing.Zip) && profile.Zip is not null) existing.Zip = profile.Zip;
-                // Photo is authoritative from the source — refresh whenever scraped.
-                if (!string.IsNullOrWhiteSpace(profile.ProfilePictureUrl)) existing.ProfilePictureUrl = profile.ProfilePictureUrl;
+                existing.ProfilePictureUrl = await ResolveAvatarAsync(profile.ProfilePictureUrl, existing.ProfilePictureUrl, ct);
                 await mainDb.SaveChangesAsync(ct);
             }
 
             account.SchoolUserId ??= existing.Id;
             return existing.Id;
+        }
+
+        /// <summary>
+        /// Resolve the value to store in SchoolUser.ProfilePictureUrl:
+        /// keep an already-stored blob key / external URL (don't re-upload every
+        /// sync → orphan blobs); upload a scraped data: URI to the blobstore and
+        /// store its key; pass an http(s) URL through.
+        /// </summary>
+        private async Task<string?> ResolveAvatarAsync(string? scraped, string? existing, CancellationToken ct)
+        {
+            if (!string.IsNullOrWhiteSpace(existing) && !existing.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                return existing;
+            if (string.IsNullOrWhiteSpace(scraped)) return existing;
+            if (scraped.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                scraped.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return scraped;
+            if (!scraped.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                return existing;
+
+            try
+            {
+                var comma = scraped.IndexOf(',');
+                if (comma < 0) return existing;
+                var meta = scraped[5..comma];                  // e.g. image/png;base64
+                var contentType = meta.Split(';')[0].Trim();   // e.g. image/png, image/webp, image/svg+xml
+                var bytes = Convert.FromBase64String(scraped[(comma + 1)..]);
+                // Derive the extension from the MIME subtype so any image format
+                // works (png, webp, gif, bmp, svg, …), not just png/jpg.
+                var subtype = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    ? contentType[6..].Split('+')[0].Trim().ToLowerInvariant()
+                    : "";
+                var ext = subtype switch { "jpeg" => "jpg", "" => "img", _ => subtype };
+                using var ms = new MemoryStream(bytes);
+                var blob = await storage.UploadAsync(ms, $"avatar.{ext}", contentType, ct);
+                return blob.Key;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "OdaOrg avatar upload failed; leaving previous value");
+                return existing;
+            }
         }
 
         private async Task<School> GetOrCreateSchoolAsync(OdaOrgAccount account, CancellationToken ct)
