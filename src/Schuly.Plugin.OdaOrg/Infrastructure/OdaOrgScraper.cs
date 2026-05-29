@@ -49,6 +49,12 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             var result = new OdaScrape();
             var gradeLinks = new HashSet<string>();
 
+            // Profile fields are spread across several IVAdresse boxes (person,
+            // contact, address, account) — accumulate every dt/dd pair and the
+            // photo across all of them, then build one profile after the sweep.
+            var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string? photo = null;
+
             // 3. Fetch every AJAX box fragment.
             foreach (var box in homeDoc.QuerySelectorAll("[data-source][data-module]"))
             {
@@ -65,7 +71,8 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                 catch (Exception ex) { logger.LogDebug(ex, "box {Module}/{Source} fetch failed", module, source); continue; }
 
                 var doc = Parser.ParseDocument(fragment);
-                result.Profile ??= ParseProfile(doc);
+                CollectFields(doc, fields);
+                photo ??= doc.QuerySelector("img[src^='data:image']")?.GetAttribute("src");
                 result.CourseDays.AddRange(ParseCourseDays(doc));
                 foreach (var a in doc.QuerySelectorAll("a[href*='nlbvbewertungid']"))
                 {
@@ -73,6 +80,8 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                     if (!string.IsNullOrWhiteSpace(href)) gradeLinks.Add(href);
                 }
             }
+
+            result.Profile = BuildProfile(fields, photo);
 
             // 4. Each grade-evaluation page renders server-side: module + Schlussnote.
             foreach (var href in gradeLinks)
@@ -92,30 +101,51 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             return result;
         }
 
-        private static OdaProfile? ParseProfile(IDocument doc)
+        // Address labels repeat across address-type boxes (Privatadresse,
+        // Geschäftsadresse, …) — only trust them from the private-address box,
+        // otherwise we'd grab the school/business address.
+        private static readonly HashSet<string> AddressLabels =
+            new(StringComparer.OrdinalIgnoreCase) { "Strasse", "PLZ", "Ort", "Zusatz", "Kanton", "Land" };
+
+        /// <summary>Harvest every dt→dd pair in a box into the shared field bag.
+        /// First non-empty value wins (boxes are visited in DOM order). dt labels
+        /// carry a leading &amp;nbsp; which Trim() (treats U+00A0 as whitespace) removes.</summary>
+        private static void CollectFields(IDocument doc, Dictionary<string, string> fields)
         {
-            var dts = doc.QuerySelectorAll("dt");
-            if (dts.Length == 0) return null;
+            var title = doc.QuerySelector(".bx-title span")?.TextContent ?? "";
+            var isPrivateAddress = title.Contains("Privatadresse", StringComparison.OrdinalIgnoreCase);
 
-            string? Field(string label) => dts
-                .FirstOrDefault(d => d.TextContent.Trim().Equals(label, StringComparison.OrdinalIgnoreCase))
-                ?.NextElementSibling?.TextContent.Trim();
+            foreach (var dt in doc.QuerySelectorAll("dt"))
+            {
+                var key = dt.TextContent.Trim();
+                var val = dt.NextElementSibling?.TextContent.Trim();
+                if (key.Length == 0 || string.IsNullOrWhiteSpace(val)) continue;
+                if (AddressLabels.Contains(key) && !isPrivateAddress) continue;
+                if (!fields.ContainsKey(key)) fields[key] = val!;
+            }
+        }
 
-            var first = Field("Vorname");
-            var last = Field("Nachname");
+        private static OdaProfile? BuildProfile(Dictionary<string, string> f, string? photo)
+        {
+            string? Get(params string[] labels) =>
+                labels.Select(l => f.TryGetValue(l, out var v) ? v : null).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+            var first = Get("Vorname");
+            var last = Get("Nachname");
             if (first is null && last is null) return null;
-
-            // The student photo is embedded as a self-contained data:image URI in
-            // the same profile box — store it verbatim (usable directly as img src).
-            var photo = doc.QuerySelector("img[src^='data:image']")?.GetAttribute("src");
 
             return new OdaProfile
             {
                 FirstName = first,
                 LastName = last,
-                Gender = Field("Geschlecht"),
-                Birthday = ParseDate(Field("Geburtsdatum")),
-                Email = Field("E-Mail") ?? Field("E-Mail Adresse") ?? Field("Email"),
+                Gender = Get("Geschlecht"),
+                Birthday = ParseDate(Get("Geburtsdatum")),
+                Email = Get("E-Mail", "E-Mail Adresse", "Email"),
+                PrivateEmail = Get("E-Mail Privat"),
+                PhoneNumber = Get("Telefonnummer Mobil", "Telefonnummer Privat", "Telefonnummer Geschäft"),
+                Street = Get("Strasse"),
+                Zip = Get("PLZ"),
+                City = Get("Ort"),
                 ProfilePictureUrl = string.IsNullOrWhiteSpace(photo) ? null : photo,
             };
         }

@@ -34,6 +34,11 @@ namespace Schuly.Plugin.OdaOrg.Services
                     FirstName = profile.FirstName ?? "",
                     LastName = profile.LastName ?? "",
                     Email = profile.Email ?? "",
+                    PrivateEmail = profile.PrivateEmail,
+                    PhoneNumber = profile.PhoneNumber,
+                    Street = profile.Street,
+                    City = profile.City,
+                    Zip = profile.Zip,
                     Birthday = profile.Birthday ?? DateOnly.FromDateTime(DateTime.UtcNow),
                     EntryDate = DateOnly.FromDateTime(DateTime.UtcNow),
                     Role = Roles.Student,
@@ -50,6 +55,11 @@ namespace Schuly.Plugin.OdaOrg.Services
                 if (string.IsNullOrWhiteSpace(existing.FirstName)) existing.FirstName = profile.FirstName ?? existing.FirstName;
                 if (string.IsNullOrWhiteSpace(existing.LastName)) existing.LastName = profile.LastName ?? existing.LastName;
                 if (string.IsNullOrWhiteSpace(existing.Email) && profile.Email is not null) existing.Email = profile.Email;
+                if (string.IsNullOrWhiteSpace(existing.PrivateEmail) && profile.PrivateEmail is not null) existing.PrivateEmail = profile.PrivateEmail;
+                if (string.IsNullOrWhiteSpace(existing.PhoneNumber) && profile.PhoneNumber is not null) existing.PhoneNumber = profile.PhoneNumber;
+                if (string.IsNullOrWhiteSpace(existing.Street) && profile.Street is not null) existing.Street = profile.Street;
+                if (string.IsNullOrWhiteSpace(existing.City) && profile.City is not null) existing.City = profile.City;
+                if (string.IsNullOrWhiteSpace(existing.Zip) && profile.Zip is not null) existing.Zip = profile.Zip;
                 // Photo is authoritative from the source — refresh whenever scraped.
                 if (!string.IsNullOrWhiteSpace(profile.ProfilePictureUrl)) existing.ProfilePictureUrl = profile.ProfilePictureUrl;
                 await mainDb.SaveChangesAsync(ct);
