@@ -62,19 +62,29 @@ namespace Schuly.Plugin.OdaOrg.Services
         private async Task<School> GetOrCreateSchoolAsync(OdaOrgAccount account, CancellationToken ct)
         {
             var name = account.DisplayName is { Length: > 0 } d ? d : "OdaOrg";
+            var logo = LogoUrlFor(account.BaseUrl);
             var school = await mainDb.Schools.FirstOrDefaultAsync(s => s.Name == name, ct);
             if (school is null)
             {
-                school = new School { Name = name, Website = account.BaseUrl };
+                school = new School { Name = name, Website = account.BaseUrl, LogoUrl = logo };
                 mainDb.Schools.Add(school);
                 await mainDb.SaveChangesAsync(ct);
             }
-            else if (string.IsNullOrWhiteSpace(school.Website))
+            else
             {
-                school.Website = account.BaseUrl;
+                // Backfill blanks only — don't clobber an admin-set website/logo.
+                if (string.IsNullOrWhiteSpace(school.Website)) school.Website = account.BaseUrl;
+                if (string.IsNullOrWhiteSpace(school.LogoUrl)) school.LogoUrl = logo;
                 await mainDb.SaveChangesAsync(ct);
             }
             return school;
         }
+
+        /// <summary>School logo via a public favicon resolver keyed by host —
+        /// no auth, real per-school icon. Admins can override on the School row.</summary>
+        private static string? LogoUrlFor(string baseUrl) =>
+            Uri.TryCreate(baseUrl, UriKind.Absolute, out var u)
+                ? $"https://icons.duckduckgo.com/ip3/{u.Host}.ico"
+                : null;
     }
 }
