@@ -5,7 +5,6 @@ using Microsoft.Kiota.Abstractions;
 using Schuly.Plugin.Schulware.Client.Api.App;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate;
 using Schuly.Plugin.Schulware.Client.Api.Mobile;
-using Schuly.Plugin.Schulware.Client.Api.Web;
 using Schuly.Plugin.Schulware.Client.Api.Websession;
 using System.Collections.Generic;
 using System.IO;
@@ -33,11 +32,6 @@ namespace Schuly.Plugin.Schulware.Client.Api
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.MobileRequestBuilder Mobile
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.MobileRequestBuilder(PathParameters, RequestAdapter);
-        }
-        /// <summary>The web property</summary>
-        public global::Schuly.Plugin.Schulware.Client.Api.Web.WebRequestBuilder Web
-        {
-            get => new global::Schuly.Plugin.Schulware.Client.Api.Web.WebRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The websession property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Websession.WebsessionRequestBuilder Websession
