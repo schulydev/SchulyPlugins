@@ -9,53 +9,40 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Pulls a Schulware account's absences by scraping the Schulnetz "Absenzen"
-    /// page (typed <see cref="AbsencesPageDto"/>) and inserts new rows into the
-    /// main Schuly DB (deduplicates on SchoolUserId + From + Until). Requires a
-    /// captured web session on the account.
+    /// Syncs a Schulware account's absences into the main Schuly DB. Prefers the
+    /// typed web scraper ("Absenzen" page) when the account has a captured web
+    /// session; otherwise falls back to the Mobile absences endpoint.
+    /// Deduplicates on SchoolUserId + From + Until.
     /// </summary>
     public class AbsencesSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
         ILogger<AbsencesSyncService> logger)
     {
+        private record AbsenceRow(string? From, string? To, string? Reason);
+
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(account.WebSessionId))
-            {
-                logger.LogWarning("Account {AccountId} has no web session; skipping absence scrape", account.Id);
-                return;
-            }
-
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "absences",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-            }, cancellationToken: ct);
-
-            var absences = result?.Absences?.Absences;
-            if (absences is null || absences.Count == 0) return;
+            var rows = string.IsNullOrEmpty(account.WebSessionId)
+                ? await FromMobileAsync(client, ct)
+                : await FromScrapeAsync(client, account, ct);
 
             var schoolUserId = account.SchoolUserId!.Value;
             var synced = 0;
 
-            foreach (var absence in absences)
+            foreach (var row in rows)
             {
-                if (!TryParseDate(absence.DateFrom, out var from) || !TryParseDate(absence.DateTo, out var to))
-                    continue;
+                if (!TryParseDate(row.From, out var from) || !TryParseDate(row.To, out var to)) continue;
 
-                var existing = await mainDb.Absences
-                    .FirstOrDefaultAsync(a => a.SchoolUserId == schoolUserId
-                        && a.From == from && a.Until == to, ct);
-                if (existing is not null) continue;
+                var exists = await mainDb.Absences
+                    .AnyAsync(a => a.SchoolUserId == schoolUserId && a.From == from && a.Until == to, ct);
+                if (exists) continue;
 
                 mainDb.Absences.Add(new Absence
                 {
                     SchoolUserId = schoolUserId,
                     From = from,
                     Until = to,
-                    Reason = absence.Reason ?? "Imported from Schulnetz",
+                    Reason = row.Reason ?? "Imported from Schulnetz",
                     Type = AbsenceType.Absence,
                 });
                 synced++;
@@ -68,9 +55,29 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
+        private async Task<List<AbsenceRow>> FromScrapeAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
+        {
+            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
+            {
+                Page = "absences",
+                SessionId = account.WebSessionId,
+                Id = account.WebSessionUserId,
+                Transid = account.WebSessionTransId,
+            }, cancellationToken: ct);
+
+            return result?.Absences?.Absences?
+                .Select(a => new AbsenceRow(a.DateFrom, a.DateTo, a.Reason)).ToList() ?? [];
+        }
+
+        private async Task<List<AbsenceRow>> FromMobileAsync(SchulwareApiClient client, CancellationToken ct)
+        {
+            var absences = await client.Api.Mobile.Absences.GetAsync(cancellationToken: ct);
+            return absences?.Select(a => new AbsenceRow(a.DateFrom, a.DateTo, a.Reason)).ToList() ?? [];
+        }
+
         private static bool TryParseDate(string? raw, out DateTime date)
         {
-            // Scraped dates look like "Do, 05.03.2026" or "05.03.2026".
+            // Scraped dates look like "Do, 05.03.2026"; Mobile uses ISO "2026-03-05".
             date = default;
             if (string.IsNullOrWhiteSpace(raw)) return false;
             var cleaned = raw.Contains(',') ? raw[(raw.IndexOf(',') + 1)..].Trim() : raw.Trim();
