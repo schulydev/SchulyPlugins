@@ -16,7 +16,7 @@ namespace Schuly.Plugin.Schulware
     public class SchulwarePlugin : ISchulyPlugin
     {
         public const string PluginName = "Schulware Integration";
-        public const string PluginVersion = "2.3.0";
+        public const string PluginVersion = "2.4.0";
 
         public string Name => PluginName;
         public string Version => PluginVersion;
