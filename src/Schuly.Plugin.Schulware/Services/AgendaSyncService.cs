@@ -9,34 +9,24 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Pulls a Schulware account's agenda by scraping the Schulnetz scheduler
-    /// (typed <see cref="ScheduleEventDto"/> list via the "schedule" page) and
-    /// inserts new <see cref="AgendaEntry"/> rows in the main DB. Dedup is on
-    /// (ClassId, Date, Title). Events without a resolvable class are skipped —
-    /// <c>AgendaEntry.ClassId</c> is required. Requires a captured web session.
+    /// Syncs a Schulware account's agenda (lessons/tests/exams) into the main DB.
+    /// Prefers the typed scheduler scrape when the account has a captured web
+    /// session; otherwise falls back to the Mobile agenda endpoint. Dedup is on
+    /// (ClassId, Date, Title); events without a resolvable class are skipped.
     /// </summary>
     public class AgendaSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
         ILogger<AgendaSyncService> logger)
     {
+        private record AgendaRow(string? Start, string? Title, string? CourseName, string? CourseToken,
+                                 string? Description, string? Place, string? Type);
+
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(account.WebSessionId))
-            {
-                logger.LogWarning("Account {AccountId} has no web session; skipping agenda scrape", account.Id);
-                return;
-            }
-
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "schedule",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-            }, cancellationToken: ct);
-
-            var events = result?.Schedule;
-            if (events is null || events.Count == 0) return;
+            var rows = string.IsNullOrEmpty(account.WebSessionId)
+                ? await FromMobileAsync(client, ct)
+                : await FromScrapeAsync(client, account, ct);
+            if (rows.Count == 0) return;
 
             var schoolUser = await mainDb.SchoolUsers
                 .Include(su => su.Classes)
@@ -46,11 +36,11 @@ namespace Schuly.Plugin.Schulware.Services
             var classesByName = schoolUser.Classes.ToDictionary(c => c.Name, c => c);
             var synced = 0;
 
-            foreach (var ev in events)
+            foreach (var ev in rows)
             {
-                if (!TryParseStart(ev.StartDate, out var date)) continue;
+                if (!TryParseStart(ev.Start, out var date)) continue;
 
-                var title = ev.Text ?? ev.Kurskuerzel ?? "Untitled";
+                var title = ev.Title ?? ev.CourseName ?? ev.CourseToken ?? "Untitled";
                 var cls = ResolveClass(ev, classesByName);
                 if (cls is null) continue; // unknown course → skip rather than orphan
 
@@ -63,9 +53,9 @@ namespace Schuly.Plugin.Schulware.Services
                     ClassId = cls.Id,
                     Date = date,
                     Title = title,
-                    Description = ev.Kommentar,
-                    Place = ev.Zimmerkuerzel ?? ev.Zimmer,
-                    EntryType = MapType(ev.EventType),
+                    Description = ev.Description,
+                    Place = ev.Place,
+                    EntryType = MapType(ev.Type),
                 });
                 synced++;
             }
@@ -77,12 +67,34 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        private static Class? ResolveClass(ScheduleEventDto ev, IReadOnlyDictionary<string, Class> classesByName)
+        private async Task<List<AgendaRow>> FromScrapeAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            if (!string.IsNullOrWhiteSpace(ev.Kurskuerzel) && classesByName.TryGetValue(ev.Kurskuerzel, out var byToken))
+            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
+            {
+                Page = "schedule",
+                SessionId = account.WebSessionId,
+                Id = account.WebSessionUserId,
+                Transid = account.WebSessionTransId,
+            }, cancellationToken: ct);
+
+            return result?.Schedule?
+                .Select(e => new AgendaRow(e.StartDate, e.Text, e.Klasse, e.Kurskuerzel, e.Kommentar,
+                                           e.Zimmerkuerzel ?? e.Zimmer, e.EventType)).ToList() ?? [];
+        }
+
+        private async Task<List<AgendaRow>> FromMobileAsync(SchulwareApiClient client, CancellationToken ct)
+        {
+            var events = await client.Api.Mobile.Agenda.GetAsync(cancellationToken: ct);
+            return events?.Select(e => new AgendaRow(e.StartDate, e.Text, e.CourseName, e.CourseToken,
+                                                     e.Comment, e.RoomToken, e.EventType)).ToList() ?? [];
+        }
+
+        private static Class? ResolveClass(AgendaRow ev, IReadOnlyDictionary<string, Class> classesByName)
+        {
+            if (!string.IsNullOrWhiteSpace(ev.CourseName) && classesByName.TryGetValue(ev.CourseName, out var byName))
+                return byName;
+            if (!string.IsNullOrWhiteSpace(ev.CourseToken) && classesByName.TryGetValue(ev.CourseToken, out var byToken))
                 return byToken;
-            if (!string.IsNullOrWhiteSpace(ev.Klasse) && classesByName.TryGetValue(ev.Klasse, out var byClass))
-                return byClass;
             return null;
         }
 
