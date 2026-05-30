@@ -8,20 +8,60 @@ using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
     /// <summary>
-    /// Response DTO for scraped page.
+    /// Typed response for a scraped Schulnetz page.Exactly one of the page fields is populated, matching the requested `page`.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WebScrapeResponseDto : IAdditionalDataHolder, IParsable
     {
-        /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
-        public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>The data property</summary>
+        /// <summary>The absences property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public UntypedNode? Data { get; set; }
+        public global::Schuly.Plugin.Schulware.Client.Models.AbsencesPageDto? Absences { get; set; }
 #nullable restore
 #else
-        public UntypedNode Data { get; set; }
+        public global::Schuly.Plugin.Schulware.Client.Models.AbsencesPageDto Absences { get; set; }
+#endif
+        /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
+        public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The agenda property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.AgendaPageDto? Agenda { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.AgendaPageDto Agenda { get; set; }
+#endif
+        /// <summary>The documents property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.DocumentsPageDto? Documents { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.DocumentsPageDto Documents { get; set; }
+#endif
+        /// <summary>The grades property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.GradesPageDto? Grades { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.GradesPageDto Grades { get; set; }
+#endif
+        /// <summary>The home property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.HomePageDto? Home { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.HomePageDto Home { get; set; }
+#endif
+        /// <summary>The lessons property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.LessonsPageDto? Lessons { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.LessonsPageDto Lessons { get; set; }
 #endif
         /// <summary>The message property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -30,6 +70,22 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #nullable restore
 #else
         public string Message { get; set; }
+#endif
+        /// <summary>The schedule property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Schuly.Plugin.Schulware.Client.Models.ScheduleEventDto>? Schedule { get; set; }
+#nullable restore
+#else
+        public List<global::Schuly.Plugin.Schulware.Client.Models.ScheduleEventDto> Schedule { get; set; }
+#endif
+        /// <summary>The student_id property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public global::Schuly.Plugin.Schulware.Client.Models.WebStudentIdCardDto? StudentId { get; set; }
+#nullable restore
+#else
+        public global::Schuly.Plugin.Schulware.Client.Models.WebStudentIdCardDto StudentId { get; set; }
 #endif
         /// <summary>The success property</summary>
         public bool? Success { get; set; }
@@ -58,8 +114,15 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "data", n => { Data = n.GetObjectValue<UntypedNode>(UntypedNode.CreateFromDiscriminatorValue); } },
+                { "absences", n => { Absences = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.AbsencesPageDto>(global::Schuly.Plugin.Schulware.Client.Models.AbsencesPageDto.CreateFromDiscriminatorValue); } },
+                { "agenda", n => { Agenda = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.AgendaPageDto>(global::Schuly.Plugin.Schulware.Client.Models.AgendaPageDto.CreateFromDiscriminatorValue); } },
+                { "documents", n => { Documents = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.DocumentsPageDto>(global::Schuly.Plugin.Schulware.Client.Models.DocumentsPageDto.CreateFromDiscriminatorValue); } },
+                { "grades", n => { Grades = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.GradesPageDto>(global::Schuly.Plugin.Schulware.Client.Models.GradesPageDto.CreateFromDiscriminatorValue); } },
+                { "home", n => { Home = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.HomePageDto>(global::Schuly.Plugin.Schulware.Client.Models.HomePageDto.CreateFromDiscriminatorValue); } },
+                { "lessons", n => { Lessons = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.LessonsPageDto>(global::Schuly.Plugin.Schulware.Client.Models.LessonsPageDto.CreateFromDiscriminatorValue); } },
                 { "message", n => { Message = n.GetStringValue(); } },
+                { "schedule", n => { Schedule = n.GetCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ScheduleEventDto>(global::Schuly.Plugin.Schulware.Client.Models.ScheduleEventDto.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "student_id", n => { StudentId = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.WebStudentIdCardDto>(global::Schuly.Plugin.Schulware.Client.Models.WebStudentIdCardDto.CreateFromDiscriminatorValue); } },
                 { "success", n => { Success = n.GetBoolValue(); } },
             };
         }
@@ -70,8 +133,15 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteObjectValue<UntypedNode>("data", Data);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.AbsencesPageDto>("absences", Absences);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.AgendaPageDto>("agenda", Agenda);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.DocumentsPageDto>("documents", Documents);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.GradesPageDto>("grades", Grades);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.HomePageDto>("home", Home);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.LessonsPageDto>("lessons", Lessons);
             writer.WriteStringValue("message", Message);
+            writer.WriteCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ScheduleEventDto>("schedule", Schedule);
+            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.WebStudentIdCardDto>("student_id", StudentId);
             writer.WriteBoolValue("success", Success);
             writer.WriteAdditionalData(AdditionalData);
         }
