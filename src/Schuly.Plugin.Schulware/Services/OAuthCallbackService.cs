@@ -14,9 +14,9 @@ namespace Schuly.Plugin.Schulware.Services
 
     /// <summary>
     /// Drives the back half of the Schulnetz OAuth login: exchanges the code
-    /// for tokens, captures the web session, delegates School/SchoolUser
-    /// provisioning to <see cref="SchoolProvisioningService"/>, persists the
-    /// SSO snapshot, and triggers an initial sync.
+    /// for tokens, persists the WebView-captured web session, delegates
+    /// School/SchoolUser provisioning to <see cref="SchoolProvisioningService"/>,
+    /// persists the SSO snapshot, and triggers an initial sync.
     /// </summary>
     public class OAuthCallbackService(
         IHttpClientFactory httpClientFactory,
@@ -44,7 +44,7 @@ namespace Schuly.Plugin.Schulware.Services
                     return new(false, "Failed to parse token response", null, null);
 
                 ApplyTokens(account, tokens, request);
-                await CaptureWebSessionAsync(account, anonClient, request);
+                ApplyWebSession(account, request);
                 await provisioning.EnsureAsync(account, userId);
 
                 account.UpdatedAt = DateTime.UtcNow;
@@ -90,29 +90,29 @@ namespace Schuly.Plugin.Schulware.Services
                 account.UserAgent = request.UserAgent;
         }
 
-        private async Task CaptureWebSessionAsync(SchulwareAccount account, Client.SchulwareApiClient anonClient, OAuthCallbackRequest request)
+        /// <summary>
+        /// Persist the Schulnetz PHP web session the app captured client-side
+        /// (PHPSESSID + id + transid read straight off the dashboard). The OAuth
+        /// code can't be redeemed server-side — Schulnetz binds it to the
+        /// browser's MS cookies, so a server exchange yields an unauthenticated
+        /// session ("session expired" page). All three values must be present to
+        /// be usable; otherwise the scraper-backed pages stay disabled and the
+        /// account falls back to Mobile-only sync.
+        /// </summary>
+        private void ApplyWebSession(SchulwareAccount account, OAuthCallbackRequest request)
         {
-            try
+            if (string.IsNullOrWhiteSpace(request.WebSessionId)
+                || string.IsNullOrWhiteSpace(request.WebSessionUserId)
+                || string.IsNullOrWhiteSpace(request.WebSessionTransId))
             {
-                var session = await anonClient.Api.Websession.Capture.PostAsync(
-                    new WebSessionRequestDto
-                    {
-                        Code = request.Code,
-                        State = request.State ?? string.Empty,
-                    });
-                if (session?.Success != true) return;
+                logger.LogInformation(
+                    "No complete web session captured for {AccountId}; documents/report cards disabled", account.Id);
+                return;
+            }
 
-                account.WebSessionId = session.SessionId;
-                if (session.SessionInfo?.AdditionalData is { } info)
-                {
-                    account.WebSessionUserId = info.TryGetValue("id", out var idVal) ? idVal?.ToString() : null;
-                    account.WebSessionTransId = info.TryGetValue("transid", out var tidVal) ? tidVal?.ToString() : null;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Web session capture failed (best-effort) for {AccountId}", account.Id);
-            }
+            account.WebSessionId = request.WebSessionId;
+            account.WebSessionUserId = request.WebSessionUserId;
+            account.WebSessionTransId = request.WebSessionTransId;
         }
     }
 }
