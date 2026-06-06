@@ -44,6 +44,7 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<GradesSyncService>();
             services.AddScoped<AbsencesSyncService>();
             services.AddScoped<AgendaSyncService>();
+            services.AddScoped<DocumentsSyncService>();
             services.AddScoped<SchoolProvisioningService>();
             services.AddScoped<OAuthCallbackService>();
         }
