@@ -9,10 +9,10 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Syncs a Schulware account's absences into the main Schuly DB. Prefers the
-    /// typed web scraper ("Absenzen" page) when the account has a captured web
-    /// session; otherwise falls back to the Mobile absences endpoint.
-    /// Deduplicates on SchoolUserId + From + Until.
+    /// Syncs a Schulware account's absences into the main Schuly DB via the
+    /// Mobile absences endpoint. Deduplicates on SchoolUserId + From + Until.
+    /// (Absences stay on the Mobile API even when the account has a web session —
+    /// that session is reserved for the scraper-only document pages.)
     /// </summary>
     public class AbsencesSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
@@ -22,9 +22,7 @@ namespace Schuly.Plugin.Schulware.Services
 
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            var rows = string.IsNullOrEmpty(account.WebSessionId)
-                ? await FromMobileAsync(client, ct)
-                : await FromScrapeAsync(client, account, ct);
+            var rows = await FromMobileAsync(client, ct);
 
             var schoolUserId = account.SchoolUserId!.Value;
             var synced = 0;
@@ -53,20 +51,6 @@ namespace Schuly.Plugin.Schulware.Services
                 await mainDb.SaveChangesAsync(ct);
                 logger.LogInformation("Synced {Count} absences for account {AccountId}", synced, account.Id);
             }
-        }
-
-        private async Task<List<AbsenceRow>> FromScrapeAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
-        {
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "absences",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-            }, cancellationToken: ct);
-
-            return result?.Absences?.Absences?
-                .Select(a => new AbsenceRow(a.DateFrom, a.DateTo, a.Reason)).ToList() ?? [];
         }
 
         private async Task<List<AbsenceRow>> FromMobileAsync(SchulwareApiClient client, CancellationToken ct)

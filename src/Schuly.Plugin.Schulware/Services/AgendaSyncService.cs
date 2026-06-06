@@ -9,10 +9,11 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Syncs a Schulware account's agenda (lessons/tests/exams) into the main DB.
-    /// Prefers the typed scheduler scrape when the account has a captured web
-    /// session; otherwise falls back to the Mobile agenda endpoint. Dedup is on
-    /// (ClassId, Date, Title); events without a resolvable class are skipped.
+    /// Syncs a Schulware account's agenda (lessons/tests/exams) into the main DB
+    /// via the Mobile agenda endpoint. Dedup is on (ClassId, Date, Title); events
+    /// without a resolvable class are skipped. (Agenda stays on the Mobile API
+    /// even when the account has a web session — that session is reserved for the
+    /// scraper-only document pages.)
     /// </summary>
     public class AgendaSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
@@ -23,9 +24,7 @@ namespace Schuly.Plugin.Schulware.Services
 
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            var rows = string.IsNullOrEmpty(account.WebSessionId)
-                ? await FromMobileAsync(client, ct)
-                : await FromScrapeAsync(client, account, ct);
+            var rows = await FromMobileAsync(client, ct);
             if (rows.Count == 0) return;
 
             var schoolUser = await mainDb.SchoolUsers
@@ -65,21 +64,6 @@ namespace Schuly.Plugin.Schulware.Services
                 await mainDb.SaveChangesAsync(ct);
                 logger.LogInformation("Synced {Count} agenda entries for account {AccountId}", synced, account.Id);
             }
-        }
-
-        private async Task<List<AgendaRow>> FromScrapeAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
-        {
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "schedule",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-            }, cancellationToken: ct);
-
-            return result?.Schedule?
-                .Select(e => new AgendaRow(e.StartDate, e.Text, e.Klasse, e.Kurskuerzel, e.Kommentar,
-                                           e.Zimmerkuerzel ?? e.Zimmer, e.EventType)).ToList() ?? [];
         }
 
         private async Task<List<AgendaRow>> FromMobileAsync(SchulwareApiClient client, CancellationToken ct)

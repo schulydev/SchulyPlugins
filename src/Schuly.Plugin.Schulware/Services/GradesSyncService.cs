@@ -9,10 +9,10 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Syncs a Schulware account's grades into the main Schuly DB. Prefers the
-    /// typed web scraper (richer "Noten" page) when the account has a captured
-    /// web session; otherwise falls back to the Mobile grades endpoint. Creates
-    /// the backing <c>Exam</c> and <c>Class</c> rows on demand.
+    /// Syncs a Schulware account's grades into the main Schuly DB via the Mobile
+    /// grades endpoint. Creates the backing <c>Exam</c> and <c>Class</c> rows on
+    /// demand. (Grades stay on the Mobile API even when the account has a web
+    /// session — that session is reserved for the scraper-only document pages.)
     /// </summary>
     public class GradesSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
@@ -21,9 +21,7 @@ namespace Schuly.Plugin.Schulware.Services
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
             var schoolUserId = account.SchoolUserId!.Value;
-            var synced = string.IsNullOrEmpty(account.WebSessionId)
-                ? await SyncViaMobileAsync(client, schoolUserId, ct)
-                : await SyncViaScrapeAsync(client, account, schoolUserId, ct);
+            var synced = await SyncViaMobileAsync(client, schoolUserId, ct);
 
             if (synced > 0)
             {
@@ -31,40 +29,6 @@ namespace Schuly.Plugin.Schulware.Services
                 logger.LogInformation("Synced {Count} grades for account {AccountId}", synced, account.Id);
             }
         }
-
-        // --- Web scraper (typed Noten page) -----------------------------------
-
-        private async Task<int> SyncViaScrapeAsync(SchulwareApiClient client, SchulwareAccount account, Guid schoolUserId, CancellationToken ct)
-        {
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "grades",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-            }, cancellationToken: ct);
-
-            var courses = result?.Grades?.Courses;
-            if (courses is null || courses.Count == 0) return 0;
-
-            var synced = 0;
-            foreach (var course in courses)
-            {
-                if (course.Exams is null) continue;
-                foreach (var entry in course.Exams)
-                {
-                    if (entry.Mark is null) continue;
-                    var examName = string.IsNullOrWhiteSpace(entry.Date)
-                        ? (entry.Topic ?? "Prüfung")
-                        : $"{entry.Topic ?? "Prüfung"} ({entry.Date})";
-                    var exam = await FindOrCreateExamAsync(course.Course, examName, schoolUserId, ct);
-                    synced += await UpsertGradeAsync(schoolUserId, exam.Id, (decimal)entry.Mark.Value, (decimal)(entry.Weight ?? 1), ct);
-                }
-            }
-            return synced;
-        }
-
-        // --- Mobile grades endpoint (fallback) --------------------------------
 
         private async Task<int> SyncViaMobileAsync(SchulwareApiClient client, Guid schoolUserId, CancellationToken ct)
         {
