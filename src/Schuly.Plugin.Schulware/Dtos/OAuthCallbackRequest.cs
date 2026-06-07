@@ -12,13 +12,12 @@ namespace Schuly.Plugin.Schulware.Dtos
     /// <para><b>UserAgent</b> — the exact UA string the WebView used. MS binds
     /// session cookies to UA; replays must match.</para>
     ///
-    /// <para><b>WebSessionId / WebSessionUserId / WebSessionTransId</b> — the
-    /// Schulnetz PHP web session the app captured straight from the WebView
-    /// after login (PHPSESSID + the <c>id</c>/<c>transid</c> URL params read off
-    /// a dashboard nav link). These power the scraper-only pages (documents /
-    /// report cards). The OAuth code itself can't be redeemed server-side — it's
-    /// bound to the browser's MS cookies — so the app must hand these over
-    /// directly. Grades/agenda/absences keep using the Mobile API regardless.</para>
+    /// <para><b>WebSessionId / WebSessionUserId / WebSessionTransId</b> — the PHP
+    /// web session the app read off the cookie jar after the school web login
+    /// (PHPSESSID + the id/transid from a dashboard nav link). Server-side code
+    /// exchange / Playwright replay both break (Playwright logs out on every
+    /// navigation), so the device WebView captures these directly. Powers the
+    /// scraper pages (grades, agenda, absences, documents).</para>
     /// </summary>
     public record OAuthCallbackRequest(
         string Code,

@@ -61,6 +61,7 @@ namespace Schuly.Plugin.Schulware.Services
             var absences = scopedSp.GetRequiredService<AbsencesSyncService>();
             var agenda = scopedSp.GetRequiredService<AgendaSyncService>();
             var documents = scopedSp.GetRequiredService<DocumentsSyncService>();
+            var vacations = scopedSp.GetRequiredService<VacationsSyncService>();
             var httpClientFactory = scopedSp.GetRequiredService<IHttpClientFactory>();
             var logger = scopedSp.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
@@ -102,6 +103,7 @@ namespace Schuly.Plugin.Schulware.Services
                 await agenda.SyncAsync(client, account, ct);
                 await absences.SyncAsync(client, account, ct);
                 await documents.SyncAsync(client, account, ct);
+                await vacations.SyncAsync(client, account, ct);
 
                 syncState.LastSyncAt = DateTime.UtcNow;
                 syncState.LastSyncStatus = "Success";

@@ -91,13 +91,11 @@ namespace Schuly.Plugin.Schulware.Services
         }
 
         /// <summary>
-        /// Persist the Schulnetz PHP web session the app captured client-side
-        /// (PHPSESSID + id + transid read straight off the dashboard). The OAuth
-        /// code can't be redeemed server-side — Schulnetz binds it to the
-        /// browser's MS cookies, so a server exchange yields an unauthenticated
-        /// session ("session expired" page). All three values must be present to
-        /// be usable; otherwise the scraper-backed pages stay disabled and the
-        /// account falls back to Mobile-only sync.
+        /// Persist the PHP web session the device WebView read off the cookie jar
+        /// after the school web login (PHPSESSID + id + transid). Server-side code
+        /// exchange / Playwright replay both fail (Playwright logs out on every
+        /// navigation), so the WebView hands these over directly. All three must
+        /// be present; otherwise the scraper pages stay disabled.
         /// </summary>
         private void ApplyWebSession(SchulwareAccount account, OAuthCallbackRequest request)
         {
@@ -106,13 +104,15 @@ namespace Schuly.Plugin.Schulware.Services
                 || string.IsNullOrWhiteSpace(request.WebSessionTransId))
             {
                 logger.LogInformation(
-                    "No complete web session captured for {AccountId}; documents/report cards disabled", account.Id);
+                    "No complete web session captured for {AccountId}; scraper pages disabled", account.Id);
                 return;
             }
 
             account.WebSessionId = request.WebSessionId;
             account.WebSessionUserId = request.WebSessionUserId;
             account.WebSessionTransId = request.WebSessionTransId;
+            logger.LogInformation("Stored web session for {AccountId} (id={Id}, transid={Transid})",
+                account.Id, account.WebSessionUserId, account.WebSessionTransId);
         }
     }
 }
