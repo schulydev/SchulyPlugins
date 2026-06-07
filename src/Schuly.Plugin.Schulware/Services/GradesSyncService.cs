@@ -9,10 +9,10 @@ using Schuly.Plugin.Schulware.Data;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Syncs a Schulware account's grades into the main Schuly DB via the Mobile
-    /// grades endpoint. Creates the backing <c>Exam</c> and <c>Class</c> rows on
-    /// demand. (Grades stay on the Mobile API even when the account has a web
-    /// session — that session is reserved for the scraper-only document pages.)
+    /// Pulls a Schulware account's grades by scraping the Schulnetz "Noten" page
+    /// (typed <see cref="GradesPageDto"/>) and merges them into the main Schuly DB.
+    /// Creates the backing <c>Exam</c> and <c>Class</c> rows on demand. Requires a
+    /// captured web session on the account.
     /// </summary>
     public class GradesSyncService(
         Schuly.Infrastructure.SchulyDbContext mainDb,
@@ -20,48 +20,71 @@ namespace Schuly.Plugin.Schulware.Services
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
+            if (string.IsNullOrEmpty(account.WebSessionId))
+            {
+                logger.LogWarning("Account {AccountId} has no web session; skipping grade scrape", account.Id);
+                return;
+            }
+
+            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
+            {
+                Page = "grades",
+                SessionId = account.WebSessionId,
+                Id = account.WebSessionUserId,
+                Transid = account.WebSessionTransId,
+                UserAgent = account.UserAgent,
+            }, cancellationToken: ct);
+
+            var courses = result?.Grades?.Courses;
+            if (courses is null || courses.Count == 0) return;
+
             var schoolUserId = account.SchoolUserId!.Value;
-            var synced = await SyncViaMobileAsync(client, schoolUserId, ct);
+            var synced = 0;
+
+            foreach (var course in courses)
+            {
+                if (course.Exams is null) continue;
+
+                foreach (var entry in course.Exams)
+                {
+                    if (entry.Mark is null) continue;
+
+                    var examName = string.IsNullOrWhiteSpace(entry.Date)
+                        ? (entry.Topic ?? "Prüfung")
+                        : $"{entry.Topic ?? "Prüfung"} ({entry.Date})";
+
+                    var exam = await FindOrCreateExamAsync(course.Course, examName, schoolUserId, ct);
+                    var score = (decimal)entry.Mark.Value;
+                    var weighting = (decimal)(entry.Weight ?? 1);
+
+                    var existing = await mainDb.Grades
+                        .FirstOrDefaultAsync(g => g.SchoolUserId == schoolUserId && g.ExamId == exam.Id, ct);
+
+                    if (existing is null)
+                    {
+                        mainDb.Grades.Add(new Grade
+                        {
+                            SchoolUserId = schoolUserId,
+                            ExamId = exam.Id,
+                            Score = score,
+                            Weighting = weighting,
+                        });
+                        synced++;
+                    }
+                    else if (existing.Score != score)
+                    {
+                        existing.Score = score;
+                        existing.Weighting = weighting;
+                        synced++;
+                    }
+                }
+            }
 
             if (synced > 0)
             {
                 await mainDb.SaveChangesAsync(ct);
                 logger.LogInformation("Synced {Count} grades for account {AccountId}", synced, account.Id);
             }
-        }
-
-        private async Task<int> SyncViaMobileAsync(SchulwareApiClient client, Guid schoolUserId, CancellationToken ct)
-        {
-            var grades = await client.Api.Mobile.Grades.GetAsync(cancellationToken: ct);
-            if (grades is null || grades.Count == 0) return 0;
-
-            var synced = 0;
-            foreach (var grade in grades)
-            {
-                if (grade.Mark is null || grade.ExamId is null) continue;
-                var examName = grade.Title ?? grade.Subject ?? $"Exam {grade.ExamId}";
-                var exam = await FindOrCreateExamAsync(grade.Course ?? grade.Subject, examName, schoolUserId, ct);
-                synced += await UpsertGradeAsync(schoolUserId, exam.Id, (decimal)grade.Mark.Value, (decimal)(grade.Weight ?? 1), ct);
-            }
-            return synced;
-        }
-
-        private async Task<int> UpsertGradeAsync(Guid schoolUserId, Guid examId, decimal score, decimal weighting, CancellationToken ct)
-        {
-            var existing = await mainDb.Grades
-                .FirstOrDefaultAsync(g => g.SchoolUserId == schoolUserId && g.ExamId == examId, ct);
-            if (existing is null)
-            {
-                mainDb.Grades.Add(new Grade { SchoolUserId = schoolUserId, ExamId = examId, Score = score, Weighting = weighting });
-                return 1;
-            }
-            if (existing.Score != score)
-            {
-                existing.Score = score;
-                existing.Weighting = weighting;
-                return 1;
-            }
-            return 0;
         }
 
         private async Task<Exam> FindOrCreateExamAsync(string? courseName, string examName, Guid schoolUserId, CancellationToken ct)
@@ -74,6 +97,7 @@ namespace Schuly.Plugin.Schulware.Services
             if (schoolUser is not null)
             {
                 var className = string.IsNullOrWhiteSpace(courseName) ? "Default" : courseName;
+
                 cls = await mainDb.Classes
                     .FirstOrDefaultAsync(c => c.Name == className && c.SchoolId == schoolUser.SchoolId, ct);
                 if (cls is null)
@@ -82,6 +106,7 @@ namespace Schuly.Plugin.Schulware.Services
                     mainDb.Classes.Add(cls);
                     await mainDb.SaveChangesAsync(ct);
                 }
+
                 if (!schoolUser.Classes.Any(c => c.Id == cls.Id))
                 {
                     schoolUser.Classes.Add(cls);
