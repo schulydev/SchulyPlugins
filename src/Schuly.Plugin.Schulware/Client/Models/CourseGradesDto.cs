@@ -26,6 +26,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Course { get; set; }
 #endif
+        /// <summary>The course_token property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? CourseToken { get; set; }
+#nullable restore
+#else
+        public string CourseToken { get; set; }
+#endif
         /// <summary>The exams property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -62,6 +70,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "average", n => { Average = n.GetDoubleValue(); } },
                 { "confirmed", n => { Confirmed = n.GetBoolValue(); } },
                 { "course", n => { Course = n.GetStringValue(); } },
+                { "course_token", n => { CourseToken = n.GetStringValue(); } },
                 { "exams", n => { Exams = n.GetCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto>(global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto.CreateFromDiscriminatorValue)?.AsList(); } },
             };
         }
@@ -75,6 +84,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteDoubleValue("average", Average);
             writer.WriteBoolValue("confirmed", Confirmed);
             writer.WriteStringValue("course", Course);
+            writer.WriteStringValue("course_token", CourseToken);
             writer.WriteCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto>("exams", Exams);
             writer.WriteAdditionalData(AdditionalData);
         }

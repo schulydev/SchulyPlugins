@@ -19,12 +19,17 @@ namespace Schuly.Plugin.Schulware.Services
         Schuly.Infrastructure.SchulyDbContext mainDb,
         ILogger<GradesSyncService> logger)
     {
-        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
+        /// <summary>
+        /// Syncs grades and returns a course-token → subject-name map (e.g.
+        /// "NW (Ph)-BM23d-BuFe" → "Naturwissenschaften (Physik)") so the agenda
+        /// sync can show readable lesson names. Empty when there's no web session.
+        /// </summary>
+        public async Task<Dictionary<string, string>> SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(account.WebSessionId))
             {
                 logger.LogWarning("Account {AccountId} has no web session; skipping grade scrape", account.Id);
-                return;
+                return new();
             }
 
             var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
@@ -37,7 +42,13 @@ namespace Schuly.Plugin.Schulware.Services
             }, cancellationToken: ct);
 
             var courses = result?.Grades?.Courses;
-            if (courses is null || courses.Count == 0) return;
+            if (courses is null || courses.Count == 0) return new();
+
+            // token → readable subject name, for the agenda/timetable to display.
+            var subjectByToken = new Dictionary<string, string>();
+            foreach (var c in courses)
+                if (!string.IsNullOrWhiteSpace(c.CourseToken) && !string.IsNullOrWhiteSpace(c.Course))
+                    subjectByToken[c.CourseToken!] = c.Course!;
 
             var schoolUserId = account.SchoolUserId!.Value;
             var synced = 0;
@@ -92,6 +103,8 @@ namespace Schuly.Plugin.Schulware.Services
                 await mainDb.SaveChangesAsync(ct);
                 logger.LogInformation("Synced {Count} grades for account {AccountId}", synced, account.Id);
             }
+
+            return subjectByToken;
         }
 
         private async Task<Exam> FindOrCreateExamAsync(string? courseName, string examName, DateOnly? examDate, Guid schoolUserId, CancellationToken ct)

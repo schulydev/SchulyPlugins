@@ -99,8 +99,8 @@ namespace Schuly.Plugin.Schulware.Services
                 // Grades first so Classes are populated, then agenda (which
                 // looks up Class by name) and absences. Documents are scraper-only
                 // and no-op without a web session.
-                await grades.SyncAsync(client, account, ct);
-                await agenda.SyncAsync(client, account, ct);
+                var subjectNames = await grades.SyncAsync(client, account, ct);
+                await agenda.SyncAsync(client, account, subjectNames, ct);
                 await absences.SyncAsync(client, account, ct);
                 await documents.SyncAsync(client, account, ct);
                 await vacations.SyncAsync(client, account, ct);
