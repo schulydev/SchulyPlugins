@@ -20,7 +20,8 @@ namespace Schuly.Plugin.Schulware.Services
         Schuly.Infrastructure.SchulyDbContext mainDb,
         ILogger<AgendaSyncService> logger)
     {
-        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
+        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account,
+            IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(account.WebSessionId))
             {
@@ -47,7 +48,16 @@ namespace Schuly.Plugin.Schulware.Services
             {
                 if (!TryParse(ev.StartDate, out var date)) continue;
 
-                var title = ev.Text ?? ev.Kurskuerzel ?? ev.Klasse ?? "Lektion";
+                // Prefer the readable subject name looked up from the grades by the
+                // course token ("NW (Ph)-BM23d-BuFe" → "Naturwissenschaften (Physik)").
+                // No grade entry (e.g. Informatik) → fall back to the abbreviation,
+                // then the event text, then the course token (id).
+                static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+                string? mapped = null;
+                if (Blank(ev.Kurskuerzel) is { } token)
+                    subjectNames.TryGetValue(token, out mapped);
+                var title = Blank(mapped) ?? Blank(ev.Fachkuerzel) ?? Blank(ev.Text)
+                    ?? Blank(ev.Kurskuerzel) ?? Blank(ev.Klasse) ?? "Lektion";
 
                 var exists = await mainDb.AgendaEntries.AnyAsync(
                     a => a.SchoolUserId == schoolUserId && a.Date == date && a.Title == title, ct);
