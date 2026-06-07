@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Schuly.Domain;
@@ -53,7 +54,13 @@ namespace Schuly.Plugin.Schulware.Services
                         ? (entry.Topic ?? "Prüfung")
                         : $"{entry.Topic ?? "Prüfung"} ({entry.Date})";
 
-                    var exam = await FindOrCreateExamAsync(course.Course, examName, schoolUserId, ct);
+                    // The scraped date ("04.03.2026") is what the app derives the
+                    // semester from, so persist it on the exam. Null when absent.
+                    DateOnly? examDate = DateOnly.TryParseExact(
+                        entry.Date, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+                        ? d : null;
+
+                    var exam = await FindOrCreateExamAsync(course.Course, examName, examDate, schoolUserId, ct);
                     var score = (decimal)entry.Mark.Value;
                     var weighting = (decimal)(entry.Weight ?? 1);
 
@@ -87,7 +94,7 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        private async Task<Exam> FindOrCreateExamAsync(string? courseName, string examName, Guid schoolUserId, CancellationToken ct)
+        private async Task<Exam> FindOrCreateExamAsync(string? courseName, string examName, DateOnly? examDate, Guid schoolUserId, CancellationToken ct)
         {
             var schoolUser = await mainDb.SchoolUsers
                 .Include(su => su.Classes)
@@ -116,13 +123,19 @@ namespace Schuly.Plugin.Schulware.Services
 
             var classId = cls?.Id ?? Guid.Empty;
             if (classId == Guid.Empty)
-                return new Exam { Id = Guid.NewGuid(), Name = examName, Type = ExamType.Classic, ClassId = classId };
+                return new Exam { Id = Guid.NewGuid(), Name = examName, Type = ExamType.Classic, Date = examDate, ClassId = classId };
 
             var existing = await mainDb.Exams
                 .FirstOrDefaultAsync(e => e.Name == examName && e.ClassId == classId, ct);
-            if (existing is not null) return existing;
+            if (existing is not null)
+            {
+                // Backfill the date on exams created before per-semester support.
+                if (existing.Date is null && examDate is not null)
+                    existing.Date = examDate;
+                return existing;
+            }
 
-            var exam = new Exam { Name = examName, Type = ExamType.Classic, ClassId = classId };
+            var exam = new Exam { Name = examName, Type = ExamType.Classic, Date = examDate, ClassId = classId };
             mainDb.Exams.Add(exam);
             await mainDb.SaveChangesAsync(ct);
             return exam;
