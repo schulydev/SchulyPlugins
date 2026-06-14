@@ -41,7 +41,18 @@ namespace Schuly.Plugin.Schulware.Services
                 UserAgent = account.UserAgent,
             }, cancellationToken: ct);
 
-            var courses = result?.Grades?.Courses;
+            // For the grades page, Success=false only ever means the web session
+            // (PHPSESSID) is dead — it can't be refreshed like the mobile token.
+            // Drop it to force a re-capture and surface the failure, rather than
+            // silently reporting a successful, empty sync.
+            if (result is null || result.Success != true)
+            {
+                account.WebSessionId = null;
+                throw new InvalidOperationException(
+                    result?.Message ?? "Schulnetz web session expired; re-authenticate to resume grade sync.");
+            }
+
+            var courses = result.Grades?.Courses;
             if (courses is null || courses.Count == 0) return new();
 
             // token → readable subject name, for the agenda/timetable to display.
