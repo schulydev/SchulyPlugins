@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>2.4.1</Version>
+    <Version>2.4.2</Version>
     <Description>Schulnetz integration via SchulwareAPI. Syncs schools, classes, exams, grades, and absences into the Schuly backend.</Description>
     <Authors>schulydev</Authors>
   </PropertyGroup>
