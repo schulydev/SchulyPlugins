@@ -19,7 +19,7 @@ namespace Schuly.Plugin.Schulware.Services
         public async Task<bool> RefreshAsync(SchulwareAccount account, CancellationToken ct)
         {
             if (await TryDirectAsync(account, ct)) return true;
-            return await TryViaSchulwareApiAsync(account, ct);
+            return await RefreshViaRunnerAsync(account, ct);
         }
 
         private async Task<bool> TryDirectAsync(SchulwareAccount account, CancellationToken ct)
@@ -60,7 +60,12 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        private async Task<bool> TryViaSchulwareApiAsync(SchulwareAccount account, CancellationToken ct)
+        /// <summary>
+        /// Mints a fresh mobile token AND web session via SchulwareAPI's server-side
+        /// runner (replays the stored browser context). This is the only path that
+        /// produces a usable web session for scraping.
+        /// </summary>
+        public async Task<bool> RefreshViaRunnerAsync(SchulwareAccount account, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(account.ContextStateJson))
             {

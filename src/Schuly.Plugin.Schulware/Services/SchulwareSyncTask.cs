@@ -92,6 +92,16 @@ namespace Schuly.Plugin.Schulware.Services
                 await provisioning.EnsureAsync(account, account.ApplicationUserId);
                 await db.SaveChangesAsync(ct);
 
+                // Web sessions are short-lived and the direct token refresh doesn't
+                // produce one. Mint a fresh one via the server-side runner when it's
+                // missing. The grade sync clears WebSessionId on an expired-session
+                // failure, so this self-heals on the next run.
+                if (string.IsNullOrEmpty(account.WebSessionId))
+                {
+                    await refresh.RefreshViaRunnerAsync(account, ct);
+                    await db.SaveChangesAsync(ct);
+                }
+
                 var client = SchulwareApiClientFactory.Create(
                     httpClientFactory, account.SchulwareApiBaseUrl,
                     account.SchulnetzBaseUrl, account.MobileAccessToken);
