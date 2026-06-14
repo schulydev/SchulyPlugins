@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Dtos;
@@ -10,7 +11,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts")]
-    public class AccountsController(IPluginUserContext userContext, SchulwareDbContext db) : ControllerBase
+    public class AccountsController(IPluginUserContext userContext, SchulwareDbContext db, IConfiguration configuration) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> List()
@@ -43,7 +44,9 @@ namespace Schuly.Plugin.Schulware.Controllers
             {
                 ApplicationUserId = userId,
                 SchulnetzBaseUrl = request.SchulnetzBaseUrl,
-                SchulwareApiBaseUrl = request.SchulwareApiBaseUrl ?? "https://schlwr.pianonic.ch",
+                SchulwareApiBaseUrl = request.SchulwareApiBaseUrl
+                    ?? configuration["Schulware:DefaultApiBaseUrl"]
+                    ?? "https://schlwr.pianonic.ch",
                 DisplayName = request.DisplayName,
                 SchoolUserId = request.SchoolUserId,
             };
