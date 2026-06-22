@@ -41,6 +41,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
+        [Obsolete("")]
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public async Task<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto?> PostAsync(global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
@@ -64,6 +65,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh
         /// <returns>A <see cref="RequestInformation"/></returns>
         /// <param name="body">Stateless refresh using a previously captured browser context.This is the recommended refresh path. No credentials are sent — the requestsucceeds only if the supplied `context_state` is still valid. When itexpires, re-authenticate via `/api/authenticate/oauth/mobile/url` ratherthan reaching for the deprecated credentials endpoint.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
+        [Obsolete("")]
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public RequestInformation ToPostRequestInformation(global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default)
@@ -85,6 +87,7 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh
         /// </summary>
         /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder"/></returns>
         /// <param name="rawUrl">The raw URL to use for the request builder.</param>
+        [Obsolete("")]
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder WithUrl(string rawUrl)
         {
             return new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder(rawUrl, RequestAdapter);

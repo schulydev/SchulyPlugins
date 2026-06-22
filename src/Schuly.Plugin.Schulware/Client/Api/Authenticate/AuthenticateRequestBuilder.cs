@@ -2,6 +2,7 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.Login;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.RefreshWithCredentials;
@@ -17,6 +18,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class AuthenticateRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The login property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Login.LoginRequestBuilder Login
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Login.LoginRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The oauth property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Oauth.OauthRequestBuilder Oauth
         {
