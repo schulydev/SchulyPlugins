@@ -1,8 +1,8 @@
 {
-  "descriptionHash": "AF8BE552B5C5B265E8678EAC7096FEA30093C6328F8AF0A29629B955CB741553E34DC162CF7EB254F6B83E092AC77DA5E7366F173B872042BBA79B616FEE69C8",
+  "descriptionHash": "709C8481188F0F79F9E7E304203D6E63864385584C59669CA9EBAE330A655370DEA21C1F9BB2925A56FAE926EC2DCD2D87C23928C30D380252075189FF04BDB0",
   "descriptionLocation": "http://localhost:8000/openapi.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.30.0",
+  "kiotaVersion": "1.32.2",
   "clientClassName": "SchulwareApiClient",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "Schuly.Plugin.Schulware.Client",
