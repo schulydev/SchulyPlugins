@@ -6,7 +6,7 @@ namespace Schuly.Plugin.Schulware.Dtos
     /// the <c>context_state</c> for the caller to persist on-device.
     /// </summary>
     public record StatelessLoginRequest(
-        string SchulnetzBaseUrl,
+        string BaseUrl,
         string Email,
         string Password,
         string? TotpSecret);

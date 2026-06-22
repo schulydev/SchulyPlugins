@@ -13,8 +13,8 @@ namespace Schuly.Plugin.Schulware.Controllers
     /// Stateless, account-free data proxy for the app's private mode. Fetches the
     /// caller's SchulwareAPI mobile data with their bearer token and returns it
     /// mapped to flat DTOs. Persists nothing. Credentials travel in headers:
-    /// <c>X-Schulware-Token</c> (the SchulwareAPI access token) and
-    /// <c>X-Schulnetz-Base-Url</c> (the school instance URL).
+    /// <c>X-Plugin-Token</c> (the access token) and
+    /// <c>X-Provider-Base-Url</c> (the school instance URL).
     /// </summary>
     [ApiController]
     [AllowAnonymous]
@@ -52,12 +52,12 @@ namespace Schuly.Plugin.Schulware.Controllers
         /// </summary>
         private async Task<IActionResult> ProxyAsync<T>(Func<SchulwareApiClient, Task<T>> fetch)
         {
-            var token = Request.Headers["X-Schulware-Token"].ToString();
-            var schulnetzBaseUrl = Request.Headers["X-Schulnetz-Base-Url"].ToString();
+            var token = Request.Headers["X-Plugin-Token"].ToString();
+            var schulnetzBaseUrl = Request.Headers["X-Provider-Base-Url"].ToString();
             if (string.IsNullOrWhiteSpace(token))
-                return BadRequest("Missing X-Schulware-Token header");
+                return BadRequest("Missing X-Plugin-Token header");
             if (string.IsNullOrWhiteSpace(schulnetzBaseUrl))
-                return BadRequest("Missing X-Schulnetz-Base-Url header");
+                return BadRequest("Missing X-Provider-Base-Url header");
 
             try
             {
