@@ -35,11 +35,11 @@ namespace Schuly.Plugin.Schulware.Controllers
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
         {
             var client = SchulwareApiClientFactory.Create(
-                httpClientFactory, BaseUrl, request.SchulnetzBaseUrl);
+                httpClientFactory, BaseUrl, request.BaseUrl);
 
             var result = await client.Api.Authenticate.Login.PostAsync(new LoginRequestDto
             {
-                SchulnetzBaseUrl = request.SchulnetzBaseUrl,
+                SchulnetzBaseUrl = request.BaseUrl,
                 Email = request.Email,
                 Password = request.Password,
                 TotpSecret = string.IsNullOrWhiteSpace(request.TotpSecret) ? null : request.TotpSecret,
@@ -74,7 +74,7 @@ namespace Schuly.Plugin.Schulware.Controllers
             var result = await client.Api.Authenticate.Refresh.PostAsync(
                 new RefreshTokenRequestDto
                 {
-                    SchulnetzBaseUrl = request.SchulnetzBaseUrl,
+                    SchulnetzBaseUrl = request.BaseUrl,
                     UserAgent = request.UserAgent,
                     ContextState = contextState,
                 });
