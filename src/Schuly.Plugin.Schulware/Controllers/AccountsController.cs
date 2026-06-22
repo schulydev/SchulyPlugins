@@ -1,17 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
-using Schuly.Plugin.Schulware.Dtos;
 
 namespace Schuly.Plugin.Schulware.Controllers
 {
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts")]
-    public class AccountsController(IPluginUserContext userContext, SchulwareDbContext db, IConfiguration configuration) : ControllerBase
+    public class AccountsController(IPluginUserContext userContext, SchulwareDbContext db) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> List()
@@ -29,30 +27,6 @@ namespace Schuly.Plugin.Schulware.Controllers
                 })
                 .ToListAsync();
             return Ok(accounts);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ConnectAccountRequest request)
-        {
-            var userId = await userContext.GetCurrentUserIdAsync();
-            var exists = await db.Accounts.AnyAsync(a =>
-                a.ApplicationUserId == userId && a.SchulnetzBaseUrl == request.SchulnetzBaseUrl);
-            if (exists)
-                return BadRequest("Account for this Schulnetz instance already connected");
-
-            var account = new SchulwareAccount
-            {
-                ApplicationUserId = userId,
-                SchulnetzBaseUrl = request.SchulnetzBaseUrl,
-                SchulwareApiBaseUrl = request.SchulwareApiBaseUrl
-                    ?? configuration["Schulware:DefaultApiBaseUrl"]
-                    ?? "https://schlwr.pianonic.ch",
-                DisplayName = request.DisplayName,
-                SchoolUserId = request.SchoolUserId,
-            };
-            db.Accounts.Add(account);
-            await db.SaveChangesAsync();
-            return Ok(new { account.Id, Message = "Account created. Authenticate next." });
         }
 
         [HttpDelete("{accountId:guid}")]

@@ -47,7 +47,6 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<DocumentsSyncService>();
             services.AddScoped<VacationsSyncService>();
             services.AddScoped<SchoolProvisioningService>();
-            services.AddScoped<OAuthCallbackService>();
 
             // Unified plugin login (headless email + password via SchulwareAPI).
             services.AddScoped<IPluginLogin, SchulwareLogin>();
