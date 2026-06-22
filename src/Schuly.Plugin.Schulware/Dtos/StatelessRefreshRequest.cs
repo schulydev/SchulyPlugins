@@ -8,7 +8,7 @@ namespace Schuly.Plugin.Schulware.Dtos
     /// exact WebView user agent back in on every refresh.
     /// </summary>
     public record StatelessRefreshRequest(
-        string SchulnetzBaseUrl,
+        string BaseUrl,
         string UserAgent,
         JsonElement ContextState);
 }
