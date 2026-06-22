@@ -11,8 +11,6 @@ namespace Schuly.Plugin.OdaOrg.Controllers
     [Route("api/plugins/odaorg/accounts")]
     public class AccountsController(IPluginUserContext userContext, OdaOrgDbContext db) : ControllerBase
     {
-        public record ConnectOdaOrgRequest(string Username, string Password, string? BaseUrl, string? DisplayName);
-
         [HttpGet]
         public async Task<IActionResult> List()
         {
@@ -22,32 +20,6 @@ namespace Schuly.Plugin.OdaOrg.Controllers
                 .Select(a => new { a.Id, a.BaseUrl, a.Username, a.DisplayName, a.SchoolUserId, a.CreatedAt, a.UpdatedAt })
                 .ToListAsync();
             return Ok(accounts);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ConnectOdaOrgRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest("Username and password are required");
-
-            var userId = await userContext.GetCurrentUserIdAsync();
-            var baseUrl = string.IsNullOrWhiteSpace(request.BaseUrl)
-                ? "https://odaorg.ict-bbag.ch" : request.BaseUrl.TrimEnd('/');
-
-            if (await db.Accounts.AnyAsync(a => a.ApplicationUserId == userId && a.BaseUrl == baseUrl))
-                return BadRequest("Account for this OdaOrg instance already connected");
-
-            var account = new OdaOrgAccount
-            {
-                ApplicationUserId = userId,
-                BaseUrl = baseUrl,
-                Username = request.Username,
-                Password = request.Password,
-                DisplayName = request.DisplayName,
-            };
-            db.Accounts.Add(account);
-            await db.SaveChangesAsync();
-            return Ok(new { account.Id, Message = "Account created. It will sync on the next run, or trigger it now." });
         }
 
         [HttpDelete("{accountId:guid}")]
