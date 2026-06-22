@@ -25,39 +25,6 @@ namespace Schuly.Plugin.Schulware.Controllers
         private string BaseUrl =>
             configuration["Schulware:DefaultApiBaseUrl"] ?? "https://schlwr.pianonic.ch";
 
-        /// <summary>Begin OAuth: fetch the Schulnetz authorize URL + PKCE verifier.</summary>
-        [HttpGet("authorize-url")]
-        public async Task<IActionResult> GetAuthorizeUrl([FromQuery] string schulnetzBaseUrl)
-        {
-            if (string.IsNullOrWhiteSpace(schulnetzBaseUrl))
-                return BadRequest("schulnetzBaseUrl is required");
-
-            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl, schulnetzBaseUrl);
-            var result = await client.Api.Authenticate.Oauth.Mobile.Url.GetAsync();
-            if (result is null) return BadRequest("Failed to get authorize URL");
-
-            return Ok(new StatelessAuthorizeUrlResponse(result.AuthorizationUrl, result.CodeVerifier));
-        }
-
-        /// <summary>Exchange the OAuth code for tokens and hand them back. Stores nothing.</summary>
-        [HttpPost("oauth/callback")]
-        public async Task<IActionResult> Callback([FromBody] StatelessOAuthCallbackRequest request)
-        {
-            var client = SchulwareApiClientFactory.Create(
-                httpClientFactory, BaseUrl, request.SchulnetzBaseUrl);
-
-            var tokens = await client.Api.Authenticate.Oauth.Mobile.Callback.PostAsync(
-                new MobileCallbackRequestDto
-                {
-                    Code = request.Code,
-                    CodeVerifier = request.CodeVerifier,
-                    State = request.State,
-                });
-            if (tokens is null) return BadRequest("Failed to exchange OAuth code");
-
-            return Ok(new StatelessTokenResponse(tokens.AccessToken, tokens.RefreshToken));
-        }
-
         /// <summary>
         /// Headless credential login (email + password [+ TOTP]) via SchulwareAPI's
         /// ms-entrance flow — no browser, no WebView. Hands back tokens, web session
