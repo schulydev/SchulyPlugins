@@ -48,9 +48,6 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<VacationsSyncService>();
             services.AddScoped<SchoolProvisioningService>();
             services.AddScoped<OAuthCallbackService>();
-
-            // Unified plugin login (headless email + password via SchulwareAPI).
-            services.AddScoped<IPluginLogin, SchulwareLogin>();
         }
 
         // Routes live in Controllers/, discovered via MVC ApplicationPart registration.
