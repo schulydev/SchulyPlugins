@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Capture;
+using Schuly.Plugin.Schulware.Client.Api.Websession.Download;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Scrape;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Validate;
 using System.Collections.Generic;
@@ -21,6 +22,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Websession
         public global::Schuly.Plugin.Schulware.Client.Api.Websession.Capture.CaptureRequestBuilder Capture
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Websession.Capture.CaptureRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The download property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Websession.Download.DownloadRequestBuilder Download
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Websession.Download.DownloadRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The scrape property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Websession.Scrape.ScrapeRequestBuilder Scrape

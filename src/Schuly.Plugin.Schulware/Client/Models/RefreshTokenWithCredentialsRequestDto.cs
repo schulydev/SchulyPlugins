@@ -39,6 +39,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string SchulnetzBaseUrl { get; set; }
 #endif
+        /// <summary>Base32 TOTP secret, if the account has authenticator-app MFA. Push/SMS MFA can&apos;t be done headlessly.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? TotpSecret { get; set; }
+#nullable restore
+#else
+        public string TotpSecret { get; set; }
+#endif
         /// <summary>UA string to use for the new session.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -75,6 +83,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "email", n => { Email = n.GetStringValue(); } },
                 { "password", n => { Password = n.GetStringValue(); } },
                 { "schulnetz_base_url", n => { SchulnetzBaseUrl = n.GetStringValue(); } },
+                { "totp_secret", n => { TotpSecret = n.GetStringValue(); } },
                 { "user_agent", n => { UserAgent = n.GetStringValue(); } },
             };
         }
@@ -88,6 +97,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteStringValue("email", Email);
             writer.WriteStringValue("password", Password);
             writer.WriteStringValue("schulnetz_base_url", SchulnetzBaseUrl);
+            writer.WriteStringValue("totp_secret", TotpSecret);
             writer.WriteStringValue("user_agent", UserAgent);
             writer.WriteAdditionalData(AdditionalData);
         }
