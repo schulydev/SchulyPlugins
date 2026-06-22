@@ -33,9 +33,6 @@ namespace Schuly.Plugin.OdaOrg
             services.AddScoped<ProvisioningService>();
             services.AddScoped<GradesSyncService>();
             services.AddScoped<AgendaSyncService>();
-
-            // Unified plugin login (username + password).
-            services.AddScoped<IPluginLogin, OdaOrgLogin>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }
