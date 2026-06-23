@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Schuly.Plugin.Schulware.Data
 {
     public class SchulwareAccount
@@ -11,22 +13,31 @@ namespace Schuly.Plugin.Schulware.Data
         public string? SchulnetzStudentId { get; set; }
         public string? DisplayName { get; set; }
 
-        public string? MobileAccessToken { get; set; }
-        public string? MobileRefreshToken { get; set; }
+        /// <summary>
+        /// When on, the auth secrets are kept in the in-memory plugin vault and the
+        /// account is auto-refreshed/synced in the background. The secrets are never
+        /// written to the database, so after a backend restart the vault is empty and
+        /// the account must be reconnected to re-seed it.
+        /// </summary>
+        public bool AutoRefresh { get; set; } = true;
+
+        /// <summary>Not a secret — kept in the DB so the scheduler knows when to refresh.</summary>
         public DateTime? MobileTokenExpiresAt { get; set; }
 
-        public string? WebSessionId { get; set; }
-        public string? WebSessionUserId { get; set; }
-        public string? WebSessionTransId { get; set; }
+        // --- Secrets: held only in the per-plugin vault (encrypted in memory),
+        //     never persisted to the database. Hydrated onto the entity at use
+        //     time by AccountSecretStore. ---
+        [NotMapped] public string? MobileAccessToken { get; set; }
+        [NotMapped] public string? MobileRefreshToken { get; set; }
+        [NotMapped] public string? WebSessionId { get; set; }
+        [NotMapped] public string? WebSessionUserId { get; set; }
+        [NotMapped] public string? WebSessionTransId { get; set; }
 
-        /// <summary>Playwright storage_state blob captured during the user's interactive
-        /// OAuth login (cookies + localStorage). Sent to SchulwareAPI's /api/authenticate/refresh
-        /// for passwordless re-auth. Updated value is persisted back after each refresh.</summary>
-        public string? ContextStateJson { get; set; }
+        /// <summary>SchulwareAPI's opaque context_state blob for passwordless re-auth.</summary>
+        [NotMapped] public string? ContextStateJson { get; set; }
 
-        /// <summary>User-Agent string the cookies were captured with. Microsoft binds
-        /// session cookies to UA — must be replayed identically on refresh.</summary>
-        public string? UserAgent { get; set; }
+        /// <summary>User-Agent the session cookies were captured with (must be replayed on refresh).</summary>
+        [NotMapped] public string? UserAgent { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; }

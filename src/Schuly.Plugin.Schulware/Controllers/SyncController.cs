@@ -13,6 +13,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     public class SyncController(
         IPluginUserContext userContext,
         SchulwareDbContext db,
+        AccountSecretStore secretStore,
         SchulwareSyncTask syncTask) : ControllerBase
     {
         [HttpGet]
@@ -21,10 +22,12 @@ namespace Schuly.Plugin.Schulware.Controllers
             var account = await ResolveAccountAsync(accountId);
             if (account is null) return NotFound();
 
+            // Secrets live in the vault, not the DB — hydrate to report their presence.
+            secretStore.Hydrate(account);
             var syncState = await db.SyncStates.FirstOrDefaultAsync(s => s.AccountId == accountId);
             return Ok(new
             {
-                account.Id, account.SchulnetzBaseUrl, account.DisplayName,
+                account.Id, account.SchulnetzBaseUrl, account.DisplayName, account.AutoRefresh,
                 HasMobileToken = account.MobileAccessToken is not null,
                 HasWebSession = account.WebSessionId is not null,
                 LastSync = syncState?.LastSyncAt,

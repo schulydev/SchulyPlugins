@@ -24,8 +24,11 @@ namespace Schuly.Plugin.Schulware.Services
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
+            // Secrets are [NotMapped] (vault-only), so we filter on the persisted
+            // AutoRefresh flag instead. Whether the vault actually still holds the
+            // secrets is checked per account during the sync (it won't after a restart).
             var accounts = await db.Accounts
-                .Where(a => a.MobileAccessToken != null && a.SchoolUserId != null)
+                .Where(a => a.AutoRefresh && a.SchoolUserId != null)
                 .ToListAsync(cancellationToken);
 
             logger.LogInformation("Syncing {Count} Schulware accounts", accounts.Count);
@@ -55,6 +58,7 @@ namespace Schuly.Plugin.Schulware.Services
             IServiceProvider scopedSp, SchulwareAccount account, CancellationToken ct)
         {
             var db = scopedSp.GetRequiredService<SchulwareDbContext>();
+            var secretStore = scopedSp.GetRequiredService<AccountSecretStore>();
             var refresh = scopedSp.GetRequiredService<TokenRefreshService>();
             var provisioning = scopedSp.GetRequiredService<SchoolProvisioningService>();
             var grades = scopedSp.GetRequiredService<GradesSyncService>();
@@ -75,6 +79,12 @@ namespace Schuly.Plugin.Schulware.Services
 
             try
             {
+                // Load the account's secrets from the vault. Empty after a restart
+                // (vault-only by design) → the user must reconnect to re-seed it.
+                if (!secretStore.Hydrate(account))
+                    return await FailAsync(db, syncState, "NeedsReconnect",
+                        "No stored credentials (the in-memory vault is empty, e.g. after a restart). User needs to reconnect.", ct);
+
                 if (TokenExpired(account))
                 {
                     if (account.MobileRefreshToken is null)
@@ -128,6 +138,9 @@ namespace Schuly.Plugin.Schulware.Services
                 logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
             }
 
+            // Persist any rotated tokens / refreshed session / cleared web session
+            // back into the vault (mirrors how the secrets used to be DB-saved here).
+            secretStore.Save(account);
             await db.SaveChangesAsync(ct);
             return syncState;
         }

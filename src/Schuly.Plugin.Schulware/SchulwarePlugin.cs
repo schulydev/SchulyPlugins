@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Services;
@@ -47,6 +48,11 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<DocumentsSyncService>();
             services.AddScoped<VacationsSyncService>();
             services.AddScoped<SchoolProvisioningService>();
+
+            // The account auth secrets live in this plugin's isolated, in-memory
+            // vault (keyed by the plugin name by the host) instead of the database.
+            services.AddScoped(sp => new AccountSecretStore(
+                sp.GetRequiredKeyedService<IPluginVault>(PluginName)));
 
             // Unified plugin login (headless email + password via SchulwareAPI).
             services.AddScoped<IPluginLogin, SchulwareLogin>();

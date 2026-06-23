@@ -31,6 +31,9 @@ namespace Schuly.Plugin.OdaOrg.Data.Migrations
                     b.Property<Guid>("ApplicationUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AutoRefresh")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("BaseUrl")
                         .IsRequired()
                         .HasColumnType("text");
@@ -41,19 +44,11 @@ namespace Schuly.Plugin.OdaOrg.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("text");
 
-                    b.Property<string>("Password")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<Guid?>("SchoolUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

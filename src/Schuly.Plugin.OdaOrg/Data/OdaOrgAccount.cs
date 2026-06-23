@@ -1,9 +1,11 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Schuly.Plugin.OdaOrg.Data
 {
     /// <summary>
-    /// A connection to an OdaOrg portal. This is the credential facade: it
-    /// stores the login the background sync replays. No domain data lives here —
-    /// scraped profile/grades/agenda are written into the main Schuly DB.
+    /// A connection to an OdaOrg portal. The login credentials the background sync
+    /// replays live in the plugin's in-memory vault, not here — this row holds only
+    /// non-secret metadata. Scraped profile/grades/agenda go into the main Schuly DB.
     /// </summary>
     public class OdaOrgAccount
     {
@@ -14,14 +16,21 @@ namespace Schuly.Plugin.OdaOrg.Data
         public Guid? SchoolUserId { get; set; }
 
         public required string BaseUrl { get; set; }
-        public required string Username { get; set; }
-
-        /// <summary>OdaOrg has no OAuth/token flow — login is a plain form POST,
-        /// so the password must be replayed on every sync. Stored as given,
-        /// matching the existing plugins' credential-storage posture.</summary>
-        public required string Password { get; set; }
 
         public string? DisplayName { get; set; }
+
+        /// <summary>
+        /// When on, the credentials are kept in the in-memory vault and the account
+        /// is auto-synced in the background. They are never written to the database,
+        /// so after a backend restart the account must be reconnected to re-seed them.
+        /// </summary>
+        public bool AutoRefresh { get; set; } = true;
+
+        // --- Secrets: held only in the per-plugin vault (encrypted in memory),
+        //     never persisted. OdaOrg has no token flow — the scraper replays these
+        //     username/password on every sync — so they're hydrated from the vault. ---
+        [NotMapped] public string? Username { get; set; }
+        [NotMapped] public string? Password { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; }
