@@ -3,23 +3,34 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.OdaOrg.Data;
+using Schuly.Plugin.OdaOrg.Services;
 
 namespace Schuly.Plugin.OdaOrg.Controllers
 {
     [ApiController]
     [Authorize]
     [Route("api/plugins/odaorg/accounts")]
-    public class AccountsController(IPluginUserContext userContext, OdaOrgDbContext db) : ControllerBase
+    public class AccountsController(
+        IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> List()
         {
             var userId = await userContext.GetCurrentUserIdAsync();
+            // Credentials are vault-only ([NotMapped]) — report their presence from
+            // the vault rather than exposing the username from the DB.
             var accounts = await db.Accounts
                 .Where(a => a.ApplicationUserId == userId)
-                .Select(a => new { a.Id, a.BaseUrl, a.Username, a.DisplayName, a.SchoolUserId, a.CreatedAt, a.UpdatedAt })
+                .Select(a => new { a.Id, a.BaseUrl, a.DisplayName, a.SchoolUserId, a.AutoRefresh, a.CreatedAt, a.UpdatedAt })
                 .ToListAsync();
-            return Ok(accounts);
+
+            var result = accounts.Select(a => new
+            {
+                a.Id, a.BaseUrl, a.DisplayName, a.SchoolUserId, a.AutoRefresh,
+                HasCredentials = secretStore.Has(a.Id),
+                a.CreatedAt, a.UpdatedAt,
+            });
+            return Ok(result);
         }
 
         [HttpDelete("{accountId:guid}")]
@@ -33,6 +44,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
             if (state is not null) db.SyncStates.Remove(state);
             db.Accounts.Remove(account);
             await db.SaveChangesAsync();
+            secretStore.Remove(accountId); // drop the account's credentials from the vault
             return NoContent();
         }
     }

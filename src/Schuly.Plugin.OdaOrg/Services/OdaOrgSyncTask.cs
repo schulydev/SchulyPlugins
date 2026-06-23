@@ -24,7 +24,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             var db = scope.ServiceProvider.GetRequiredService<OdaOrgDbContext>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<OdaOrgSyncTask>>();
 
-            var accounts = await db.Accounts.ToListAsync(cancellationToken);
+            var accounts = await db.Accounts.Where(a => a.AutoRefresh).ToListAsync(cancellationToken);
             logger.LogInformation("Auto-refreshing {Count} OdaOrg accounts", accounts.Count);
 
             foreach (var account in accounts)
@@ -43,6 +43,7 @@ namespace Schuly.Plugin.OdaOrg.Services
         private static async Task<SyncState> SyncInternalAsync(IServiceProvider sp, OdaOrgAccount account, CancellationToken ct)
         {
             var db = sp.GetRequiredService<OdaOrgDbContext>();
+            var secretStore = sp.GetRequiredService<OdaOrgSecretStore>();
             var scraper = sp.GetRequiredService<OdaOrgScraper>();
             var provisioning = sp.GetRequiredService<ProvisioningService>();
             var grades = sp.GetRequiredService<GradesSyncService>();
@@ -54,7 +55,18 @@ namespace Schuly.Plugin.OdaOrg.Services
 
             try
             {
-                var scrape = await scraper.ScrapeAsync(account.BaseUrl, account.Username, account.Password, ct);
+                // Credentials live in the vault, not the DB — empty after a restart,
+                // in which case the user must reconnect to re-seed them.
+                if (!secretStore.Hydrate(account))
+                {
+                    state.LastSyncAt = DateTime.UtcNow;
+                    state.LastSyncStatus = "NeedsReconnect";
+                    state.LastSyncError = "No stored credentials (the in-memory vault is empty, e.g. after a restart). User needs to reconnect.";
+                    await db.SaveChangesAsync(ct);
+                    return state;
+                }
+
+                var scrape = await scraper.ScrapeAsync(account.BaseUrl, account.Username!, account.Password!, ct);
                 if (scrape is null)
                 {
                     state.LastSyncAt = DateTime.UtcNow;

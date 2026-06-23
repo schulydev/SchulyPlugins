@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.OdaOrg.Data;
 
 #nullable disable
 
-namespace Schuly.Plugin.Schulware.Data.Migrations
+namespace Schuly.Plugin.OdaOrg.Data.Migrations
 {
-    [DbContext(typeof(SchulwareDbContext))]
-    partial class SchulwareDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(OdaOrgDbContext))]
+    [Migration("20260623080413_MoveSecretsToVault")]
+    partial class MoveSecretsToVault
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,7 +25,7 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Schuly.Plugin.Schulware.Data.SchulwareAccount", b =>
+            modelBuilder.Entity("Schuly.Plugin.OdaOrg.Data.OdaOrgAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -34,41 +37,31 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
                     b.Property<bool>("AutoRefresh")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("BaseUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DisplayName")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("MobileTokenExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Guid?>("SchoolUserId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("SchulnetzBaseUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SchulnetzStudentId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SchulwareApiBaseUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApplicationUserId", "SchulnetzBaseUrl")
+                    b.HasIndex("ApplicationUserId", "BaseUrl")
                         .IsUnique();
 
                     b.ToTable("Accounts");
                 });
 
-            modelBuilder.Entity("Schuly.Plugin.Schulware.Data.SyncState", b =>
+            modelBuilder.Entity("Schuly.Plugin.OdaOrg.Data.SyncState", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -94,11 +87,11 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
                     b.ToTable("SyncStates");
                 });
 
-            modelBuilder.Entity("Schuly.Plugin.Schulware.Data.SyncState", b =>
+            modelBuilder.Entity("Schuly.Plugin.OdaOrg.Data.SyncState", b =>
                 {
-                    b.HasOne("Schuly.Plugin.Schulware.Data.SchulwareAccount", "Account")
+                    b.HasOne("Schuly.Plugin.OdaOrg.Data.OdaOrgAccount", "Account")
                         .WithOne()
-                        .HasForeignKey("Schuly.Plugin.Schulware.Data.SyncState", "AccountId")
+                        .HasForeignKey("Schuly.Plugin.OdaOrg.Data.SyncState", "AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
