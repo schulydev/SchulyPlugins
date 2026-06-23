@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.OdaOrg.Data;
 using Schuly.Plugin.OdaOrg.Infrastructure;
@@ -33,6 +34,11 @@ namespace Schuly.Plugin.OdaOrg
             services.AddScoped<ProvisioningService>();
             services.AddScoped<GradesSyncService>();
             services.AddScoped<AgendaSyncService>();
+
+            // Credentials live in this plugin's isolated, in-memory vault (keyed by
+            // the plugin name by the host) instead of the database.
+            services.AddScoped(sp => new OdaOrgSecretStore(
+                sp.GetRequiredKeyedService<IPluginVault>(PluginName)));
 
             // Unified plugin login (username + password).
             services.AddScoped<IPluginLogin, OdaOrgLogin>();

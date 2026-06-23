@@ -13,6 +13,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     public class OdaOrgLogin(
         IPluginUserContext userContext,
         OdaOrgDbContext db,
+        OdaOrgSecretStore secretStore,
         OdaOrgSyncTask syncTask,
         IServiceProvider services,
         ILogger<OdaOrgLogin> logger) : IPluginLogin
@@ -27,6 +28,8 @@ namespace Schuly.Plugin.OdaOrg.Services
             var username = Field(fields, "username");
             var password = Field(fields, "password");
             var baseUrl = Field(fields, "baseUrl");
+            // Opt-out: any explicit "false" disables ongoing background sync.
+            var autoRefresh = !string.Equals(Field(fields, "autoRefresh"), "false", StringComparison.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return new PluginLoginResult(false, null, "username and password are required");
             baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://odaorg.ict-bbag.ch" : baseUrl.TrimEnd('/');
@@ -47,13 +50,25 @@ namespace Schuly.Plugin.OdaOrg.Services
             account.Password = password;
             if (!string.IsNullOrWhiteSpace(displayName))
                 account.DisplayName = displayName;
+            account.AutoRefresh = autoRefresh;
             account.UpdatedAt = DateTime.UtcNow;
             if (isNew) db.Accounts.Add(account);
+            // Only non-secret metadata is persisted; the credentials are [NotMapped]
+            // and go to the vault instead.
             await db.SaveChangesAsync(cancellationToken);
+
+            // Seed the vault so the initial sync (which reloads the account and
+            // hydrates from the vault) has the credentials to replay.
+            secretStore.Save(account);
 
             // Best-effort initial sync so data lands without waiting for the tick.
             try { await syncTask.SyncAccountAsync(account.Id, services, cancellationToken); }
             catch (Exception ex) { logger.LogWarning(ex, "Initial OdAOrg sync failed for {AccountId}", account.Id); }
+
+            // Autorefresh off: keep nothing — the one-time sync is done, so drop the
+            // credentials back out of the vault. The account won't be background-synced.
+            if (!autoRefresh)
+                secretStore.Remove(account.Id);
 
             return new PluginLoginResult(true, account.Id, "Connected");
         }
