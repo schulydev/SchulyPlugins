@@ -67,29 +67,24 @@ namespace Schuly.Plugin.Schulware.Services
         /// </summary>
         public async Task<bool> RefreshViaRunnerAsync(SchulwareAccount account, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(account.ContextStateJson))
+            if (string.IsNullOrWhiteSpace(account.SessionCookiesJson))
             {
-                logger.LogWarning("Account {AccountId} has no stored context_state. " +
-                    "User must complete an interactive OAuth login to seed it.", account.Id);
+                logger.LogWarning("Account {AccountId} has no stored session cookies. " +
+                    "User must sign in again to seed them.", account.Id);
                 return false;
             }
 
             try
             {
-                // SchulwareAPI treats context_state as an opaque JSON blob. Kiota
-                // types it as a closed DTO, so hydrate the AdditionalData bag.
-                var contextState = new Client.Models.RefreshTokenRequestDto_context_state
-                {
-                    AdditionalData = JsonBag.ParseObject(account.ContextStateJson),
-                };
-
+                // Passwordless re-auth: replay the stored Microsoft session cookies
+                // through SchulwareAPI's unified /login (ms-entrance, no browser).
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
-                var result = await client.Api.Authenticate.Refresh.PostAsync(
-                    new Client.Models.RefreshTokenRequestDto
+                var result = await client.Api.Authenticate.Login.PostAsync(
+                    new Client.Models.LoginRequestDto
                     {
                         SchulnetzBaseUrl = account.SchulnetzBaseUrl,
                         UserAgent = account.UserAgent,
-                        ContextState = contextState,
+                        SessionCookies = SessionCookies.FromJson(account.SessionCookiesJson),
                     },
                     cancellationToken: ct);
 
@@ -107,12 +102,9 @@ namespace Schuly.Plugin.Schulware.Services
                 if (!string.IsNullOrEmpty(result.WebSessionUserId)) account.WebSessionUserId = result.WebSessionUserId;
                 if (!string.IsNullOrEmpty(result.WebSessionTransId)) account.WebSessionTransId = result.WebSessionTransId;
 
-                // Persist the rotated context_state — cookies may have been refreshed
-                // server-side and we MUST replay the latest blob on the next call.
-                // Use JsonBag.Serialize: the bag holds Kiota UntypedNode values that
-                // System.Text.Json would otherwise mangle into empty {} objects.
-                if (result.ContextState?.AdditionalData is { Count: > 0 } rotated)
-                    account.ContextStateJson = JsonBag.Serialize(rotated);
+                // Persist the rotated session cookies — they may have been refreshed
+                // server-side and we MUST replay the latest jar on the next call.
+                account.SessionCookiesJson = SessionCookies.ToJson(result.SessionCookies) ?? account.SessionCookiesJson;
 
                 account.UpdatedAt = DateTime.UtcNow;
                 db.Accounts.Update(account);

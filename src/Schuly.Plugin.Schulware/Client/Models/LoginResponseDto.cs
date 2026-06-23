@@ -7,10 +7,11 @@ using System.IO;
 using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
+    /// <summary>
+    /// Everything a caller needs from one login: mobile tokens, the web session,and the rotated cookie jar to persist for the next (passwordless) call.
+    /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
-    #pragma warning disable CS1591
-    public partial class RefreshTokenResponseDto : IAdditionalDataHolder, IParsable
-    #pragma warning restore CS1591
+    public partial class LoginResponseDto : IAdditionalDataHolder, IParsable
     {
         /// <summary>The access_token property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -22,14 +23,6 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #endif
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>Updated browser context state. The caller MUST persist this and pass it back on the next call.</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto_context_state? ContextState { get; set; }
-#nullable restore
-#else
-        public global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto_context_state ContextState { get; set; }
-#endif
         /// <summary>The message property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -45,6 +38,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #nullable restore
 #else
         public string RefreshToken { get; set; }
+#endif
+        /// <summary>Rotated Microsoft session cookies. The caller MUST persist these and pass them back as session_cookies on the next call.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto_session_cookies>? SessionCookies { get; set; }
+#nullable restore
+#else
+        public List<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto_session_cookies> SessionCookies { get; set; }
 #endif
         /// <summary>The session_id property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
@@ -73,21 +74,21 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public string WebSessionUserId { get; set; }
 #endif
         /// <summary>
-        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto"/> and sets the default values.
+        /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto"/> and sets the default values.
         /// </summary>
-        public RefreshTokenResponseDto()
+        public LoginResponseDto()
         {
             AdditionalData = new Dictionary<string, object>();
         }
         /// <summary>
         /// Creates a new instance of the appropriate class based on discriminator value
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto"/></returns>
+        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto"/></returns>
         /// <param name="parseNode">The parse node to use to read the discriminator value and create the object</param>
-        public static global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto CreateFromDiscriminatorValue(IParseNode parseNode)
+        public static global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto CreateFromDiscriminatorValue(IParseNode parseNode)
         {
             if(ReferenceEquals(parseNode, null)) throw new ArgumentNullException(nameof(parseNode));
-            return new global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto();
+            return new global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto();
         }
         /// <summary>
         /// The deserialization information for the current model
@@ -98,9 +99,9 @@ namespace Schuly.Plugin.Schulware.Client.Models
             return new Dictionary<string, Action<IParseNode>>
             {
                 { "access_token", n => { AccessToken = n.GetStringValue(); } },
-                { "context_state", n => { ContextState = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto_context_state>(global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto_context_state.CreateFromDiscriminatorValue); } },
                 { "message", n => { Message = n.GetStringValue(); } },
                 { "refresh_token", n => { RefreshToken = n.GetStringValue(); } },
+                { "session_cookies", n => { SessionCookies = n.GetCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto_session_cookies>(global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto_session_cookies.CreateFromDiscriminatorValue)?.AsList(); } },
                 { "session_id", n => { SessionId = n.GetStringValue(); } },
                 { "success", n => { Success = n.GetBoolValue(); } },
                 { "web_session_trans_id", n => { WebSessionTransId = n.GetStringValue(); } },
@@ -115,9 +116,9 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("access_token", AccessToken);
-            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto_context_state>("context_state", ContextState);
             writer.WriteStringValue("message", Message);
             writer.WriteStringValue("refresh_token", RefreshToken);
+            writer.WriteCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto_session_cookies>("session_cookies", SessionCookies);
             writer.WriteStringValue("session_id", SessionId);
             writer.WriteBoolValue("success", Success);
             writer.WriteStringValue("web_session_trans_id", WebSessionTransId);
