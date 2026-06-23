@@ -2,7 +2,6 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
-using Schuly.Plugin.Schulware.Client.Api.Websession.Capture;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Download;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Scrape;
 using Schuly.Plugin.Schulware.Client.Api.Websession.Validate;
@@ -18,11 +17,6 @@ namespace Schuly.Plugin.Schulware.Client.Api.Websession
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class WebsessionRequestBuilder : BaseRequestBuilder
     {
-        /// <summary>The capture property</summary>
-        public global::Schuly.Plugin.Schulware.Client.Api.Websession.Capture.CaptureRequestBuilder Capture
-        {
-            get => new global::Schuly.Plugin.Schulware.Client.Api.Websession.Capture.CaptureRequestBuilder(PathParameters, RequestAdapter);
-        }
         /// <summary>The download property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Websession.Download.DownloadRequestBuilder Download
         {

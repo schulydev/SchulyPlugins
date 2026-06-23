@@ -34,20 +34,20 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Login
         {
         }
         /// <summary>
-        /// Unified Schulnetz auth — one endpoint for every sign-in path.Pass a stored `context_state` for a silent passwordless re-auth, and/or`email` + `password` (+ optional `totp_secret`) for a headless credentiallogin. When both are present the cookies are tried first and thecredentials are the fallback. No browser/WebView — returns mobile tokens,the web session, and an updated `context_state` to persist.Supersedes `/refresh` (cookies only) and `/refresh-with-credentials`.
+        /// Unified Schulnetz auth — one endpoint for every sign-in path.Pass `session_cookies` from a previous response for a silent passwordlessre-auth, and/or `email` + `password` (+ `totp_secret`/`totp_code`) for aheadless credential login. When both are present the cookies are triedfirst and the credentials are the fallback. No browser, no WebView.Returns mobile tokens, the web session (PHPSESSID + id/transid), and therotated `session_cookies` to persist for the next call.
         /// </summary>
-        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto"/></returns>
-        /// <param name="body">Unified auth: one endpoint for every Schulnetz sign-in path.Supply a stored `context_state` for a silent, passwordless re-auth, and/or`email` + `password` (+ optional `totp_secret`) for a headless credentiallogin. When both are given, the stored cookies are tried first and thecredentials are the fallback. No browser, no WebView — `ms-entrance` walksthe Microsoft Entra flow over plain HTTP. Returns mobile tokens, the websession, and an updated `context_state` to persist.</param>
+        /// <returns>A <see cref="global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto"/></returns>
+        /// <param name="body">Unified Schulnetz auth — one call for every sign-in path.Pass `session_cookies` from a previous response for a silent, passwordlessre-auth, and/or `email` + `password` (+ TOTP) for a headless credentiallogin. When both are present the cookies are tried first and the credentialsare the fallback. No browser, no WebView.</param>
         /// <param name="cancellationToken">Cancellation token to use when cancelling requests</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
         /// <exception cref="global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError">When receiving a 422 status code</exception>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
-        public async Task<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto?> PostAsync(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto?> PostAsync(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>>? requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #nullable restore
 #else
-        public async Task<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto> PostAsync(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
+        public async Task<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto> PostAsync(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto body, Action<RequestConfiguration<DefaultQueryParameters>> requestConfiguration = default, CancellationToken cancellationToken = default)
         {
 #endif
             if(ReferenceEquals(body, null)) throw new ArgumentNullException(nameof(body));
@@ -56,13 +56,13 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate.Login
             {
                 { "422", global::Schuly.Plugin.Schulware.Client.Models.HTTPValidationError.CreateFromDiscriminatorValue },
             };
-            return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.RefreshTokenResponseDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
+            return await RequestAdapter.SendAsync<global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto>(requestInfo, global::Schuly.Plugin.Schulware.Client.Models.LoginResponseDto.CreateFromDiscriminatorValue, errorMapping, cancellationToken).ConfigureAwait(false);
         }
         /// <summary>
-        /// Unified Schulnetz auth — one endpoint for every sign-in path.Pass a stored `context_state` for a silent passwordless re-auth, and/or`email` + `password` (+ optional `totp_secret`) for a headless credentiallogin. When both are present the cookies are tried first and thecredentials are the fallback. No browser/WebView — returns mobile tokens,the web session, and an updated `context_state` to persist.Supersedes `/refresh` (cookies only) and `/refresh-with-credentials`.
+        /// Unified Schulnetz auth — one endpoint for every sign-in path.Pass `session_cookies` from a previous response for a silent passwordlessre-auth, and/or `email` + `password` (+ `totp_secret`/`totp_code`) for aheadless credential login. When both are present the cookies are triedfirst and the credentials are the fallback. No browser, no WebView.Returns mobile tokens, the web session (PHPSESSID + id/transid), and therotated `session_cookies` to persist for the next call.
         /// </summary>
         /// <returns>A <see cref="RequestInformation"/></returns>
-        /// <param name="body">Unified auth: one endpoint for every Schulnetz sign-in path.Supply a stored `context_state` for a silent, passwordless re-auth, and/or`email` + `password` (+ optional `totp_secret`) for a headless credentiallogin. When both are given, the stored cookies are tried first and thecredentials are the fallback. No browser, no WebView — `ms-entrance` walksthe Microsoft Entra flow over plain HTTP. Returns mobile tokens, the websession, and an updated `context_state` to persist.</param>
+        /// <param name="body">Unified Schulnetz auth — one call for every sign-in path.Pass `session_cookies` from a previous response for a silent, passwordlessre-auth, and/or `email` + `password` (+ TOTP) for a headless credentiallogin. When both are present the cookies are tried first and the credentialsare the fallback. No browser, no WebView.</param>
         /// <param name="requestConfiguration">Configuration for the request such as headers, query parameters, and middleware options.</param>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable

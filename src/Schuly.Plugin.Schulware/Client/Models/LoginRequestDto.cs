@@ -8,21 +8,13 @@ using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
     /// <summary>
-    /// Unified auth: one endpoint for every Schulnetz sign-in path.Supply a stored `context_state` for a silent, passwordless re-auth, and/or`email` + `password` (+ optional `totp_secret`) for a headless credentiallogin. When both are given, the stored cookies are tried first and thecredentials are the fallback. No browser, no WebView — `ms-entrance` walksthe Microsoft Entra flow over plain HTTP. Returns mobile tokens, the websession, and an updated `context_state` to persist.
+    /// Unified Schulnetz auth — one call for every sign-in path.Pass `session_cookies` from a previous response for a silent, passwordlessre-auth, and/or `email` + `password` (+ TOTP) for a headless credentiallogin. When both are present the cookies are tried first and the credentialsare the fallback. No browser, no WebView.
     /// </summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class LoginRequestDto : IAdditionalDataHolder, IParsable
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>Optional cookie jar from a previous login, for a silent (passwordless) re-auth.</summary>
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
-#nullable enable
-        public global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_context_state? ContextState { get; set; }
-#nullable restore
-#else
-        public global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_context_state ContextState { get; set; }
-#endif
         /// <summary>Microsoft SSO email (for a credential login or cold-start).</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -47,7 +39,23 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string SchulnetzBaseUrl { get; set; }
 #endif
-        /// <summary>Base32 TOTP secret, if the account has authenticator-app MFA. Push/SMS MFA can&apos;t be done headlessly.</summary>
+        /// <summary>Microsoft session cookies from a previous login, for a silent (passwordless) re-auth.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_session_cookies>? SessionCookies { get; set; }
+#nullable restore
+#else
+        public List<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_session_cookies> SessionCookies { get; set; }
+#endif
+        /// <summary>A precomputed 6-digit TOTP code, used as-is. Alternative to totp_secret.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? TotpCode { get; set; }
+#nullable restore
+#else
+        public string TotpCode { get; set; }
+#endif
+        /// <summary>Base32 TOTP secret, if the account has authenticator-app MFA. A fresh code is generated per attempt.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? TotpSecret { get; set; }
@@ -55,7 +63,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string TotpSecret { get; set; }
 #endif
-        /// <summary>UA string to use for the session.</summary>
+        /// <summary>UA to replay with. Microsoft binds session cookies to UA; a mismatch invalidates them.</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
         public string? UserAgent { get; set; }
@@ -88,10 +96,11 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
-                { "context_state", n => { ContextState = n.GetObjectValue<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_context_state>(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_context_state.CreateFromDiscriminatorValue); } },
                 { "email", n => { Email = n.GetStringValue(); } },
                 { "password", n => { Password = n.GetStringValue(); } },
                 { "schulnetz_base_url", n => { SchulnetzBaseUrl = n.GetStringValue(); } },
+                { "session_cookies", n => { SessionCookies = n.GetCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_session_cookies>(global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_session_cookies.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "totp_code", n => { TotpCode = n.GetStringValue(); } },
                 { "totp_secret", n => { TotpSecret = n.GetStringValue(); } },
                 { "user_agent", n => { UserAgent = n.GetStringValue(); } },
             };
@@ -103,10 +112,11 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
-            writer.WriteObjectValue<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_context_state>("context_state", ContextState);
             writer.WriteStringValue("email", Email);
             writer.WriteStringValue("password", Password);
             writer.WriteStringValue("schulnetz_base_url", SchulnetzBaseUrl);
+            writer.WriteCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.LoginRequestDto_session_cookies>("session_cookies", SessionCookies);
+            writer.WriteStringValue("totp_code", TotpCode);
             writer.WriteStringValue("totp_secret", TotpSecret);
             writer.WriteStringValue("user_agent", UserAgent);
             writer.WriteAdditionalData(AdditionalData);

@@ -50,9 +50,8 @@ namespace Schuly.Plugin.Schulware.Controllers
                     false, result?.Message ?? "Login failed",
                     null, null, null, null, null, null));
 
-            JsonElement? ctx = null;
-            if (result.ContextState?.AdditionalData is { Count: > 0 } bag)
-                ctx = JsonSerializer.Deserialize<JsonElement>(JsonBag.Serialize(bag));
+            // The opaque blob the caller persists is now the session_cookies jar.
+            JsonElement? ctx = SessionCookies.ToElement(result.SessionCookies);
 
             return Ok(new StatelessRefreshResponse(
                 true, result.Message,
@@ -61,22 +60,17 @@ namespace Schuly.Plugin.Schulware.Controllers
                 ctx));
         }
 
-        /// <summary>Passwordless refresh: replay the caller's context_state via SchulwareAPI.</summary>
+        /// <summary>Passwordless refresh: replay the caller's stored session cookies via SchulwareAPI's /login.</summary>
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] StatelessRefreshRequest request)
         {
-            var contextState = new RefreshTokenRequestDto_context_state
-            {
-                AdditionalData = JsonBag.ParseObject(request.ContextState.GetRawText()),
-            };
-
             var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
-            var result = await client.Api.Authenticate.Refresh.PostAsync(
-                new RefreshTokenRequestDto
+            var result = await client.Api.Authenticate.Login.PostAsync(
+                new LoginRequestDto
                 {
                     SchulnetzBaseUrl = request.BaseUrl,
                     UserAgent = request.UserAgent,
-                    ContextState = contextState,
+                    SessionCookies = SessionCookies.FromElement(request.ContextState),
                 });
 
             if (result is null || result.Success != true)
@@ -84,11 +78,8 @@ namespace Schuly.Plugin.Schulware.Controllers
                     false, result?.Message ?? "Refresh failed",
                     null, null, null, null, null, null));
 
-            // Return the rotated context_state as a JSON object for the caller to persist.
-            // JsonBag.Serialize lowers Kiota's UntypedNode tree to plain JSON first.
-            JsonElement? rotated = null;
-            if (result.ContextState?.AdditionalData is { Count: > 0 } bag)
-                rotated = JsonSerializer.Deserialize<JsonElement>(JsonBag.Serialize(bag));
+            // Hand back the rotated session_cookies for the caller to persist.
+            JsonElement? rotated = SessionCookies.ToElement(result.SessionCookies);
 
             return Ok(new StatelessRefreshResponse(
                 true, result.Message,

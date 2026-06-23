@@ -58,7 +58,7 @@ namespace Schuly.Plugin.Schulware.Services
                 DisplayName = displayName,
             };
 
-            RefreshTokenResponseDto? res;
+            LoginResponseDto? res;
             try
             {
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl, baseUrl);
@@ -85,8 +85,7 @@ namespace Schuly.Plugin.Schulware.Services
             account.WebSessionId = res.SessionId;
             account.WebSessionUserId = res.WebSessionUserId;
             account.WebSessionTransId = res.WebSessionTransId;
-            if (res.ContextState?.AdditionalData is { Count: > 0 } cs)
-                account.ContextStateJson = JsonBag.Serialize(cs);
+            account.SessionCookiesJson = SessionCookies.ToJson(res.SessionCookies) ?? account.SessionCookiesJson;
             if (!string.IsNullOrWhiteSpace(displayName))
                 account.DisplayName = displayName;
             account.AutoRefresh = autoRefresh;

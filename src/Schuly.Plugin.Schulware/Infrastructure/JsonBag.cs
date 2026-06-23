@@ -30,6 +30,9 @@ namespace Schuly.Plugin.Schulware.Infrastructure
             System.Text.Json.JsonSerializer.Serialize(
                 bag.ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)));
 
+        /// <summary>Lower a single Kiota <see cref="UntypedNode"/> tree to plain CLR objects.</summary>
+        public static object? Lower(object? node) => Plainify(node);
+
         private static object? Plainify(object? node) => node switch
         {
             UntypedObject o => o.GetValue().ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)),
