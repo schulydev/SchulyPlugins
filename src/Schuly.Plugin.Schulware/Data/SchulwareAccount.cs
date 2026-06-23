@@ -33,8 +33,8 @@ namespace Schuly.Plugin.Schulware.Data
         [NotMapped] public string? WebSessionUserId { get; set; }
         [NotMapped] public string? WebSessionTransId { get; set; }
 
-        /// <summary>SchulwareAPI's opaque context_state blob for passwordless re-auth.</summary>
-        [NotMapped] public string? ContextStateJson { get; set; }
+        /// <summary>Microsoft session_cookies (JSON array) for passwordless re-auth via SchulwareAPI.</summary>
+        [NotMapped] public string? SessionCookiesJson { get; set; }
 
         /// <summary>User-Agent the session cookies were captured with (must be replayed on refresh).</summary>
         [NotMapped] public string? UserAgent { get; set; }

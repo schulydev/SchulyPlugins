@@ -20,7 +20,7 @@ namespace Schuly.Plugin.Schulware.Services
             string? WebSessionId,
             string? WebSessionUserId,
             string? WebSessionTransId,
-            string? ContextStateJson,
+            string? SessionCookiesJson,
             string? UserAgent);
 
         /// <summary>Encrypts and stores the account's current secret fields.</summary>
@@ -31,7 +31,7 @@ namespace Schuly.Plugin.Schulware.Services
                 a.WebSessionId,
                 a.WebSessionUserId,
                 a.WebSessionTransId,
-                a.ContextStateJson,
+                a.SessionCookiesJson,
                 a.UserAgent)));
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Schulware.Services
             a.WebSessionId = s.WebSessionId;
             a.WebSessionUserId = s.WebSessionUserId;
             a.WebSessionTransId = s.WebSessionTransId;
-            a.ContextStateJson = s.ContextStateJson;
+            a.SessionCookiesJson = s.SessionCookiesJson;
             a.UserAgent = s.UserAgent;
             return true;
         }
