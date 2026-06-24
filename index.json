@@ -11,9 +11,9 @@
   {
     "name": "Schuly.Plugin.OdaOrg",
     "pkg": "schuly.plugin.odaorg",
-    "dll": "Schuly.Plugin.OdaOrg-v1.4.1.dll",
-    "deps": "Schuly.Plugin.OdaOrg-v1.4.1-deps.zip",
-    "version": "1.4.1",
+    "dll": "Schuly.Plugin.OdaOrg-v1.4.2.dll",
+    "deps": "Schuly.Plugin.OdaOrg-v1.4.2-deps.zip",
+    "version": "1.4.2",
     "description": "OdaOrgintegration(ICT-BBAGapprenticeshipportal).Scrapesprofile,modulegrades,andÜKcoursedaysintotheSchulybackendviaHttpClient+AngleSharp.",
     "authors": "schulydev"
   },
