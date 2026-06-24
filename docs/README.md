@@ -22,7 +22,7 @@ A Schulware/OdaOrg plugin folder is organised as:
 
 | Folder | Contents |
 |---|---|
-| `Controllers/` | ASP.NET MVC controllers — HTTP routes (host registers the assembly as an MVC ApplicationPart, so they are auto-discovered). |
+| `Controllers/` | ASP.NET MVC controllers - HTTP routes (host registers the assembly as an MVC ApplicationPart, so they are auto-discovered). |
 | `Services/` | Background task (`IPluginBackgroundTask`) + focused scoped sync/login services. |
 | `Dtos/` / `Models/` | One record per file. |
 | `Data/` | EF Core entities, `DbContext`, design-time factory, and `Migrations/`. |

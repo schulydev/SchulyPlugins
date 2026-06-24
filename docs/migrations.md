@@ -5,7 +5,7 @@ Plugins that persist data (Schulware, OdaOrg) own their schema via EF Core migra
 ## Each plugin gets its own database
 
 The backend's plugin host hands the plugin a dedicated connection string via
-`PluginServiceContext.ConnectionString` — it mutates the host connection string so the
+`PluginServiceContext.ConnectionString` - it mutates the host connection string so the
 database name becomes `schuly_plugin_<name>`. The plugin wires it into its `DbContext`:
 
 ```csharp
@@ -22,14 +22,14 @@ dotnet ef migrations add <Name> --project src/Schuly.Plugin.Schulware
 
 (Swap the project path for the plugin you're working on.) This writes the migration into the
 plugin's `Data/Migrations/` folder and updates the model snapshot. Requires the `dotnet-ef`
-tool — see [setup/development.md](setup/development.md).
+tool - see [setup/development.md](setup/development.md).
 
 ## Design-time factory
 
 `dotnet ef` constructs the `DbContext` at design time without the runtime DI pipeline, so each
 plugin ships an `IDesignTimeDbContextFactory<T>` next to its `DbContext`
 (e.g. `Data/SchulwareDbContextFactory.cs`). The connection string in the factory is a
-throwaway placeholder — migrations only need the model, not a live database:
+throwaway placeholder - migrations only need the model, not a live database:
 
 ```csharp
 internal sealed class SchulwareDbContextFactory : IDesignTimeDbContextFactory<SchulwareDbContext>
