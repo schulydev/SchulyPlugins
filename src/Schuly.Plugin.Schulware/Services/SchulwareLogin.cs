@@ -26,7 +26,22 @@ namespace Schuly.Plugin.Schulware.Services
         IServiceProvider services,
         ILogger<SchulwareLogin> logger) : IPluginLogin
     {
-        public string SystemKey => "schulnetz";
+        public SchoolSystemDescriptor SchoolSystem => new()
+        {
+            Key = "schulnetz",
+            DisplayName = "Schulnetz",
+            LoginMethod = "credentials",
+            PrivateAuthStrategy = "token",
+            StatelessBasePath = "/api/plugins/schulware/stateless",
+            PluginBasePath = "/api/plugins/schulware",
+            SortOrder = 0,
+            LoginFields =
+            [
+                new() { Key = "baseUrl",  Label = "Schulnetz URL", Type = "url",      Placeholder = "https://your-schulnetz.example.ch", Required = true },
+                new() { Key = "email",    Label = "Email",         Type = "text",     Required = true },
+                new() { Key = "password", Label = "Password",      Type = "password", Required = true },
+            ],
+        };
 
         public async Task<PluginLoginResult> ConnectAsync(
             IReadOnlyDictionary<string, string> fields,

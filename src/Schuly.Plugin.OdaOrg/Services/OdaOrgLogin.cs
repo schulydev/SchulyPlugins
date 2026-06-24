@@ -18,7 +18,22 @@ namespace Schuly.Plugin.OdaOrg.Services
         IServiceProvider services,
         ILogger<OdaOrgLogin> logger) : IPluginLogin
     {
-        public string SystemKey => "odaorg";
+        public SchoolSystemDescriptor SchoolSystem => new()
+        {
+            Key = "odaorg",
+            DisplayName = "OdA Org",
+            LoginMethod = "credentials",
+            PrivateAuthStrategy = "scrape",
+            StatelessBasePath = "/api/plugins/odaorg/stateless",
+            PluginBasePath = "/api/plugins/odaorg",
+            SortOrder = 1,
+            LoginFields =
+            [
+                new() { Key = "baseUrl",  Label = "Portal URL", Type = "url",      DefaultValue = "https://odaorg.ict-bbag.ch", Required = false },
+                new() { Key = "username", Label = "Username",   Type = "text",     Required = true },
+                new() { Key = "password", Label = "Password",   Type = "password", Required = true },
+            ],
+        };
 
         public async Task<PluginLoginResult> ConnectAsync(
             IReadOnlyDictionary<string, string> fields,
