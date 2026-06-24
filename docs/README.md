@@ -40,5 +40,3 @@ A Schulware/OdaOrg plugin folder is organised as:
 | [setup/kiota-client.md](setup/kiota-client.md) | Regenerating the Schulware Kiota client. |
 | [setup/distribution.md](setup/distribution.md) | How plugins are built and shipped to the `repo` branch. |
 | [contributing.md](contributing.md) | The enforced issue → branch → PR → squash workflow. |
-</content>
-</invoke>

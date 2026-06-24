@@ -86,4 +86,3 @@ public class MySyncTask : IPluginBackgroundTask
     }
 }
 ```
-</content>

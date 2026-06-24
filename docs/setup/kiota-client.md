@@ -41,4 +41,3 @@ kiota update
   `Schuly.Plugin.Schulware.csproj`; keep their versions compatible with the generator.
 - Regeneration is a code change like any other — follow the [contributing](../contributing.md)
   workflow.
-</content>

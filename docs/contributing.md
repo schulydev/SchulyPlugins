@@ -26,4 +26,3 @@ The workflow below is **enforced** — never commit straight to `main`.
 - [migrations.md](migrations.md) — EF Core migrations.
 - [setup/kiota-client.md](setup/kiota-client.md) — regenerating the Schulware client.
 - [setup/distribution.md](setup/distribution.md) — how merges to `main` ship.
-</content>
