@@ -3,7 +3,7 @@
   <img src="./assets/app_icon.png" width="160" alt="Schuly Logo">
 </p>
 <p align="center">
-  <strong>Official plugins for the Schuly backend — monorepo</strong>
+  <strong>Official plugins for the Schuly backend - monorepo</strong>
 </p>
 <p align="center">
   <a href="https://github.com/schulydev/SchulyPlugins/stargazers"><img src="https://img.shields.io/github/stars/schulydev/SchulyPlugins?style=flat&color=3da8ff" alt="GitHub stars"/></a>
