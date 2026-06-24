@@ -34,8 +34,9 @@ namespace Schuly.Plugin.OdaOrg.Services
 
                 mainDb.AgendaEntries.Add(new AgendaEntry
                 {
+                    // Exactly one scope must be set (CK_AgendaEntry_ExactlyOneScope):
+                    // a personal agenda entry is scoped to the school user only.
                     SchoolUserId = schoolUserId,
-                    SchoolId = schoolUser.SchoolId,
                     Title = title,
                     Description = d.Instructor is not null ? $"{d.Course} — {d.Instructor}" : d.Course,
                     Place = d.Room,
