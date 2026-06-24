@@ -17,7 +17,10 @@ namespace Schuly.Plugin.Schulware
     public class SchulwarePlugin : ISchulyPlugin
     {
         public const string PluginName = "Schulware Integration";
-        public const string PluginVersion = "2.4.1";
+
+        /// <summary>Reported version — derived from the assembly (csproj &lt;Version&gt;) so it never drifts.</summary>
+        public static readonly string PluginVersion =
+            typeof(SchulwarePlugin).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
         public string Name => PluginName;
         public string Version => PluginVersion;

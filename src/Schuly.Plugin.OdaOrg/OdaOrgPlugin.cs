@@ -17,7 +17,10 @@ namespace Schuly.Plugin.OdaOrg
     public class OdaOrgPlugin : ISchulyPlugin
     {
         public const string PluginName = "OdaOrg Integration";
-        public const string PluginVersion = "1.4.0";
+
+        /// <summary>Reported version — derived from the assembly (csproj &lt;Version&gt;) so it never drifts.</summary>
+        public static readonly string PluginVersion =
+            typeof(OdaOrgPlugin).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
         public string Name => PluginName;
         public string Version => PluginVersion;
