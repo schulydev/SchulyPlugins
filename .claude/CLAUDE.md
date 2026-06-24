@@ -1,4 +1,4 @@
-# Notes for Claude (and humans) — SchulyPlugins
+# Notes for Claude (and humans) - SchulyPlugins
 
 Official plugins for the Schuly backend. Each plugin lives in its own folder under `src/` and implements `ISchulyPlugin` from [Schuly.Plugin.Abstractions](https://github.com/schulydev/SchulyPluginAbstractions) (NuGet).
 
@@ -7,7 +7,7 @@ Official plugins for the Schuly backend. Each plugin lives in its own folder und
 - Never work on `main`. Create an issue (labeled) → branch `feature/<issue#>_PascalCase`
   or `fix/<issue#>_PascalCase` → PR (labeled) with `Closes #<issue>` → squash-merge +
   delete branch.
-- Use **bun** as the package manager / task runner — never npm, npx, or node directly.
+- Use **bun** as the package manager / task runner - never npm, npx, or node directly.
 - Use CLI tooling whenever one exists (`gh issue create`, `gh pr create`, generators, etc.).
 - No AI / Claude attribution in commits or PRs. Ever.
 - No test plans in PRs. PR body is **Summary** + `Closes #<issue>` only.
@@ -48,10 +48,10 @@ The publish workflow (`build_push.yml`) auto-picks up any `src/Schuly.Plugin.*/*
 
 ## Plugin lifecycle
 
-- `ConfigureServices` — register services, handlers, options
-- `ConfigureEndpoints` — map endpoints (use extension methods in `Endpoints/`)
-- `MigrateAsync` — run plugin-owned EF Core migrations via `db.Database.MigrateAsync()`
-- `IPluginBackgroundTask` — recurring work (the backend's `PluginBackgroundTaskHost` invokes `ExecuteAsync` on `Interval`)
+- `ConfigureServices` - register services, handlers, options
+- `ConfigureEndpoints` - map endpoints (use extension methods in `Endpoints/`)
+- `MigrateAsync` - run plugin-owned EF Core migrations via `db.Database.MigrateAsync()`
+- `IPluginBackgroundTask` - recurring work (the backend's `PluginBackgroundTaskHost` invokes `ExecuteAsync` on `Interval`)
 
 ## EF Core migrations
 
@@ -65,11 +65,11 @@ dotnet ef migrations add <Name> --project src/Schuly.Plugin.Schulware
 
 A `IDesignTimeDbContextFactory<T>` lives next to each DbContext so the `dotnet ef` tooling can construct it without going through the runtime DI pipeline.
 
-**Don't use `EnsureCreatedAsync`** — it creates the DB on first run but does nothing on schema changes. Use `MigrateAsync()` so column/index additions actually land on existing databases.
+**Don't use `EnsureCreatedAsync`** - it creates the DB on first run but does nothing on schema changes. Use `MigrateAsync()` so column/index additions actually land on existing databases.
 
 ## Kiota client (Schulware)
 
-Always regenerate **directly from the live URL** — never commit the OpenAPI JSON locally:
+Always regenerate **directly from the live URL** - never commit the OpenAPI JSON locally:
 
 ```sh
 cd src/Schuly.Plugin.Schulware
