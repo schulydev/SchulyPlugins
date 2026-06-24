@@ -3,7 +3,7 @@
 The Schulware plugin talks to [SchulwareAPI](https://github.com/schulydev/SchulwareAPI) through
 a [Kiota](https://learn.microsoft.com/openapi/kiota/)-generated client under
 `src/Schuly.Plugin.Schulware/Client/`. The generated code is committed; the **OpenAPI JSON is
-not** — always regenerate directly from the live URL.
+not** - always regenerate directly from the live URL.
 
 ## First generation
 
@@ -31,7 +31,7 @@ kiota update
 ```
 
 `kiota update` reads `kiota-lock.json` and regenerates against the same `descriptionLocation`
-(the live OpenAPI URL) with the recorded options — equivalent to re-running `kiota generate`.
+(the live OpenAPI URL) with the recorded options - equivalent to re-running `kiota generate`.
 
 ## Rules
 
@@ -39,5 +39,5 @@ kiota update
   the client tracks the deployed API.
 - The Kiota runtime packages (`Microsoft.Kiota.*`) are `PackageReference`s in
   `Schuly.Plugin.Schulware.csproj`; keep their versions compatible with the generator.
-- Regeneration is a code change like any other — follow the [contributing](../contributing.md)
+- Regeneration is a code change like any other - follow the [contributing](../contributing.md)
   workflow.
