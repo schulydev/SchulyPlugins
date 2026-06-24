@@ -51,4 +51,3 @@ unzip -o /tmp/deps.zip -d /app/plugins/
 The backend already provides framework + host-shared assemblies, so only the plugin DLL and
 its bundled third-party deps need to land in `plugins/`. `index.min.json` is the catalog
 clients read to discover available plugins and versions.
-</content>

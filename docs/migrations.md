@@ -58,4 +58,3 @@ public async Task MigrateAsync(IServiceProvider sp, CancellationToken ct = defau
 database on first run but does nothing on later schema changes, so column/index additions
 would never land on an existing database. `MigrateAsync()` creates the DB on first run **and**
 applies every schema delta afterwards.
-</content>

@@ -66,4 +66,3 @@ the container) and reads each plugin's YAML config from its plugins-config direc
 
 For real distribution (downloading prebuilt DLLs via `curl`) see
 [setup/distribution.md](distribution.md).
-</content>
