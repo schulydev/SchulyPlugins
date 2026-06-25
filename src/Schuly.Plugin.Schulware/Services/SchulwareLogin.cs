@@ -47,6 +47,9 @@ namespace Schuly.Plugin.Schulware.Services
                 || string.IsNullOrWhiteSpace(password))
                 return new PluginLoginResult(false, null, "baseUrl, email and password are required");
 
+            if (!BaseUrlGuard.IsAllowed(baseUrl))
+                return new PluginLoginResult(false, null, "baseUrl is not an allowed target");
+
             var apiBaseUrl = configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
             var userId = await userContext.GetCurrentUserIdAsync(cancellationToken);
 
