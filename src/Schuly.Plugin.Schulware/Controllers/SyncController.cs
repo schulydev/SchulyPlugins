@@ -10,11 +10,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts/{accountId:guid}/sync")]
-    public class SyncController(
-        IPluginUserContext userContext,
-        SchulwareDbContext db,
-        AccountSecretStore secretStore,
-        SchulwareSyncTask syncTask) : ControllerBase
+    public class SyncController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore, SchulwareSyncTask syncTask) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> Status(Guid accountId)
@@ -37,8 +33,7 @@ namespace Schuly.Plugin.Schulware.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Run(
-            Guid accountId, [FromServices] IServiceProvider services, CancellationToken ct)
+        public async Task<IActionResult> Run(Guid accountId, [FromServices] IServiceProvider services, CancellationToken ct)
         {
             var account = await ResolveAccountAsync(accountId);
             if (account is null) return NotFound();

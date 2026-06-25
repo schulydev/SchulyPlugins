@@ -15,11 +15,7 @@ namespace Schuly.Plugin.Schulware.Infrastructure
         /// instance. Pass null when calling endpoints that don't need it
         /// (e.g. /api/app/info).
         /// </summary>
-        public static SchulwareApiClient Create(
-            IHttpClientFactory httpClientFactory,
-            string baseUrl,
-            string? schulnetzBaseUrl = null,
-            string? bearerToken = null)
+        public static SchulwareApiClient Create(IHttpClientFactory httpClientFactory, string baseUrl, string? schulnetzBaseUrl = null, string? bearerToken = null)
         {
             var httpClient = httpClientFactory.CreateClient("Schulware");
             if (!string.IsNullOrWhiteSpace(bearerToken))

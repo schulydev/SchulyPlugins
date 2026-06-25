@@ -10,13 +10,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     /// Stores the credentials (OdAOrg has no token; the scraper replays them) and
     /// kicks an initial sync.
     /// </summary>
-    public class OdaOrgLogin(
-        IPluginUserContext userContext,
-        OdaOrgDbContext db,
-        OdaOrgSecretStore secretStore,
-        OdaOrgSyncTask syncTask,
-        IServiceProvider services,
-        ILogger<OdaOrgLogin> logger) : IPluginLogin
+    public class OdaOrgLogin(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgSyncTask syncTask, IServiceProvider services, ILogger<OdaOrgLogin> logger) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
         {
@@ -35,10 +29,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             ],
         };
 
-        public async Task<PluginLoginResult> ConnectAsync(
-            IReadOnlyDictionary<string, string> fields,
-            string? displayName,
-            CancellationToken cancellationToken = default)
+        public async Task<PluginLoginResult> ConnectAsync(IReadOnlyDictionary<string, string> fields, string? displayName, CancellationToken cancellationToken = default)
         {
             var username = Field(fields, "username");
             var password = Field(fields, "password");

@@ -19,9 +19,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/schulware/stateless")]
-    public class StatelessDataController(
-        IHttpClientFactory httpClientFactory,
-        IConfiguration configuration) : ControllerBase
+    public class StatelessDataController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
     {
         private string ProxyBaseUrl =>
             configuration["Schulware:DefaultApiBaseUrl"] ?? "https://schlwr.pianonic.ch";

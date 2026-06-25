@@ -11,9 +11,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     /// Inserts scraped ÜK course days (past + upcoming) as <see cref="AgendaEntry"/>
     /// rows attached to the student. Dedup on (SchoolUserId, Date, Title).
     /// </summary>
-    public class AgendaSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<AgendaSyncService> logger)
+    public class AgendaSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AgendaSyncService> logger)
     {
         public async Task SyncAsync(OdaOrgAccount account, IReadOnlyList<CourseDay> days, CancellationToken ct)
         {

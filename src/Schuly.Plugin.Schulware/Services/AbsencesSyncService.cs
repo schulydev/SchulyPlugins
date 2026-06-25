@@ -14,9 +14,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// main Schuly DB (deduplicates on SchoolUserId + From + Until). Requires a
     /// captured web session on the account.
     /// </summary>
-    public class AbsencesSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<AbsencesSyncService> logger)
+    public class AbsencesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AbsencesSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {

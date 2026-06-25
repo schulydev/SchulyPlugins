@@ -15,16 +15,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// tokens, web session and rotated context_state, provisions the school user
     /// and kicks an initial sync. Replaces the old OAuth-webview flow.
     /// </summary>
-    public class SchulwareLogin(
-        IPluginUserContext userContext,
-        SchulwareDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
-        SchoolProvisioningService provisioning,
-        AccountSecretStore secretStore,
-        SchulwareSyncTask syncTask,
-        IServiceProvider services,
-        ILogger<SchulwareLogin> logger) : IPluginLogin
+    public class SchulwareLogin(IPluginUserContext userContext, SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<SchulwareLogin> logger) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
         {
@@ -43,10 +34,7 @@ namespace Schuly.Plugin.Schulware.Services
             ],
         };
 
-        public async Task<PluginLoginResult> ConnectAsync(
-            IReadOnlyDictionary<string, string> fields,
-            string? displayName,
-            CancellationToken cancellationToken = default)
+        public async Task<PluginLoginResult> ConnectAsync(IReadOnlyDictionary<string, string> fields, string? displayName, CancellationToken cancellationToken = default)
         {
             var baseUrl = Field(fields, "baseUrl")?.TrimEnd('/');
             var email = Field(fields, "email");

@@ -7,8 +7,5 @@ namespace Schuly.Plugin.Schulware.Dtos
     /// passes its stored <c>context_state</c> (opaque JSON object), school URL and the
     /// exact WebView user agent back in on every refresh.
     /// </summary>
-    public record StatelessRefreshRequest(
-        string BaseUrl,
-        string UserAgent,
-        JsonElement ContextState);
+    public record StatelessRefreshRequest(string BaseUrl, string UserAgent, JsonElement ContextState);
 }

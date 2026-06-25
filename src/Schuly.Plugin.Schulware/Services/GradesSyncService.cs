@@ -15,9 +15,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// Creates the backing <c>Exam</c> and <c>Class</c> rows on demand. Requires a
     /// captured web session on the account.
     /// </summary>
-    public class GradesSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<GradesSyncService> logger)
+    public class GradesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<GradesSyncService> logger)
     {
         /// <summary>
         /// Syncs grades and returns a course-token → subject-name map (e.g.

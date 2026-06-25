@@ -12,10 +12,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// rows for a Schulware account using <c>/api/mobile/userInfo</c>.
     /// Creates on first connect, back-fills empty fields on subsequent ones.
     /// </summary>
-    public class SchoolProvisioningService(
-        IHttpClientFactory httpClientFactory,
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<SchoolProvisioningService> logger)
+    public class SchoolProvisioningService(IHttpClientFactory httpClientFactory, Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<SchoolProvisioningService> logger)
     {
         /// <summary>
         /// Best-effort: fetch user info, ensure School + SchoolUser exist,

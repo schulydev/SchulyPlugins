@@ -14,6 +14,24 @@ Official plugins for the Schuly backend. Each plugin lives in its own folder und
 - Commit subject: short imperative.
 - PR labels: `bug`, `enhancement`, `feature`, `refactor`, `CI/CD`, `dependencies`, `documentation`.
 
+## Code formatting
+
+Declaration signatures go on **one line** - never wrap the parameter list of a `record`, a primary-constructor `class`/`struct`, a method, or a constructor across multiple lines, however long it gets:
+
+```csharp
+// Yes
+public record StatelessLoginRequest(string BaseUrl, string Email, string Password, string? TotpSecret) : ICommand<Result>;
+public class GradesSyncService(SchulwareApiClient client, PluginDbContext db, ILogger<GradesSyncService> logger) : IGradesSync { ... }
+
+// No - parameter list wrapped across lines
+public record StatelessLoginRequest(
+    string BaseUrl,
+    string Email,
+    string Password) : ICommand<Result>;
+```
+
+**Keep wrapped as-is** (do *not* collapse): fluent / method-call chains (`.Where(...).Select(...)`), LINQ query expressions, and multi-line `if` / `while` / `for` / `switch` conditions and boolean expressions.
+
 ## Layout
 
 ```

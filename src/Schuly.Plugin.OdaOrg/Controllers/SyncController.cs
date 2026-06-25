@@ -10,10 +10,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/odaorg/accounts/{accountId:guid}/sync")]
-    public class SyncController(
-        IPluginUserContext userContext,
-        OdaOrgDbContext db,
-        OdaOrgSyncTask syncTask) : ControllerBase
+    public class SyncController(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSyncTask syncTask) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> Status(Guid accountId)

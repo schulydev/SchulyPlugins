@@ -43,8 +43,7 @@ namespace Schuly.Plugin.Schulware.Services
         /// Sync one account on demand. Same logic as the periodic loop. Returns
         /// the persisted SyncState so callers can surface status/error.
         /// </summary>
-        public async Task<SyncState> SyncAccountAsync(
-            Guid accountId, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
+        public async Task<SyncState> SyncAccountAsync(Guid accountId, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
@@ -54,8 +53,7 @@ namespace Schuly.Plugin.Schulware.Services
             return await SyncInternalAsync(scope.ServiceProvider, account, cancellationToken);
         }
 
-        private static async Task<SyncState> SyncInternalAsync(
-            IServiceProvider scopedSp, SchulwareAccount account, CancellationToken ct)
+        private static async Task<SyncState> SyncInternalAsync(IServiceProvider scopedSp, SchulwareAccount account, CancellationToken ct)
         {
             var db = scopedSp.GetRequiredService<SchulwareDbContext>();
             var secretStore = scopedSp.GetRequiredService<AccountSecretStore>();
@@ -148,8 +146,7 @@ namespace Schuly.Plugin.Schulware.Services
         private static bool TokenExpired(SchulwareAccount account) =>
             account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow;
 
-        private static async Task<SyncState> FailAsync(
-            SchulwareDbContext db, SyncState state, string status, string error, CancellationToken ct)
+        private static async Task<SyncState> FailAsync(SchulwareDbContext db, SyncState state, string status, string error, CancellationToken ct)
         {
             state.LastSyncAt = DateTime.UtcNow;
             state.LastSyncStatus = status;

@@ -16,12 +16,9 @@ namespace Schuly.Plugin.Schulware.Services
     /// subject-named grade classes), so we scope to the user rather than trying
     /// to match a Class. Dedup on (SchoolUserId, Date, Title). Requires a web session.
     /// </summary>
-    public class AgendaSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<AgendaSyncService> logger)
+    public class AgendaSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AgendaSyncService> logger)
     {
-        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account,
-            IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
+        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(account.WebSessionId))
             {
