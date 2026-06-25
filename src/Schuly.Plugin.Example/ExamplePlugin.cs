@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
+using System.Reflection;
 
 namespace Schuly.Plugin.Example
 {
@@ -15,7 +16,11 @@ namespace Schuly.Plugin.Example
         public const string PluginName = "Example Plugin";
 
         public string Name => PluginName;
-        public string Version => "1.0.0";
+
+        // Single source of truth: the csproj <Version>, surfaced via the assembly.
+        public string Version =>
+            GetType().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0]
+            ?? "0.0.0";
 
         public void ConfigureServices(IServiceCollection services, PluginServiceContext context)
         {
@@ -23,7 +28,7 @@ namespace Schuly.Plugin.Example
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints)
         {
-            endpoints.MapGet("/api/plugins/example/hello", (IPluginUserContext userContext) =>
+            endpoints.MapGet("/api/plugins/example/hello", () =>
             {
                 return Results.Ok(new { Message = "Hello from the Example Plugin!", Plugin = Name, Version });
             }).RequireAuthorization();
