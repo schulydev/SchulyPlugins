@@ -1,17 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Schuly.Domain;
-using Schuly.Domain.Enums;
 using Schuly.Infrastructure.Storage;
 using Schuly.Plugin.OdaOrg.Data;
 using Schuly.Plugin.OdaOrg.Models;
+using Schuly.Plugin.Shared.Provisioning;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
     /// <summary>
-    /// Ensures the main-DB <see cref="School"/> + <see cref="SchoolUser"/> for an
-    /// OdaOrg account exist, from the scraped profile. Stamps the account's
-    /// SchoolUserId on first run; back-fills blanks afterwards.
+    /// Ensures the main-DB School + SchoolUser for an OdaOrg account exist, from the
+    /// scraped profile. Stamps the account's SchoolUserId on first run; back-fills
+    /// blanks afterwards. The School is keyed on the OdaOrg instance URL (shared
+    /// <see cref="SchoolProvisioner"/>), not the user-typed display name.
     /// </summary>
     public class ProvisioningService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, ILogger<ProvisioningService> logger)
     {
@@ -19,59 +19,29 @@ namespace Schuly.Plugin.OdaOrg.Services
         {
             if (profile is null) return account.SchoolUserId;
 
-            var school = await GetOrCreateSchoolAsync(account, ct);
+            var school = await SchoolProvisioner.EnsureSchoolAsync(mainDb, account.BaseUrl, account.DisplayName, ct);
 
+            // Resolve the avatar (OdaOrg-specific: data: URIs go to blob storage) before
+            // handing a neutral profile to the shared provisioner.
             var existing = await mainDb.SchoolUsers
                 .FirstOrDefaultAsync(su => su.ApplicationUserId == account.ApplicationUserId && su.SchoolId == school.Id, ct);
+            var avatar = await ResolveAvatarAsync(profile.ProfilePictureUrl, existing?.ProfilePictureUrl, ct);
 
-            if (existing is null)
-            {
-                existing = new SchoolUser
-                {
-                    ApplicationUserId = account.ApplicationUserId,
-                    SchoolId = school.Id,
-                    FirstName = profile.FirstName ?? "",
-                    LastName = profile.LastName ?? "",
-                    Email = profile.Email ?? "",
-                    PrivateEmail = profile.PrivateEmail,
-                    PhoneNumber = profile.PhoneNumber,
-                    Street = profile.Street,
-                    City = profile.City,
-                    Zip = profile.Zip,
-                    Birthday = profile.Birthday ?? DateOnly.FromDateTime(DateTime.UtcNow),
-                    EntryDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                    Role = Roles.Student,
-                    State = UserState.Active,
-                    ProfilePictureUrl = await ResolveAvatarAsync(profile.ProfilePictureUrl, null, ct),
-                };
-                mainDb.SchoolUsers.Add(existing);
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Provisioned SchoolUser {Id} for OdaOrg account {Account}", existing.Id, account.Id);
-            }
-            else
-            {
-                // Back-fill blanks only — never clobber manual edits.
-                if (string.IsNullOrWhiteSpace(existing.FirstName)) existing.FirstName = profile.FirstName ?? existing.FirstName;
-                if (string.IsNullOrWhiteSpace(existing.LastName)) existing.LastName = profile.LastName ?? existing.LastName;
-                if (string.IsNullOrWhiteSpace(existing.Email) && profile.Email is not null) existing.Email = profile.Email;
-                if (string.IsNullOrWhiteSpace(existing.PrivateEmail) && profile.PrivateEmail is not null) existing.PrivateEmail = profile.PrivateEmail;
-                if (string.IsNullOrWhiteSpace(existing.PhoneNumber) && profile.PhoneNumber is not null) existing.PhoneNumber = profile.PhoneNumber;
-                if (string.IsNullOrWhiteSpace(existing.Street) && profile.Street is not null) existing.Street = profile.Street;
-                if (string.IsNullOrWhiteSpace(existing.City) && profile.City is not null) existing.City = profile.City;
-                if (string.IsNullOrWhiteSpace(existing.Zip) && profile.Zip is not null) existing.Zip = profile.Zip;
-                existing.ProfilePictureUrl = await ResolveAvatarAsync(profile.ProfilePictureUrl, existing.ProfilePictureUrl, ct);
-                await mainDb.SaveChangesAsync(ct);
-            }
+            var schoolUser = await SchoolProvisioner.EnsureSchoolUserAsync(mainDb, school, account.ApplicationUserId, Map(profile, avatar), ct);
 
-            account.SchoolUserId ??= existing.Id;
-            return existing.Id;
+            account.SchoolUserId ??= schoolUser.Id;
+            return schoolUser.Id;
         }
 
+        private static ProvisionedUser Map(OdaProfile p, string? avatar) => new(
+            p.FirstName, p.LastName, p.Email, p.PrivateEmail, p.PhoneNumber,
+            p.Street, p.City, p.Zip, p.Birthday, null, null, avatar);
+
         /// <summary>
-        /// Resolve the value to store in SchoolUser.ProfilePictureUrl:
-        /// keep an already-stored blob key / external URL (don't re-upload every
-        /// sync → orphan blobs); upload a scraped data: URI to the blobstore and
-        /// store its key; pass an http(s) URL through.
+        /// Resolve the value to store in SchoolUser.ProfilePictureUrl: keep an
+        /// already-stored blob key / external URL (don't re-upload every sync ->
+        /// orphan blobs); upload a scraped data: URI to the blobstore and store its
+        /// key; pass an http(s) URL through.
         /// </summary>
         private async Task<string?> ResolveAvatarAsync(string? scraped, string? existing, CancellationToken ct)
         {
@@ -107,33 +77,5 @@ namespace Schuly.Plugin.OdaOrg.Services
                 return existing;
             }
         }
-
-        private async Task<School> GetOrCreateSchoolAsync(OdaOrgAccount account, CancellationToken ct)
-        {
-            var name = account.DisplayName is { Length: > 0 } d ? d : "OdaOrg";
-            var logo = LogoUrlFor(account.BaseUrl);
-            var school = await mainDb.Schools.FirstOrDefaultAsync(s => s.Name == name, ct);
-            if (school is null)
-            {
-                school = new School { Name = name, Website = account.BaseUrl, LogoUrl = logo };
-                mainDb.Schools.Add(school);
-                await mainDb.SaveChangesAsync(ct);
-            }
-            else
-            {
-                // Backfill blanks only — don't clobber an admin-set website/logo.
-                if (string.IsNullOrWhiteSpace(school.Website)) school.Website = account.BaseUrl;
-                if (string.IsNullOrWhiteSpace(school.LogoUrl)) school.LogoUrl = logo;
-                await mainDb.SaveChangesAsync(ct);
-            }
-            return school;
-        }
-
-        /// <summary>School logo via a public favicon resolver keyed by host —
-        /// no auth, real per-school icon. Admins can override on the School row.</summary>
-        private static string? LogoUrlFor(string baseUrl) =>
-            Uri.TryCreate(baseUrl, UriKind.Absolute, out var u)
-                ? $"https://icons.duckduckgo.com/ip3/{u.Host}.ico"
-                : null;
     }
 }
