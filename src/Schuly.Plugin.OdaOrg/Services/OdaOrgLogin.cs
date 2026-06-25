@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.OdaOrg.Data;
+using Schuly.Plugin.OdaOrg.Infrastructure;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
@@ -39,6 +40,8 @@ namespace Schuly.Plugin.OdaOrg.Services
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return new PluginLoginResult(false, null, "username and password are required");
             baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://odaorg.ict-bbag.ch" : baseUrl.TrimEnd('/');
+            if (!BaseUrlGuard.IsAllowed(baseUrl))
+                return new PluginLoginResult(false, null, "baseUrl is not an allowed target");
 
             var userId = await userContext.GetCurrentUserIdAsync(cancellationToken);
             var account = await db.Accounts.FirstOrDefaultAsync(

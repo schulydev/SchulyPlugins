@@ -26,6 +26,9 @@ namespace Schuly.Plugin.OdaOrg.Controllers
                 || string.IsNullOrWhiteSpace(request.BaseUrl))
                 return BadRequest("username, password and baseUrl are required");
 
+            if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
+                return BadRequest("baseUrl is not an allowed target");
+
             OdaScrape? scrape;
             try
             {

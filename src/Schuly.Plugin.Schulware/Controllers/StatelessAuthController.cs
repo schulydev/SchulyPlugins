@@ -32,6 +32,9 @@ namespace Schuly.Plugin.Schulware.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
         {
+            if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
+                return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
+
             var client = SchulwareApiClientFactory.Create(
                 httpClientFactory, BaseUrl, request.BaseUrl);
 
@@ -62,6 +65,9 @@ namespace Schuly.Plugin.Schulware.Controllers
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] StatelessRefreshRequest request)
         {
+            if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
+                return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
+
             var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
             var result = await client.Api.Authenticate.Login.PostAsync(
                 new LoginRequestDto
