@@ -13,10 +13,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     /// OdaOrg account exist, from the scraped profile. Stamps the account's
     /// SchoolUserId on first run; back-fills blanks afterwards.
     /// </summary>
-    public class ProvisioningService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        IDocumentStorage storage,
-        ILogger<ProvisioningService> logger)
+    public class ProvisioningService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, ILogger<ProvisioningService> logger)
     {
         public async Task<Guid?> EnsureAsync(OdaOrgAccount account, OdaProfile? profile, CancellationToken ct)
         {

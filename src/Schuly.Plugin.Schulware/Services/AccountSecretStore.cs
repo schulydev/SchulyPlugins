@@ -14,14 +14,7 @@ namespace Schuly.Plugin.Schulware.Services
     {
         private static string Key(Guid id) => $"account:{id}";
 
-        private sealed record Secrets(
-            string? AccessToken,
-            string? RefreshToken,
-            string? WebSessionId,
-            string? WebSessionUserId,
-            string? WebSessionTransId,
-            string? SessionCookiesJson,
-            string? UserAgent);
+        private sealed record Secrets(string? AccessToken, string? RefreshToken, string? WebSessionId, string? WebSessionUserId, string? WebSessionTransId, string? SessionCookiesJson, string? UserAgent);
 
         /// <summary>Encrypts and stores the account's current secret fields.</summary>
         public void Save(SchulwareAccount a) =>

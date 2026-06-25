@@ -10,8 +10,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts")]
-    public class AccountsController(
-        IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore) : ControllerBase
+    public class AccountsController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> List()

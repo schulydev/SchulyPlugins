@@ -12,9 +12,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     /// a <see cref="Class"/> + <see cref="Exam"/>; the final mark becomes a
     /// <see cref="Grade"/>. Mirrors the Schulware plugin's grade-sync shape.
     /// </summary>
-    public class GradesSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<GradesSyncService> logger)
+    public class GradesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<GradesSyncService> logger)
     {
         public async Task SyncAsync(OdaOrgAccount account, IReadOnlyList<ModuleGrade> grades, CancellationToken ct)
         {

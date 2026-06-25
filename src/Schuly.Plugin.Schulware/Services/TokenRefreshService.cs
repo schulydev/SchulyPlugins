@@ -11,10 +11,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// stateless <c>/api/authenticate/refresh</c> path (replays the captured
     /// browser context server-side; passwordless).
     /// </summary>
-    public class TokenRefreshService(
-        IHttpClientFactory httpClientFactory,
-        SchulwareDbContext db,
-        ILogger<TokenRefreshService> logger)
+    public class TokenRefreshService(IHttpClientFactory httpClientFactory, SchulwareDbContext db, ILogger<TokenRefreshService> logger)
     {
         public async Task<bool> RefreshAsync(SchulwareAccount account, CancellationToken ct)
         {

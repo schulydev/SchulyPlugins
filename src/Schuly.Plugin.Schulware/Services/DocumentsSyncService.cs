@@ -19,11 +19,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// GET /api/documents/{id} download works. Dedup is on (SchoolUserId, Title,
     /// FileName).
     /// </summary>
-    public class DocumentsSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        IDocumentStorage storage,
-        IHttpClientFactory httpClientFactory,
-        ILogger<DocumentsSyncService> logger)
+    public class DocumentsSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, IHttpClientFactory httpClientFactory, ILogger<DocumentsSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
@@ -102,8 +98,7 @@ namespace Schuly.Plugin.Schulware.Services
         /// them in the blob store. Returns null on any failure — the caller then
         /// persists the metadata without a downloadable file.
         /// </summary>
-        private async Task<UploadedBlob?> DownloadAndStoreAsync(
-            SchulwareAccount account, DocumentFileDto file, CancellationToken ct)
+        private async Task<UploadedBlob?> DownloadAndStoreAsync(SchulwareAccount account, DocumentFileDto file, CancellationToken ct)
         {
             try
             {

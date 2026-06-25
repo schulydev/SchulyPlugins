@@ -75,11 +75,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
 
     public record OdaorgStatelessRequest(string BaseUrl, string Username, string Password);
 
-    public record OdaorgStatelessData(
-        OdaorgStatelessUserInfo? UserInfo,
-        List<OdaorgStatelessGrade> Grades,
-        List<OdaorgStatelessExam> Exams,
-        List<OdaorgStatelessAgendaEvent> Agenda);
+    public record OdaorgStatelessData(OdaorgStatelessUserInfo? UserInfo, List<OdaorgStatelessGrade> Grades, List<OdaorgStatelessExam> Exams, List<OdaorgStatelessAgendaEvent> Agenda);
 
     public record OdaorgStatelessUserInfo(string? FirstName, string? LastName, string? Email, string? Birthday);
 
@@ -88,6 +84,5 @@ namespace Schuly.Plugin.OdaOrg.Controllers
 
     public record OdaorgStatelessExam(string? Id, string? Name, string? Subject);
 
-    public record OdaorgStatelessAgendaEvent(
-        string? Id, string? Title, string? StartDate, string? EndDate, string? Room, string? Comment);
+    public record OdaorgStatelessAgendaEvent(string? Id, string? Title, string? StartDate, string? EndDate, string? Room, string? Comment);
 }

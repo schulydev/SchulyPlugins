@@ -19,9 +19,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// <see cref="AgendaSyncService"/> drops those (it requires a class), so we
     /// pick them up here. Dedup is on (SchoolUserId, EntryType=Holiday, Date, Title).
     /// </summary>
-    public class VacationsSyncService(
-        Schuly.Infrastructure.SchulyDbContext mainDb,
-        ILogger<VacationsSyncService> logger)
+    public class VacationsSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<VacationsSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {

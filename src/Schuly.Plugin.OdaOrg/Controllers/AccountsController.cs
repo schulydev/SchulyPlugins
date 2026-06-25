@@ -10,8 +10,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/odaorg/accounts")]
-    public class AccountsController(
-        IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore) : ControllerBase
+    public class AccountsController(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> List()
