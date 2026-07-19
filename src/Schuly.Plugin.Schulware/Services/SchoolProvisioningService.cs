@@ -15,13 +15,14 @@ namespace Schuly.Plugin.Schulware.Services
     public class SchoolProvisioningService(IHttpClientFactory httpClientFactory, Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<SchoolProvisioningService> logger)
     {
         /// <summary>
-        /// Best-effort: fetch user info, ensure School + SchoolUser exist, stamp them
-        /// onto the account. Failures are non-fatal - the caller can still complete
-        /// the login without provisioning.
+        /// Fetches user info, ensures the School + SchoolUser exist, and stamps them
+        /// onto the account. Returns null on success (or when there's nothing to do),
+        /// or a short human-readable reason when provisioning failed - the caller
+        /// surfaces it instead of reporting a successful connect. Details go to the log.
         /// </summary>
-        public async Task EnsureAsync(SchulwareAccount account, Guid userId)
+        public async Task<string?> EnsureAsync(SchulwareAccount account, Guid userId)
         {
-            if (account.MobileAccessToken is null) return;
+            if (account.MobileAccessToken is null) return null;
 
             try
             {
@@ -30,17 +31,19 @@ namespace Schuly.Plugin.Schulware.Services
                     account.SchulnetzBaseUrl, account.MobileAccessToken);
 
                 var info = await client.Api.Mobile.UserInfo.GetAsync();
-                if (info is null) return;
+                if (info is null) return "couldn't fetch your Schulnetz profile";
 
                 var school = await SchoolProvisioner.EnsureSchoolAsync(mainDb, account.SchulnetzBaseUrl, account.DisplayName);
                 var schoolUser = await SchoolProvisioner.EnsureSchoolUserAsync(mainDb, school, userId, Map(info));
 
                 account.SchoolUserId ??= schoolUser.Id;
                 account.SchulnetzStudentId ??= info.IdNr;
+                return null;
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Auto-provisioning School/SchoolUser failed for {AccountId}", account.Id);
+                return "setting up your school profile failed";
             }
         }
 
