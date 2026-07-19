@@ -101,7 +101,19 @@ namespace Schuly.Plugin.Schulware.Services
             account.AutoRefresh = autoRefresh;
 
             if (isNew) db.Accounts.Add(account);
-            await provisioning.EnsureAsync(account, userId);
+
+            // Provisioning must succeed for the account to be usable (it mints the
+            // SchoolUser the app renders). If it fails, don't report a successful
+            // connect - roll a newly-added account back so the user can cleanly retry
+            // and surface the reason instead of a silent, empty "connected" account.
+            var provisioningError = await provisioning.EnsureAsync(account, userId);
+            if (provisioningError is not null)
+            {
+                if (isNew) db.Accounts.Remove(account);
+                await db.SaveChangesAsync(cancellationToken);
+                return new PluginLoginResult(false, null, $"Connected to Schulnetz, but {provisioningError}. Please try again.");
+            }
+
             account.UpdatedAt = DateTime.UtcNow;
             // Only non-secret metadata is persisted here; the secret fields are
             // [NotMapped] and go to the vault instead.
