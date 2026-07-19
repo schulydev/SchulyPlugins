@@ -31,6 +31,10 @@ namespace Schuly.Plugin.Schulware.Services
                 new() { Key = "baseUrl",  Label = "Schulnetz URL", Type = "url",      Placeholder = "https://your-schulnetz.example.ch", Required = true },
                 new() { Key = "email",    Label = "Email",         Type = "text",     Required = true },
                 new() { Key = "password", Label = "Password",      Type = "password", Required = true },
+                // Optional: the TOTP *secret* (base32 seed / otpauth:// URI), not a live
+                // 6-digit code - SchulwareAPI regenerates the code each login so it works
+                // for background refresh too. Left blank, no second factor is sent.
+                new() { Key = "totp",     Label = "2FA secret (optional)", Type = "totp", Placeholder = "TOTP secret or otpauth:// URI", Required = false },
             ],
         };
 
