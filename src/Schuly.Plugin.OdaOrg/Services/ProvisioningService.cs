@@ -50,8 +50,8 @@ namespace Schuly.Plugin.OdaOrg.Services
             {
                 var comma = scraped.IndexOf(',');
                 if (comma < 0) return existing;
-                var meta = scraped[5..comma];                  // e.g. image/png;base64
-                var contentType = meta.Split(';')[0].Trim();   // e.g. image/png, image/webp, image/svg+xml
+                var meta = scraped[5..comma];
+                var contentType = meta.Split(';')[0].Trim();
                 var bytes = Convert.FromBase64String(scraped[(comma + 1)..]);
                 var subtype = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
                     ? contentType[6..].Split('+')[0].Trim().ToLowerInvariant()

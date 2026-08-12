@@ -80,7 +80,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
 
             result.Profile = BuildProfile(fields, photo);
 
-            // 4. Each grade-evaluation page renders server-side: module + Schlussnote.
+            // Each grade-evaluation page renders server-side: module + Schlussnote.
             foreach (var href in gradeLinks)
             {
                 var url = href.StartsWith("http") ? href : $"{baseUrl}/{href.TrimStart('/')}";

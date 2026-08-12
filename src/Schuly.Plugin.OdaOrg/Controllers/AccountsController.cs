@@ -43,7 +43,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
             if (state is not null) db.SyncStates.Remove(state);
             db.Accounts.Remove(account);
             await db.SaveChangesAsync();
-            secretStore.Remove(accountId); // drop the account's credentials from the vault
+            secretStore.Remove(accountId);
             return NoContent();
         }
     }
