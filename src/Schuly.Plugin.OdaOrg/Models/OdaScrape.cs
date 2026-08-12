@@ -1,6 +1,5 @@
 namespace Schuly.Plugin.OdaOrg.Models
 {
-    /// <summary>Everything one scrape pass pulls from an OdaOrg portal.</summary>
     public class OdaScrape
     {
         public OdaProfile? Profile { get; set; }
@@ -20,11 +19,9 @@ namespace Schuly.Plugin.OdaOrg.Models
         public string? Street { get; set; }
         public string? Zip { get; set; }
         public string? City { get; set; }
-        /// <summary>Self-contained data:image/... URI scraped from the profile box.</summary>
         public string? ProfilePictureUrl { get; set; }
     }
 
-    /// <summary>A graded module — final mark from its evaluation page.</summary>
     public class ModuleGrade
     {
         public required string ModuleName { get; set; }
@@ -32,7 +29,6 @@ namespace Schuly.Plugin.OdaOrg.Models
         public decimal? UnroundedGrade { get; set; }
     }
 
-    /// <summary>A single ÜK course day (past or upcoming).</summary>
     public class CourseDay
     {
         public required string Course { get; set; }

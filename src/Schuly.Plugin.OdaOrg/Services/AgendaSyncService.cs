@@ -7,10 +7,6 @@ using Schuly.Plugin.OdaOrg.Models;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    /// <summary>
-    /// Inserts scraped ÜK course days (past + upcoming) as <see cref="AgendaEntry"/>
-    /// rows attached to the student. Dedup on (SchoolUserId, Date, Title).
-    /// </summary>
     public class AgendaSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AgendaSyncService> logger)
     {
         public async Task SyncAsync(OdaOrgAccount account, IReadOnlyList<CourseDay> days, CancellationToken ct)
@@ -32,8 +28,6 @@ namespace Schuly.Plugin.OdaOrg.Services
 
                 mainDb.AgendaEntries.Add(new AgendaEntry
                 {
-                    // Exactly one scope must be set (CK_AgendaEntry_ExactlyOneScope):
-                    // a personal agenda entry is scoped to the school user only.
                     SchoolUserId = schoolUserId,
                     Title = title,
                     Description = d.Instructor is not null ? $"{d.Course} — {d.Instructor}" : d.Course,

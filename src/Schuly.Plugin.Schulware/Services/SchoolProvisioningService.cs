@@ -6,20 +6,8 @@ using Schuly.Plugin.Shared.Provisioning;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Resolves the main-DB School + SchoolUser rows for a Schulware account using
-    /// <c>/api/mobile/userInfo</c>. Creates on first connect, back-fills empty fields
-    /// on subsequent ones. The School is keyed on the Schulnetz instance URL (shared
-    /// <see cref="SchoolProvisioner"/>), not the user-typed display name.
-    /// </summary>
     public class SchoolProvisioningService(IHttpClientFactory httpClientFactory, Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<SchoolProvisioningService> logger)
     {
-        /// <summary>
-        /// Fetches user info, ensures the School + SchoolUser exist, and stamps them
-        /// onto the account. Returns null on success (or when there's nothing to do),
-        /// or a short human-readable reason when provisioning failed - the caller
-        /// surfaces it instead of reporting a successful connect. Details go to the log.
-        /// </summary>
         public async Task<string?> EnsureAsync(SchulwareAccount account, Guid userId)
         {
             if (account.MobileAccessToken is null) return null;

@@ -7,12 +7,6 @@ using Schuly.Plugin.OdaOrg.Infrastructure;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    /// <summary>
-    /// Periodic OdaOrg sync (auto-refresh). The host's PluginBackgroundTaskHost
-    /// runs <see cref="ExecuteAsync"/> every <see cref="Interval"/>; the same
-    /// per-account logic is also exposed via <see cref="SyncAccountAsync"/> for
-    /// the on-demand POST endpoint. Mirrors the Schulware plugin's sync task.
-    /// </summary>
     public class OdaOrgSyncTask : IPluginBackgroundTask
     {
         public string Name => "OdaOrg Data Sync";
@@ -55,8 +49,6 @@ namespace Schuly.Plugin.OdaOrg.Services
 
             try
             {
-                // Credentials live in the vault, not the DB — empty after a restart,
-                // in which case the user must reconnect to re-seed them.
                 if (!secretStore.Hydrate(account))
                 {
                     state.LastSyncAt = DateTime.UtcNow;

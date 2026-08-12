@@ -8,12 +8,6 @@ using Schuly.Plugin.Schulware.Data;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Pulls a Schulware account's absences by scraping the Schulnetz "Absenzen"
-    /// page (typed <see cref="AbsencesPageDto"/>) and inserts new rows into the
-    /// main Schuly DB (deduplicates on SchoolUserId + From + Until). Requires a
-    /// captured web session on the account.
-    /// </summary>
     public class AbsencesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AbsencesSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
@@ -69,7 +63,6 @@ namespace Schuly.Plugin.Schulware.Services
 
         private static bool TryParseDate(string? raw, out DateTime date)
         {
-            // Scraped dates look like "Do, 05.03.2026" or "05.03.2026".
             date = default;
             if (string.IsNullOrWhiteSpace(raw)) return false;
             var cleaned = raw.Contains(',') ? raw[(raw.IndexOf(',') + 1)..].Trim() : raw.Trim();

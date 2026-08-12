@@ -8,14 +8,6 @@ using Schuly.Plugin.Schulware.Data;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Pulls a Schulware account's timetable by scraping the Schulnetz scheduler
-    /// (typed <see cref="ScheduleEventDto"/> list via the "schedule" page) and
-    /// inserts Lesson-typed <see cref="AgendaEntry"/> rows scoped to the
-    /// SchoolUser. Scheduler events carry a course token + class group (not the
-    /// subject-named grade classes), so we scope to the user rather than trying
-    /// to match a Class. Dedup on (SchoolUserId, Date, Title). Requires a web session.
-    /// </summary>
     public class AgendaSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AgendaSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
@@ -45,10 +37,6 @@ namespace Schuly.Plugin.Schulware.Services
             {
                 if (!TryParse(ev.StartDate, out var date)) continue;
 
-                // Prefer the readable subject name looked up from the grades by the
-                // course token ("NW (Ph)-BM23d-BuFe" → "Naturwissenschaften (Physik)").
-                // No grade entry (e.g. Informatik) → fall back to the abbreviation,
-                // then the event text, then the course token (id).
                 static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
                 string? mapped = null;
                 if (Blank(ev.Kurskuerzel) is { } token)

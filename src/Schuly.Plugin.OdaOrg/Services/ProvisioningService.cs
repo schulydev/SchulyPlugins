@@ -7,12 +7,6 @@ using Schuly.Plugin.Shared.Provisioning;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    /// <summary>
-    /// Ensures the main-DB School + SchoolUser for an OdaOrg account exist, from the
-    /// scraped profile. Stamps the account's SchoolUserId on first run; back-fills
-    /// blanks afterwards. The School is keyed on the OdaOrg instance URL (shared
-    /// <see cref="SchoolProvisioner"/>), not the user-typed display name.
-    /// </summary>
     public class ProvisioningService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, ILogger<ProvisioningService> logger)
     {
         public async Task<Guid?> EnsureAsync(OdaOrgAccount account, OdaProfile? profile, CancellationToken ct)
@@ -21,8 +15,6 @@ namespace Schuly.Plugin.OdaOrg.Services
 
             var school = await SchoolProvisioner.EnsureSchoolAsync(mainDb, account.BaseUrl, account.DisplayName, ct);
 
-            // Resolve the avatar (OdaOrg-specific: data: URIs go to blob storage) before
-            // handing a neutral profile to the shared provisioner.
             var existing = await mainDb.SchoolUsers
                 .FirstOrDefaultAsync(su => su.ApplicationUserId == account.ApplicationUserId && su.SchoolId == school.Id, ct);
             var avatar = await ResolveAvatarAsync(profile.ProfilePictureUrl, existing?.ProfilePictureUrl, ct);
@@ -61,8 +53,6 @@ namespace Schuly.Plugin.OdaOrg.Services
                 var meta = scraped[5..comma];                  // e.g. image/png;base64
                 var contentType = meta.Split(';')[0].Trim();   // e.g. image/png, image/webp, image/svg+xml
                 var bytes = Convert.FromBase64String(scraped[(comma + 1)..]);
-                // Derive the extension from the MIME subtype so any image format
-                // works (png, webp, gif, bmp, svg, …), not just png/jpg.
                 var subtype = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
                     ? contentType[6..].Split('+')[0].Trim().ToLowerInvariant()
                     : "";

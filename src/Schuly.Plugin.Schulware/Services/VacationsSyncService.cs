@@ -32,8 +32,6 @@ namespace Schuly.Plugin.Schulware.Services
 
             foreach (var e in events)
             {
-                // Holidays/free days are course-less, all-day "Event" entries.
-                // Timed events (e.g. an evening ceremony) and lessons are excluded.
                 if (!string.Equals(e.EventType, "Event", StringComparison.OrdinalIgnoreCase)) continue;
                 if (!string.IsNullOrWhiteSpace(e.CourseName) || !string.IsNullOrWhiteSpace(e.CourseToken)) continue;
                 if (!TryParseDate(e.StartDate, out var from) || from.TimeOfDay != TimeSpan.Zero) continue;
@@ -56,7 +54,6 @@ namespace Schuly.Plugin.Schulware.Services
                     Title = title,
                     Date = from,
                     EndDate = to,
-                    // Exactly one scope allowed — holidays are per student-user.
                     SchoolUserId = schoolUserId,
                 });
                 synced++;

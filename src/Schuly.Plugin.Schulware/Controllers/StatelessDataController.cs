@@ -9,13 +9,6 @@ using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Controllers
 {
-    /// <summary>
-    /// Stateless, account-free data proxy for the app's private mode. Fetches the
-    /// caller's SchulwareAPI mobile data with their bearer token and returns it
-    /// mapped to flat DTOs. Persists nothing. Credentials travel in headers:
-    /// <c>X-Plugin-Token</c> (the access token) and
-    /// <c>X-Provider-Base-Url</c> (the school instance URL).
-    /// </summary>
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/schulware/stateless")]
@@ -44,10 +37,6 @@ namespace Schuly.Plugin.Schulware.Controllers
         public Task<IActionResult> UserInfo() => ProxyAsync(async c =>
             MapUserInfo(await c.Api.Mobile.UserInfo.GetAsync()));
 
-        /// <summary>
-        /// Reads the caller's credentials from headers, builds an authenticated
-        /// SchulwareAPI client and runs <paramref name="fetch"/>. Stores nothing.
-        /// </summary>
         private async Task<IActionResult> ProxyAsync<T>(Func<SchulwareApiClient, Task<T>> fetch)
         {
             var token = Request.Headers["X-Plugin-Token"].ToString();
@@ -69,8 +58,6 @@ namespace Schuly.Plugin.Schulware.Controllers
             }
         }
 
-        // Best-effort field mappings from SchulwareAPI mobile DTOs; field semantics
-        // to be confirmed against a real account.
         private static StatelessGradeDto MapGrade(GradeDto g) => new(
             g.Id, g.ExamId, g.Subject ?? g.Course, g.Mark, g.Date, g.Comment, g.Points);
 

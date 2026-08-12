@@ -8,13 +8,6 @@ using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// <see cref="IPluginLogin"/> for Schulnetz — a headless email + password
-    /// (+ optional TOTP) connect via SchulwareAPI's unified
-    /// <c>/api/authenticate/login</c> (ms-entrance, no browser). Stores the mobile
-    /// tokens, web session and rotated context_state, provisions the school user
-    /// and kicks an initial sync. Replaces the old OAuth-webview flow.
-    /// </summary>
     public class SchulwareLogin(IPluginUserContext userContext, SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<SchulwareLogin> logger) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
@@ -119,19 +112,14 @@ namespace Schuly.Plugin.Schulware.Services
             // [NotMapped] and go to the vault instead.
             await db.SaveChangesAsync(cancellationToken);
 
-            // Seed the vault so the initial sync (which reloads the account and
-            // hydrates from the vault) has the secrets to work with.
             secretStore.Save(account);
 
-            // Best-effort initial sync so data lands without waiting for the tick.
             if (account.SchoolUserId is not null && account.MobileAccessToken is not null)
             {
                 try { await syncTask.SyncAccountAsync(account.Id, services, cancellationToken); }
                 catch (Exception ex) { logger.LogWarning(ex, "Initial sync failed for {AccountId}", account.Id); }
             }
 
-            // Autorefresh off: keep nothing — the one-time sync is done, so drop the
-            // secrets back out of the vault. The account won't be background-synced.
             if (!autoRefresh)
                 secretStore.Remove(account.Id);
 
