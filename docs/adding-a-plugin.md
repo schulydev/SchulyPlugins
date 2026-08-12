@@ -2,7 +2,29 @@
 
 ## Scaffold
 
-1. Copy `src/Schuly.Plugin.Example/` to `src/Schuly.Plugin.<Name>/`.
+`src/Schuly.Plugin.Example/` - what you're copying - is intentionally minimal:
+
+```
+src/Schuly.Plugin.Example/
+├── ExamplePlugin.cs                  # ISchulyPlugin implementation
+├── Schuly.Plugin.Example.csproj
+└── Schuly.Plugin.Example.slnx        # opens this plugin standalone in an IDE
+```
+
+Real plugins grow a `Controllers/`, `Data/` (a `DbContext` + EF migrations), and
+`Services/` folder as they need them - see `src/Schuly.Plugin.Schulware/` or
+`src/Schuly.Plugin.OdaOrg/` for what that looks like once a plugin talks to a
+database and an external API. None of that is required to start.
+
+1. Copy `src/Schuly.Plugin.Example/` to `src/Schuly.Plugin.<Name>/`:
+
+   ```
+   src/Schuly.Plugin.<Name>/
+   ├── <Name>Plugin.cs
+   ├── Schuly.Plugin.<Name>.csproj
+   └── Schuly.Plugin.<Name>.slnx
+   ```
+
 2. Rename `ExamplePlugin.cs` → `<Name>Plugin.cs`; rename the class and namespace to match.
    The class implements `ISchulyPlugin`.
 3. Rename the `.csproj` (and `.slnx`) to `Schuly.Plugin.<Name>`. Keep
