@@ -1,13 +1,5 @@
 name: Build + publish plugins to repo branch
 
-# Aniyomi-style distribution:
-#   main branch = C# plugin source projects
-#   repo branch = built DLLs under dll/ + index.json + index.min.json
-# Operators fetch DLLs from raw.githubusercontent.com/schulydev/SchulyPlugins/repo/dll/<name>-v<version>.dll
-# and the index from .../repo/index.min.json.
-#
-# Adding a new plugin = creating a new Schuly.Plugin.<Name>/ folder with a csproj. No workflow change needed.
-
 on:
   push:
     branches: [main]
@@ -16,8 +8,6 @@ on:
       - '.github/workflows/build_push.yml'
   workflow_dispatch:
 
-# Cancel an in-flight run if a newer push to the same ref starts a new one
-# (e.g. force-push from a Co-Authored-By scrub). Keeps only the newest run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -89,21 +79,14 @@ jobs:
           dll_name="${name}-v${version}.dll"
           deps_name="${name}-v${version}-deps.zip"
 
-          # The plugin's own DLL ships standalone — operators can pin/swap it
-          # independently from its bundled dependencies.
           cp "./out/${name}.dll" "staging/dll/${dll_name}"
 
-          # Drop host-provided / framework assemblies from the deps payload.
-          # The backend already has these via its own NuGet refs or the .NET
-          # shared framework; shipping duplicates just wastes disk.
           mkdir -p deps-staging
           shopt -s extglob nullglob
           for f in ./out/*.dll; do
             base=$(basename "$f")
             case "$base" in
-              # The plugin's own DLL ships separately (above).
               "${name}.dll") continue ;;
-              # Host-provided assemblies.
               Microsoft.AspNetCore.*|Microsoft.Extensions.*) continue ;;
               Microsoft.EntityFrameworkCore.*|Npgsql.*) continue ;;
               Mediator.*) continue ;;
@@ -111,10 +94,6 @@ jobs:
               *) cp "$f" "deps-staging/$base" ;;
             esac
           done
-          # Always produce the zip so the index schema is uniform. If a plugin
-          # has zero third-party deps (everything is host-shared) the zip just
-          # carries a marker file — operators see no extra DLLs but the artifact
-          # still exists.
           if [ -z "$(ls -A deps-staging)" ]; then
             echo "Plugin has no third-party deps." > deps-staging/.empty
           fi
@@ -159,7 +138,6 @@ jobs:
           jq -c '.' out/index.json > out/index.min.json
           mkdir -p out/dll
           cp artifacts/dll/*.dll out/dll/
-          # Also the per-plugin dependency zips alongside the DLLs.
           cp artifacts/dll/*-deps.zip out/dll/ 2>/dev/null || true
           ls -R out
 
@@ -184,8 +162,6 @@ jobs:
           cp -r ../out/dll .
           cp ../out/index.json ../out/index.min.json .
 
-          # Install instructions live on the repo branch so operators landing
-          # via raw.githubusercontent get the README beside the artifacts.
           cat > README.md <<'EOF'
           # Schuly plugins (auto-generated)
 
