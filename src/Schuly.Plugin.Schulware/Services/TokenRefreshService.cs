@@ -5,12 +5,6 @@ using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Refreshes a Schulware account's mobile access token. Tries the direct
-    /// <c>token.php</c> refresh first, and falls back to SchulwareAPI's
-    /// stateless <c>/api/authenticate/refresh</c> path (replays the captured
-    /// browser context server-side; passwordless).
-    /// </summary>
     public class TokenRefreshService(IHttpClientFactory httpClientFactory, SchulwareDbContext db, ILogger<TokenRefreshService> logger)
     {
         public async Task<bool> RefreshAsync(SchulwareAccount account, CancellationToken ct)
@@ -57,11 +51,6 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        /// <summary>
-        /// Mints a fresh mobile token AND web session via SchulwareAPI's server-side
-        /// runner (replays the stored browser context). This is the only path that
-        /// produces a usable web session for scraping.
-        /// </summary>
         public async Task<bool> RefreshViaRunnerAsync(SchulwareAccount account, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(account.SessionCookiesJson))
@@ -73,8 +62,6 @@ namespace Schuly.Plugin.Schulware.Services
 
             try
             {
-                // Passwordless re-auth: replay the stored Microsoft session cookies
-                // through SchulwareAPI's unified /login (ms-entrance, no browser).
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
                 var result = await client.Api.Authenticate.Login.PostAsync(
                     new Client.Models.LoginRequestDto
@@ -99,8 +86,6 @@ namespace Schuly.Plugin.Schulware.Services
                 if (!string.IsNullOrEmpty(result.WebSessionUserId)) account.WebSessionUserId = result.WebSessionUserId;
                 if (!string.IsNullOrEmpty(result.WebSessionTransId)) account.WebSessionTransId = result.WebSessionTransId;
 
-                // Persist the rotated session cookies — they may have been refreshed
-                // server-side and we MUST replay the latest jar on the next call.
                 account.SessionCookiesJson = SessionCookies.ToJson(result.SessionCookies) ?? account.SessionCookiesJson;
 
                 account.UpdatedAt = DateTime.UtcNow;

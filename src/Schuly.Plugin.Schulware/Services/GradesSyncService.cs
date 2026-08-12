@@ -9,19 +9,8 @@ using Schuly.Plugin.Schulware.Data;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Pulls a Schulware account's grades by scraping the Schulnetz "Noten" page
-    /// (typed <see cref="GradesPageDto"/>) and merges them into the main Schuly DB.
-    /// Creates the backing <c>Exam</c> and <c>Class</c> rows on demand. Requires a
-    /// captured web session on the account.
-    /// </summary>
     public class GradesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<GradesSyncService> logger)
     {
-        /// <summary>
-        /// Syncs grades and returns a course-token → subject-name map (e.g.
-        /// "NW (Ph)-BM23d-BuFe" → "Naturwissenschaften (Physik)") so the agenda
-        /// sync can show readable lesson names. Empty when there's no web session.
-        /// </summary>
         public async Task<Dictionary<string, string>> SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(account.WebSessionId))
@@ -53,7 +42,6 @@ namespace Schuly.Plugin.Schulware.Services
             var courses = result.Grades?.Courses;
             if (courses is null || courses.Count == 0) return new();
 
-            // token → readable subject name, for the agenda/timetable to display.
             var subjectByToken = new Dictionary<string, string>();
             foreach (var c in courses)
                 if (!string.IsNullOrWhiteSpace(c.CourseToken) && !string.IsNullOrWhiteSpace(c.Course))
@@ -74,8 +62,6 @@ namespace Schuly.Plugin.Schulware.Services
                         ? (entry.Topic ?? "Prüfung")
                         : $"{entry.Topic ?? "Prüfung"} ({entry.Date})";
 
-                    // The scraped date ("04.03.2026") is what the app derives the
-                    // semester from, so persist it on the exam. Null when absent.
                     DateOnly? examDate = DateOnly.TryParseExact(
                         entry.Date, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
                         ? d : null;
@@ -151,7 +137,6 @@ namespace Schuly.Plugin.Schulware.Services
                 .FirstOrDefaultAsync(e => e.Name == examName && e.ClassId == classId, ct);
             if (existing is not null)
             {
-                // Backfill the date on exams created before per-semester support.
                 if (existing.Date is null && examDate is not null)
                     existing.Date = examDate;
                 return existing;

@@ -92,12 +92,6 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        /// <summary>
-        /// Fetch a document's bytes through SchulwareAPI's /websession/download
-        /// (raw HTTP so we don't need to regenerate the typed client) and store
-        /// them in the blob store. Returns null on any failure — the caller then
-        /// persists the metadata without a downloadable file.
-        /// </summary>
         private async Task<UploadedBlob?> DownloadAndStoreAsync(SchulwareAccount account, DocumentFileDto file, CancellationToken ct)
         {
             try
@@ -122,7 +116,6 @@ namespace Schuly.Plugin.Schulware.Services
                     return null;
                 }
 
-                // Copy to a seekable buffer; the S3 client needs a length.
                 using var buffer = new MemoryStream();
                 await resp.Content.CopyToAsync(buffer, ct);
                 buffer.Position = 0;

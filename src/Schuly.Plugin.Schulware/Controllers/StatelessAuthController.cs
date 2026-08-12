@@ -23,12 +23,6 @@ namespace Schuly.Plugin.Schulware.Controllers
         private string BaseUrl =>
             configuration["Schulware:DefaultApiBaseUrl"] ?? "https://schlwr.pianonic.ch";
 
-        /// <summary>
-        /// Headless credential login (email + password [+ TOTP]) via SchulwareAPI's
-        /// ms-entrance flow — no browser, no WebView. Hands back tokens, web session
-        /// and context_state for the caller to persist. The private-mode replacement
-        /// for the interactive OAuth (authorize-url + callback) pair.
-        /// </summary>
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
         {
@@ -61,7 +55,6 @@ namespace Schuly.Plugin.Schulware.Controllers
                 ctx));
         }
 
-        /// <summary>Passwordless refresh: replay the caller's stored session cookies via SchulwareAPI's /login.</summary>
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh([FromBody] StatelessRefreshRequest request)
         {
@@ -82,7 +75,6 @@ namespace Schuly.Plugin.Schulware.Controllers
                     false, result?.Message ?? "Refresh failed",
                     null, null, null, null, null, null));
 
-            // Hand back the rotated session_cookies for the caller to persist.
             JsonElement? rotated = SessionCookies.ToElement(result.SessionCookies);
 
             return Ok(new StatelessRefreshResponse(

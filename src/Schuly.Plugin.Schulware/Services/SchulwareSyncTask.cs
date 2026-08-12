@@ -7,12 +7,6 @@ using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    /// <summary>
-    /// Periodic Schulware sync. Iterates every authenticated account, refreshes
-    /// expired tokens, and pulls grades + absences into the main Schuly DB.
-    /// The actual work is delegated to <see cref="TokenRefreshService"/>,
-    /// <see cref="GradesSyncService"/>, and <see cref="AbsencesSyncService"/>.
-    /// </summary>
     public class SchulwareSyncTask : IPluginBackgroundTask
     {
         public string Name => "Schulware Data Sync";
@@ -39,10 +33,6 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        /// <summary>
-        /// Sync one account on demand. Same logic as the periodic loop. Returns
-        /// the persisted SyncState so callers can surface status/error.
-        /// </summary>
         public async Task<SyncState> SyncAccountAsync(Guid accountId, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
@@ -94,9 +84,6 @@ namespace Schuly.Plugin.Schulware.Services
                             "Token expired and refresh failed. User needs to re-authenticate.", ct);
                 }
 
-                // Pick up newly-exposed profile fields (PrivateEmail, City…)
-                // on every sync, not only first connect. EnsureAsync only
-                // overwrites blanks, so manual edits stay intact.
                 await provisioning.EnsureAsync(account, account.ApplicationUserId);
                 await db.SaveChangesAsync(ct);
 
@@ -136,8 +123,6 @@ namespace Schuly.Plugin.Schulware.Services
                 logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
             }
 
-            // Persist any rotated tokens / refreshed session / cleared web session
-            // back into the vault (mirrors how the secrets used to be DB-saved here).
             secretStore.Save(account);
             await db.SaveChangesAsync(ct);
             return syncState;

@@ -7,11 +7,6 @@ using Schuly.Plugin.OdaOrg.Models;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    /// <summary>
-    /// Merges scraped module grades into the main DB. Each OdaOrg module maps to
-    /// a <see cref="Class"/> + <see cref="Exam"/>; the final mark becomes a
-    /// <see cref="Grade"/>. Mirrors the Schulware plugin's grade-sync shape.
-    /// </summary>
     public class GradesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<GradesSyncService> logger)
     {
         public async Task SyncAsync(OdaOrgAccount account, IReadOnlyList<ModuleGrade> grades, CancellationToken ct)

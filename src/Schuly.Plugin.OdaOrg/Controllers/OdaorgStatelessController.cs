@@ -7,11 +7,6 @@ using Schuly.Plugin.OdaOrg.Models;
 
 namespace Schuly.Plugin.OdaOrg.Controllers
 {
-    /// <summary>
-    /// Stateless, account-free OdaOrg proxy for the app's private mode. One scrape
-    /// pass returns the user's profile, grades and course days mapped to flat DTOs.
-    /// Persists nothing: the caller passes credentials in per request.
-    /// </summary>
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/odaorg/stateless")]
@@ -82,7 +77,6 @@ namespace Schuly.Plugin.OdaOrg.Controllers
 
     public record OdaorgStatelessUserInfo(string? FirstName, string? LastName, string? Email, string? Birthday);
 
-    // Field names match the app's flat private DTOs (camelCase JSON).
     public record OdaorgStatelessGrade(string? Id, string? ExamId, string? Subject, double? Score);
 
     public record OdaorgStatelessExam(string? Id, string? Name, string? Subject);

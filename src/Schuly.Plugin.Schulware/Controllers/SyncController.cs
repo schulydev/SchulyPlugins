@@ -18,7 +18,6 @@ namespace Schuly.Plugin.Schulware.Controllers
             var account = await ResolveAccountAsync(accountId);
             if (account is null) return NotFound();
 
-            // Secrets live in the vault, not the DB — hydrate to report their presence.
             secretStore.Hydrate(account);
             var syncState = await db.SyncStates.FirstOrDefaultAsync(s => s.AccountId == accountId);
             return Ok(new

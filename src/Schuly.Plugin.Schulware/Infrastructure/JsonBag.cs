@@ -2,11 +2,6 @@ using Microsoft.Kiota.Abstractions.Serialization;
 
 namespace Schuly.Plugin.Schulware.Infrastructure
 {
-    /// <summary>
-    /// Helpers to convert between a JSON object string and the plain
-    /// <see cref="Dictionary{TKey,TValue}"/> shape Kiota expects in an
-    /// <c>AdditionalData</c> bag.
-    /// </summary>
     internal static class JsonBag
     {
         public static Dictionary<string, object> ParseObject(string json)
@@ -30,7 +25,6 @@ namespace Schuly.Plugin.Schulware.Infrastructure
             System.Text.Json.JsonSerializer.Serialize(
                 bag.ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)));
 
-        /// <summary>Lower a single Kiota <see cref="UntypedNode"/> tree to plain CLR objects.</summary>
         public static object? Lower(object? node) => Plainify(node);
 
         private static object? Plainify(object? node) => node switch
@@ -45,8 +39,6 @@ namespace Schuly.Plugin.Schulware.Infrastructure
             UntypedDecimal m => m.GetValue(),
             UntypedFloat f => f.GetValue(),
             UntypedNull => null,
-            // Already-plain values (e.g. from ParseObject): recurse into nested
-            // collections so mixed trees normalize too.
             IDictionary<string, object?> dict => dict.ToDictionary(kv => kv.Key, kv => Plainify(kv.Value)),
             string str => str,
             System.Collections.IEnumerable seq => seq.Cast<object?>().Select(Plainify).ToList(),

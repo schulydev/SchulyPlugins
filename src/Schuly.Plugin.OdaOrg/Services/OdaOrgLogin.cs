@@ -6,11 +6,6 @@ using Schuly.Plugin.OdaOrg.Infrastructure;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    /// <summary>
-    /// <see cref="IPluginLogin"/> for OdAOrg — a username + password connect.
-    /// Stores the credentials (OdAOrg has no token; the scraper replays them) and
-    /// kicks an initial sync.
-    /// </summary>
     public class OdaOrgLogin(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgSyncTask syncTask, IServiceProvider services, ILogger<OdaOrgLogin> logger) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
@@ -66,16 +61,11 @@ namespace Schuly.Plugin.OdaOrg.Services
             // and go to the vault instead.
             await db.SaveChangesAsync(cancellationToken);
 
-            // Seed the vault so the initial sync (which reloads the account and
-            // hydrates from the vault) has the credentials to replay.
             secretStore.Save(account);
 
-            // Best-effort initial sync so data lands without waiting for the tick.
             try { await syncTask.SyncAccountAsync(account.Id, services, cancellationToken); }
             catch (Exception ex) { logger.LogWarning(ex, "Initial OdAOrg sync failed for {AccountId}", account.Id); }
 
-            // Autorefresh off: keep nothing — the one-time sync is done, so drop the
-            // credentials back out of the vault. The account won't be background-synced.
             if (!autoRefresh)
                 secretStore.Remove(account.Id);
 

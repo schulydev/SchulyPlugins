@@ -3,12 +3,6 @@ using System.Net.Sockets;
 
 namespace Schuly.Plugin.OdaOrg.Infrastructure
 {
-    /// <summary>
-    /// Guards against SSRF via a caller-supplied portal base URL: only http/https to
-    /// a non-internal host is allowed, so the proxy can't be pointed at cloud
-    /// metadata, loopback, or private (RFC1918) addresses. Public host names pass
-    /// (DNS rebinding is out of scope).
-    /// </summary>
     public static class BaseUrlGuard
     {
         public static bool IsAllowed(string? url)

@@ -8,12 +8,6 @@ using Schuly.Plugin.Schulware.Services;
 
 namespace Schuly.Plugin.Schulware
 {
-    /// <summary>
-    /// Schulware plugin composition root. DI registration happens here;
-    /// HTTP routes live in <c>Controllers/*Controller.cs</c> (regular ASP.NET
-    /// controllers — the host registers this assembly as an MVC
-    /// ApplicationPart, so they're discovered automatically).
-    /// </summary>
     public class SchulwarePlugin : ISchulyPlugin
     {
         public const string PluginName = "Schulware Integration";
@@ -40,8 +34,6 @@ namespace Schuly.Plugin.Schulware
 
             services.AddDbContext<SchulwareDbContext>(options => options.UseNpgsql(context.ConnectionString));
 
-            // Sync task is the public entry point; the work is split across
-            // focused scoped services so each file stays small and testable.
             services.AddSingleton<SchulwareSyncTask>();
             services.AddSingleton<IPluginBackgroundTask>(sp => sp.GetRequiredService<SchulwareSyncTask>());
             services.AddScoped<TokenRefreshService>();
@@ -57,18 +49,15 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped(sp => new AccountSecretStore(
                 sp.GetRequiredKeyedService<IPluginVault>(PluginName)));
 
-            // Unified plugin login (headless email + password via SchulwareAPI).
             services.AddScoped<IPluginLogin, SchulwareLogin>();
         }
 
-        // Routes live in Controllers/, discovered via MVC ApplicationPart registration.
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }
 
         public async Task MigrateAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
-            // Apply pending EF Core migrations (creates the DB on first run, applies schema deltas after).
             await db.Database.MigrateAsync(cancellationToken);
         }
     }

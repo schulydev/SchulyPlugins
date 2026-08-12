@@ -29,7 +29,6 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 SchulyOdaOrgPlugin");
 
-            // 1. Login.
             var loginForm = new FormUrlEncodedContent(new Dictionary<string, string>
             {
                 ["cusername"] = username,
@@ -37,7 +36,6 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             });
             await http.PostAsync($"{baseUrl}/modules.php?name=IVVerwaltung&a=11140", loginForm, ct);
 
-            // 2. Home page — confirms auth + lists the dynamic boxes.
             var home = await http.GetStringAsync($"{baseUrl}/modules.php?name=IVVerwaltung&a=99900", ct);
             if (!home.Contains("Abmelden", StringComparison.OrdinalIgnoreCase))
             {
@@ -55,7 +53,6 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string? photo = null;
 
-            // 3. Fetch every AJAX box fragment.
             foreach (var box in homeDoc.QuerySelectorAll("[data-source][data-module]"))
             {
                 var source = box.GetAttribute("data-source");
@@ -107,9 +104,6 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
         private static readonly HashSet<string> AddressLabels =
             new(StringComparer.OrdinalIgnoreCase) { "Strasse", "PLZ", "Ort", "Zusatz", "Kanton", "Land" };
 
-        /// <summary>Harvest every dt→dd pair in a box into the shared field bag.
-        /// First non-empty value wins (boxes are visited in DOM order). dt labels
-        /// carry a leading &amp;nbsp; which Trim() (treats U+00A0 as whitespace) removes.</summary>
         private static void CollectFields(IDocument doc, Dictionary<string, string> fields)
         {
             var title = doc.QuerySelector(".bx-title span")?.TextContent ?? "";

@@ -9,11 +9,6 @@ using Schuly.Plugin.OdaOrg.Services;
 
 namespace Schuly.Plugin.OdaOrg
 {
-    /// <summary>
-    /// OdaOrg plugin composition root. Stores connection credentials and runs a
-    /// periodic scrape into the main Schuly DB. HTTP routes live in
-    /// <c>Controllers/*Controller.cs</c> (MVC ApplicationPart, auto-discovered).
-    /// </summary>
     public class OdaOrgPlugin : ISchulyPlugin
     {
         public const string PluginName = "OdaOrg Integration";
@@ -29,7 +24,6 @@ namespace Schuly.Plugin.OdaOrg
         {
             services.AddDbContext<OdaOrgDbContext>(options => options.UseNpgsql(context.ConnectionString));
 
-            // Auto-refresh: the host runs this background task on its Interval.
             services.AddSingleton<OdaOrgSyncTask>();
             services.AddSingleton<IPluginBackgroundTask>(sp => sp.GetRequiredService<OdaOrgSyncTask>());
 
@@ -43,7 +37,6 @@ namespace Schuly.Plugin.OdaOrg
             services.AddScoped(sp => new OdaOrgSecretStore(
                 sp.GetRequiredKeyedService<IPluginVault>(PluginName)));
 
-            // Unified plugin login (username + password).
             services.AddScoped<IPluginLogin, OdaOrgLogin>();
         }
 
