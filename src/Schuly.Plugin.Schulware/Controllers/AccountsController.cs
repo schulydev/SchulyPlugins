@@ -50,7 +50,7 @@ namespace Schuly.Plugin.Schulware.Controllers
 
             db.Accounts.Remove(account);
             await db.SaveChangesAsync();
-            secretStore.Remove(accountId); // drop the account's secrets from the vault
+            secretStore.Remove(accountId);
             return NoContent();
         }
     }
