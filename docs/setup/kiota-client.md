@@ -1,4 +1,4 @@
-# Regenerating the Schulware Kiota client
+# Kiota client
 
 The Schulware plugin talks to [SchulwareAPI](https://github.com/schulydev/SchulwareAPI) through
 a [Kiota](https://learn.microsoft.com/openapi/kiota/)-generated client under
