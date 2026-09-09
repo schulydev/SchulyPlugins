@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.2.*" />
+    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.3.*" />
   </ItemGroup>
 
 </Project>

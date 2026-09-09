@@ -69,7 +69,7 @@ The publish workflow (`build_push.yml`) auto-picks up any `src/Schuly.Plugin.*/*
 - `ConfigureServices` - register services, handlers, options
 - `ConfigureEndpoints` - map endpoints (use extension methods in `Endpoints/`)
 - `MigrateAsync` - run plugin-owned EF Core migrations via `db.Database.MigrateAsync()`
-- `IPluginBackgroundTask` - recurring work (the backend's `PluginBackgroundTaskHost` invokes `ExecuteAsync` on `Interval`)
+- `IPluginBackgroundTask` - recurring work (the backend's `PluginBackgroundTaskHost` invokes `ExecuteAsync` on `Schedule`)
 
 ## EF Core migrations
 

@@ -10,7 +10,7 @@ namespace Schuly.Plugin.Schulware.Services
     public class SchulwareSyncTask : IPluginBackgroundTask
     {
         public string Name => "Schulware Data Sync";
-        public TimeSpan Interval => TimeSpan.FromMinutes(30);
+        public PluginSchedule Schedule => PluginSchedule.Every(TimeSpan.FromMinutes(30));
 
         public async Task ExecuteAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken)
         {

@@ -62,7 +62,7 @@ the container) and reads each plugin's YAML config from its plugins-config direc
    (see `src/Schuly.Plugin.Schulware/config.yml` for the schema).
 4. Restart the backend. On startup the host calls `ConfigureServices` → `ConfigureEndpoints`
    → `MigrateAsync` (which runs `db.Database.MigrateAsync()` to create/upgrade the plugin's
-   dedicated Postgres database), then schedules any `IPluginBackgroundTask` on its `Interval`.
+   dedicated Postgres database), then schedules any `IPluginBackgroundTask` on its `Schedule`.
 
 For real distribution (downloading prebuilt DLLs via `curl`) see
 [setup/distribution.md](distribution.md).
