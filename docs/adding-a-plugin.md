@@ -92,14 +92,14 @@ See [migrations.md](migrations.md) - use `MigrateAsync()`, never `EnsureCreatedA
 
 ### `IPluginBackgroundTask` (optional)
 
-Recurring work. Implement `Name`, `Interval`, and `ExecuteAsync`. The backend's
-`PluginBackgroundTaskHost` invokes `ExecuteAsync` on each `Interval` tick:
+Recurring work. Implement `Name`, `Schedule`, and `ExecuteAsync`. The backend's
+`PluginBackgroundTaskHost` invokes `ExecuteAsync` on the cadence declared by `Schedule`:
 
 ```csharp
 public class MySyncTask : IPluginBackgroundTask
 {
     public string Name => "My Data Sync";
-    public TimeSpan Interval => TimeSpan.FromMinutes(30);
+    public PluginSchedule Schedule => PluginSchedule.Every(TimeSpan.FromMinutes(30));
 
     public async Task ExecuteAsync(IServiceProvider serviceProvider, CancellationToken ct)
     {

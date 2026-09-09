@@ -10,7 +10,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     public class OdaOrgSyncTask : IPluginBackgroundTask
     {
         public string Name => "OdaOrg Data Sync";
-        public TimeSpan Interval => TimeSpan.FromMinutes(30);
+        public PluginSchedule Schedule => PluginSchedule.Every(TimeSpan.FromMinutes(30));
 
         public async Task ExecuteAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken)
         {
