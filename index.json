@@ -10,6 +10,16 @@
     "authors": "schulydev"
   },
   {
+    "name": "Schuly.Plugin.Microsoft",
+    "pkg": "schuly.plugin.microsoft",
+    "dll": "Schuly.Plugin.Microsoft-v1.0.0.dll",
+    "deps": "Schuly.Plugin.Microsoft-v1.0.0-deps.zip",
+    "version": "1.0.0",
+    "contract": "0.5",
+    "description": "Microsoft365forstudentsviaSchulyMicrosoft.LinksaMicrosoftaccountwiththedevice-codeflowandreadsmail,calendarandOneDrivefiles.",
+    "authors": "schulydev"
+  },
+  {
     "name": "Schuly.Plugin.OdaOrg",
     "pkg": "schuly.plugin.odaorg",
     "dll": "Schuly.Plugin.OdaOrg-v1.6.1.dll",
