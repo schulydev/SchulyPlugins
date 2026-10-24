@@ -5,9 +5,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace Schuly.Plugin.Microsoft.Infrastructure
 {
-    public sealed record DeviceStart(string UserCode, string VerificationUri, string DeviceCode, int Interval, int ExpiresIn, string? Message);
+    public sealed record BrowserStart(string AuthorizeUrl, string RedirectUri, string CodeVerifier);
 
-    public sealed record DevicePoll(string Status, string? RefreshToken, string? MicrosoftUserId, string? Email, string? Name, string? Message);
+    public sealed record SignInResult(string Status, string? RefreshToken, string? MicrosoftUserId, string? Email, string? Name, string? Message);
 
     /// <summary>A read's JSON plus the refresh token to keep (the service rotates it).</summary>
     public sealed record ServiceRead(JsonElement Data, string RefreshToken);
@@ -21,21 +21,23 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
 
         private string BaseUrl => (configuration["MicrosoftApi:BaseUrl"] ?? throw new InvalidOperationException("MicrosoftApi:BaseUrl is not configured.")).TrimEnd('/') + "/";
 
-        public async Task<DeviceStart> StartDeviceLoginAsync(CancellationToken ct)
+        /// <summary>Begin the browser sign-in: the Microsoft authorize URL the app opens in a WebView, plus the code_verifier to keep.</summary>
+        public async Task<BrowserStart> StartBrowserLoginAsync(CancellationToken ct)
         {
-            using var response = await Client().PostAsync("api/auth/device/start", null, ct);
+            using var response = await Client().PostAsync("api/auth/browser/start", null, ct);
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
-            return new DeviceStart(body.GetProperty("user_code").GetString()!, body.GetProperty("verification_uri").GetString()!, body.GetProperty("device_code").GetString()!, body.TryGetProperty("interval", out var i) ? i.GetInt32() : 5, body.TryGetProperty("expires_in", out var e) ? e.GetInt32() : 900, body.TryGetProperty("message", out var m) ? m.GetString() : null);
+            return new BrowserStart(body.GetProperty("authorize_url").GetString()!, body.GetProperty("redirect_uri").GetString()!, body.GetProperty("code_verifier").GetString()!);
         }
 
-        public async Task<DevicePoll> PollDeviceLoginAsync(string deviceCode, CancellationToken ct)
+        /// <summary>Exchange the authorization code the WebView captured for a FOCI refresh token and the account identity.</summary>
+        public async Task<SignInResult> CompleteBrowserLoginAsync(string code, string codeVerifier, CancellationToken ct)
         {
-            using var response = await Client().PostAsJsonAsync("api/auth/device/poll", new { device_code = deviceCode }, ct);
+            using var response = await Client().PostAsJsonAsync("api/auth/browser/complete", new { code, code_verifier = codeVerifier }, ct);
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
             var account = body.TryGetProperty("account", out var a) && a.ValueKind == JsonValueKind.Object ? a : default;
-            return new DevicePoll(body.GetProperty("status").GetString()!, Str(body, "refresh_token"), Str(account, "id"), Str(account, "email"), Str(account, "name"), Str(body, "message"));
+            return new SignInResult(body.GetProperty("status").GetString()!, Str(body, "refresh_token"), Str(account, "id"), Str(account, "email"), Str(account, "name"), Str(body, "message"));
         }
 
         /// <summary>GETs `api/{path}` with the account's refresh token; throws <see cref="MicrosoftSignInExpiredException"/> on 401.</summary>

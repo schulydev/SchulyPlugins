@@ -6,7 +6,7 @@ namespace Schuly.Plugin.Microsoft.Services
     /// <summary>The plugin vault: each linked account's refresh token, and a user's sign-in in progress.</summary>
     public sealed class MicrosoftTokenStore(IPluginVault vault)
     {
-        public sealed record PendingLink(string DeviceCode, DateTime ExpiresAt);
+        public sealed record PendingLink(string CodeVerifier, DateTime ExpiresAt);
 
         private static string TokenKey(Guid accountId) => $"token:{accountId}";
         private static string LinkKey(Guid userId) => $"link:{userId}";
