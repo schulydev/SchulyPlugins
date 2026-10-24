@@ -21,7 +21,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     public class StatelessAuthController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
     {
         private string BaseUrl =>
-            configuration["Schulware:DefaultApiBaseUrl"] ?? "https://schlwr.pianonic.ch";
+            configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
