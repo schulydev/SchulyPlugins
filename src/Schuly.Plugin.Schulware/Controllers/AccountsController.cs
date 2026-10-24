@@ -38,12 +38,15 @@ namespace Schuly.Plugin.Schulware.Controllers
         }
 
         [HttpDelete("{accountId:guid}")]
-        public async Task<IActionResult> Delete(Guid accountId)
+        public async Task<IActionResult> Delete(Guid accountId, [FromServices] PushRegistrationService push, CancellationToken ct)
         {
             var userId = await userContext.GetCurrentUserIdAsync();
             var account = await db.Accounts.FirstOrDefaultAsync(
                 a => a.Id == accountId && a.ApplicationUserId == userId);
             if (account is null) return NotFound();
+
+            secretStore.Hydrate(account);
+            await push.RemoveAsync(account, ct);
 
             var syncState = await db.SyncStates.FirstOrDefaultAsync(s => s.AccountId == accountId);
             if (syncState is not null) db.SyncStates.Remove(syncState);

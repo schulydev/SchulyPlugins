@@ -1,8 +1,8 @@
 {
-  "descriptionHash": "E0C9B77D9F2997FF1CD70B96BB365C74B50D15F79D9A8CA74EFE9C54DA81C9103D4276DB914E635367EAF2D6E3314E20D3C0073150AF30D563DB9300285A3907",
+  "descriptionHash": "A1676BD2E0970277443B6D6C9278259ACE0AC28A19223D1E0DB51F3AB29BD34D272FB23F4151F6CE23101E9D47F50BBB66D9E8857347F111C51E3F37A0BFCA9F",
   "descriptionLocation": "https://schlwr.pianonic.ch/openapi.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.32.2",
+  "kiotaVersion": "1.30.0",
   "clientClassName": "SchulwareApiClient",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "Schuly.Plugin.Schulware.Client",
