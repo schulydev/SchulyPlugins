@@ -5,6 +5,7 @@ using Schuly.Domain.Enums;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
@@ -35,7 +36,7 @@ namespace Schuly.Plugin.Schulware.Services
 
             foreach (var ev in events)
             {
-                if (!TryParse(ev.StartDate, out var date)) continue;
+                if (!SchulnetzTime.TryParseToUtc(ev.StartDate, out var date)) continue;
 
                 static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
                 string? mapped = null;
@@ -55,7 +56,7 @@ namespace Schuly.Plugin.Schulware.Services
                     Description = string.IsNullOrWhiteSpace(ev.Kommentar) ? ev.Lehrerkuerzelname : ev.Kommentar,
                     Place = ev.Zimmerkuerzel ?? ev.Zimmer,
                     Date = date,
-                    EndDate = TryParse(ev.EndDate, out var end) && end >= date ? end : null,
+                    EndDate = SchulnetzTime.TryParseToUtc(ev.EndDate, out var end) && end >= date ? end : null,
                     SchoolUserId = schoolUserId,
                 });
                 synced++;
@@ -66,17 +67,6 @@ namespace Schuly.Plugin.Schulware.Services
                 await mainDb.SaveChangesAsync(ct);
                 logger.LogInformation("Synced {Count} agenda entries for account {AccountId}", synced, account.Id);
             }
-        }
-
-        private static bool TryParse(string? raw, out DateTime date)
-        {
-            if (DateTime.TryParse(raw, out date))
-            {
-                date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
-                return true;
-            }
-            date = default;
-            return false;
         }
     }
 }
