@@ -32,6 +32,8 @@ namespace Schuly.Plugin.Schulware
                     "into the backend's plugins-config directory with at least " +
                     "SchulwareApi.BaseUrl set. See the source repo for the example schema.");
 
+            SchulwareApiClientFactory.Configure(baseUrl, context.Configuration["SchulwareApi:ServiceKey"]);
+
             services.AddDbContext<SchulwareDbContext>(options => options.UseNpgsql(context.ConnectionString));
 
             services.AddSingleton<SchulwareSyncTask>();

@@ -7,6 +7,9 @@ SchulwareApi:
   # :8000), which tracks current code. Production operators override this in
   # their own plugins-config to a deployed instance (e.g. https://schlwr.pianonic.ch).
   BaseUrl: http://localhost:8000
+  # Optional. Must match SchulwareAPI's SERVICE_API_KEY. Sent as X-Service-Key to
+  # BaseUrl only, so the backend skips SchulwareAPI's per-IP rate limits.
+  # ServiceKey:
 
 Sync:
   IntervalMinutes: 30

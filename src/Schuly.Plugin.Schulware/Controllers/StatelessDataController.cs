@@ -15,7 +15,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     public class StatelessDataController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
     {
         private string ProxyBaseUrl =>
-            configuration["Schulware:DefaultApiBaseUrl"] ?? "https://schlwr.pianonic.ch";
+            configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
 
         [HttpGet("grades")]
         public Task<IActionResult> Grades() => ProxyAsync(async c =>
