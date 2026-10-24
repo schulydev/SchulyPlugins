@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Schuly.Infrastructure.Vault;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.OdaOrg.Data;
 
 namespace Schuly.Plugin.OdaOrg.Services

@@ -1,7 +1,13 @@
+using Schuly.Plugin.Abstractions;
+
 namespace Schuly.Plugin.Shared.Provisioning
 {
     public static class InstanceUrl
     {
+        /// <summary>The school a provider instance stands for, keyed by its canonical URL.</summary>
+        public static SchoolRecord School(string? baseUrl, string? displayName) =>
+            new(string.IsNullOrWhiteSpace(displayName) ? Host(baseUrl) : displayName!, Canonical(baseUrl), LogoFor(baseUrl));
+
         public static string Canonical(string? baseUrl)
         {
             var raw = (baseUrl ?? "").Trim();

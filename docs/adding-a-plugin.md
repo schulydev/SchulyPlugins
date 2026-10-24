@@ -58,16 +58,30 @@ services.AddDbContext<MyDbContext>(o => o.UseNpgsql(context.ConnectionString));
 services.AddSingleton<MySyncTask>();
 services.AddSingleton<IPluginBackgroundTask>(sp => sp.GetRequiredService<MySyncTask>());
 
-// Per-plugin isolated, in-memory secret vault, keyed by the plugin name by the host.
-services.AddScoped(sp => new MySecretStore(
-    sp.GetRequiredKeyedService<IPluginVault>(MyPlugin.PluginName)));
+// Takes the plugin's own IPluginVault, which the host registers.
+services.AddScoped<MySecretStore>();
 
 services.AddScoped<IPluginLogin, MyLogin>();
 ```
 
-> The vault key must be a constant (used with `[FromKeyedServices(PluginName)]`), so expose
-> `public const string PluginName`. The vault is in-memory only - secrets do **not** survive
-> a backend restart, and sync code must handle the empty-vault ("needs reconnect") case.
+The host registers these contract services in every plugin's container - inject them, never
+the backend's own types:
+
+| Service | Use it to |
+|---|---|
+| `ISchoolData` | Provision the school and student, then sync agenda, grades, absences and documents |
+| `IPluginVault` | Keep tokens and credentials, encrypted, in the plugin's own namespace |
+| `IPluginFileStore` | Store a downloaded file (e.g. a report card) and get its key |
+| `IPluginUserContext` | Read the current user during a login request |
+
+Sync code builds plain records and hands them to `ISchoolData`. Give every record a stable
+`ExternalId` (`Shared/ExternalIds.cs`) and convert provider wall-clock times to UTC first
+(`Shared/SwissTime.cs` for Swiss systems); the backend stores UTC only.
+
+```csharp
+var records = lessons.Select(l => new AgendaRecord(ExternalIds.Of("lesson", l.Start.ToString("O"), l.Course), AgendaKind.Lesson, l.Title, l.Start, l.End, l.Room)).ToList();
+await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
+```
 
 ### `ConfigureEndpoints(IEndpointRouteBuilder endpoints)`
 

@@ -1,30 +1,23 @@
 using System.Net.Http.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Schuly.Domain;
-using Schuly.Infrastructure.Storage;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Shared;
 
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>
-    /// Syncs a Schulware account's documents — including report cards (Zeugnisse,
-    /// <c>Category == "Zeugnis"</c>) — into the main Schuly DB. Documents are
-    /// scraper-only (no Mobile endpoint), so this requires a captured web session
-    /// (PHPSESSID + id + transid). For each new file the raw bytes are pulled from
-    /// Schulnetz immediately (the download link's transid is short-lived) and
-    /// stored in the same S3 blob store as uploads, so the standard
-    /// GET /api/documents/{id} download works. Dedup is on (SchoolUserId, Title,
-    /// FileName).
+    /// Syncs a Schulware account's documents, including report cards (Zeugnisse,
+    /// <c>Category == "Zeugnis"</c>). Documents are scraper-only, so this needs a web
+    /// session. A new file's bytes are pulled immediately (the download link's transid is
+    /// short-lived) and stored through <see cref="IPluginFileStore"/>.
     /// </summary>
-    public class DocumentsSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, IHttpClientFactory httpClientFactory, ILogger<DocumentsSyncService> logger)
+    public class DocumentsSyncService(ISchoolData schoolData, IPluginFileStore files, IHttpClientFactory httpClientFactory, ILogger<DocumentsSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            // No web session → documents can't be scraped. Silently skip; the
-            // account still gets grades/agenda/absences via the Mobile API.
             if (string.IsNullOrEmpty(account.WebSessionId)
                 || string.IsNullOrEmpty(account.WebSessionUserId)
                 || string.IsNullOrEmpty(account.WebSessionTransId))
@@ -38,61 +31,33 @@ namespace Schuly.Plugin.Schulware.Services
                 SessionId = account.WebSessionId,
                 Id = account.WebSessionUserId,
                 Transid = account.WebSessionTransId,
-                // Schulnetz binds PHPSESSID to the UA that created it — replay it.
+                // Schulnetz binds PHPSESSID to the UA that created it.
                 UserAgent = account.UserAgent,
             }, cancellationToken: ct);
 
-            var files = result?.Documents?.Files;
-            if (files is null || files.Count == 0) return;
+            var scraped = result?.Documents?.Files;
+            if (scraped is null || scraped.Count == 0) return;
 
-            var synced = 0;
-            foreach (var file in files)
+            var known = await schoolData.GetDocumentIdsAsync(schoolUserId, ct);
+            var records = new List<DocumentRecord>();
+            foreach (var file in scraped)
             {
                 var title = file.Title ?? file.Filename;
                 if (string.IsNullOrWhiteSpace(title)) continue;
 
-                var exists = await mainDb.StudentDocuments.AnyAsync(
-                    d => d.SchoolUserId == schoolUserId
-                         && d.Title == title
-                         && d.FileName == file.Filename, ct);
-                if (exists) continue;
+                var id = ExternalIds.Of("document", title, file.Filename);
+                if (known.Contains(id)) continue;
 
-                // Pull the bytes now (the download link's transid expires quickly)
-                // and stash them in S3 so the standard download endpoint serves them.
-                string? fileUrl = null;
-                long? fileSize = null;
-                if (!string.IsNullOrWhiteSpace(file.DownloadUrl))
-                {
-                    var blob = await DownloadAndStoreAsync(account, file, ct);
-                    if (blob is not null)
-                    {
-                        fileUrl = blob.Key;
-                        fileSize = blob.SizeBytes;
-                    }
-                }
-
-                mainDb.StudentDocuments.Add(new StudentDocument
-                {
-                    SchoolUserId = schoolUserId,
-                    Title = title,
-                    Comment = file.Comment,
-                    Category = file.Category,
-                    EnteredBy = file.CreatedBy,
-                    FileName = file.Filename,
-                    FileUrl = fileUrl,
-                    FileSizeBytes = fileSize,
-                });
-                synced++;
+                var stored = string.IsNullOrWhiteSpace(file.DownloadUrl) ? null : await DownloadAndStoreAsync(account, file, ct);
+                records.Add(new DocumentRecord(id, title, file.Filename, file.Category, file.Comment, file.CreatedBy, stored));
             }
 
-            if (synced > 0)
-            {
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Synced {Count} documents for account {AccountId}", synced, account.Id);
-            }
+            if (records.Count == 0) return;
+            var synced = await schoolData.SyncDocumentsAsync(schoolUserId, records, ct);
+            logger.LogInformation("Synced {Count} documents for account {AccountId}", synced.Added, account.Id);
         }
 
-        private async Task<UploadedBlob?> DownloadAndStoreAsync(SchulwareAccount account, DocumentFileDto file, CancellationToken ct)
+        private async Task<StoredFile?> DownloadAndStoreAsync(SchulwareAccount account, DocumentFileDto file, CancellationToken ct)
         {
             try
             {
@@ -122,7 +87,7 @@ namespace Schuly.Plugin.Schulware.Services
 
                 var contentType = resp.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
                 var fileName = string.IsNullOrWhiteSpace(file.Filename) ? "document" : file.Filename;
-                return await storage.UploadAsync(buffer, fileName, contentType, ct);
+                return await files.SaveAsync(buffer, fileName, contentType, ct);
             }
             catch (Exception ex)
             {

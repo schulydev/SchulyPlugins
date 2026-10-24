@@ -16,13 +16,17 @@
 `Schuly.Plugin.Abstractions` is a NuGet **`PackageReference`**, not a project reference:
 
 ```xml
-<PackageReference Include="Schuly.Plugin.Abstractions" Version="0.2.*" />
+<PackageReference Include="Schuly.Plugin.Abstractions" Version="0.4.*" />
 ```
 
-It supplies `ISchulyPlugin`, `IPluginBackgroundTask`, `IPluginUserContext`, `IPluginLogin`,
-and `PluginServiceContext`. Backend-provided types such as `IPluginVault`
-(`Schuly.Infrastructure.Vault`) are resolved at runtime from the host's DI container - the
-host registers each plugin's isolated vault keyed by the plugin's `Name`.
+It supplies the whole contract: `ISchulyPlugin`, `IPluginBackgroundTask`, `IPluginUserContext`,
+`IPluginLogin`, `ISchoolData` (with its records), `IPluginVault`, `IPluginFileStore` and
+`PluginServiceContext`. Plugins reference nothing from the backend; the host registers the
+service implementations in each plugin's container at runtime.
+
+The backend refuses to load a plugin built against an incompatible contract version (before
+1.0: a different MAJOR.MINOR), and the publish workflow records that version as `contract` in
+`index.json` so the backend never auto-updates to a build it can't load.
 
 ## How a plugin is structured
 

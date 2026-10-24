@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
 using System.Reflection;
 
@@ -36,7 +34,7 @@ namespace Schuly.Plugin.Example
             }).AllowAnonymous();
 
             endpoints.MapGet("/api/plugins/example/vault-demo",
-                ([FromKeyedServices(PluginName)] IPluginVault vault) =>
+                (IPluginVault vault) =>
                 {
                     vault.Set("demo-secret", "stored encrypted at rest");
                     return Results.Ok(new

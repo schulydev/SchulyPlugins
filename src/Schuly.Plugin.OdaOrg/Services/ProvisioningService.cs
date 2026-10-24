@@ -1,55 +1,64 @@
-using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
-using Schuly.Infrastructure.Storage;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.OdaOrg.Data;
 using Schuly.Plugin.OdaOrg.Models;
 using Schuly.Plugin.Shared.Provisioning;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    public class ProvisioningService(Schuly.Infrastructure.SchulyDbContext mainDb, IDocumentStorage storage, ILogger<ProvisioningService> logger)
+    public class ProvisioningService(ISchoolData schoolData, IPluginFileStore files, IPluginVault vault, ILogger<ProvisioningService> logger)
     {
         public async Task<Guid?> EnsureAsync(OdaOrgAccount account, OdaProfile? profile, CancellationToken ct)
         {
             if (profile is null) return account.SchoolUserId;
 
-            var school = await SchoolProvisioner.EnsureSchoolAsync(mainDb, account.BaseUrl, account.DisplayName, ct);
+            var schoolId = await schoolData.EnsureSchoolAsync(InstanceUrl.School(account.BaseUrl, account.DisplayName), ct);
+            var avatar = await ResolveAvatarAsync(account.Id, profile.ProfilePictureUrl, ct);
+            var schoolUserId = await schoolData.EnsureStudentAsync(schoolId, account.ApplicationUserId, Map(profile, avatar), ct);
 
-            var existing = await mainDb.SchoolUsers
-                .FirstOrDefaultAsync(su => su.ApplicationUserId == account.ApplicationUserId && su.SchoolId == school.Id, ct);
-            var avatar = await ResolveAvatarAsync(profile.ProfilePictureUrl, existing?.ProfilePictureUrl, ct);
-
-            var schoolUser = await SchoolProvisioner.EnsureSchoolUserAsync(mainDb, school, account.ApplicationUserId, Map(profile, avatar), ct);
-
-            account.SchoolUserId ??= schoolUser.Id;
-            return schoolUser.Id;
+            account.SchoolUserId ??= schoolUserId;
+            return schoolUserId;
         }
 
-        private static ProvisionedUser Map(OdaProfile p, string? avatar) => new(
-            p.FirstName, p.LastName, p.Email, p.PrivateEmail, p.PhoneNumber,
-            p.Street, p.City, p.Zip, p.Birthday, null, null, avatar);
+        private static StudentRecord Map(OdaProfile p, string? avatar) => new()
+        {
+            FirstName = p.FirstName,
+            LastName = p.LastName,
+            Email = p.Email,
+            PrivateEmail = p.PrivateEmail,
+            PhoneNumber = p.PhoneNumber,
+            Street = p.Street,
+            City = p.City,
+            Zip = p.Zip,
+            Birthday = p.Birthday,
+            ProfilePictureUrl = avatar,
+        };
 
         /// <summary>
-        /// Resolve the value to store in SchoolUser.ProfilePictureUrl: keep an
-        /// already-stored blob key / external URL (don't re-upload every sync ->
-        /// orphan blobs); upload a scraped data: URI to the blobstore and store its
-        /// key; pass an http(s) URL through.
+        /// The value for the student's profile picture: an http(s) URL passes through; a
+        /// scraped data: URI is uploaded once and its storage key reused while the image is
+        /// unchanged (the last upload's hash and key sit in the vault). Null leaves it as is.
         /// </summary>
-        private async Task<string?> ResolveAvatarAsync(string? scraped, string? existing, CancellationToken ct)
+        private async Task<string?> ResolveAvatarAsync(Guid accountId, string? scraped, CancellationToken ct)
         {
-            if (!string.IsNullOrWhiteSpace(existing) && !existing.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                return existing;
-            if (string.IsNullOrWhiteSpace(scraped)) return existing;
+            if (string.IsNullOrWhiteSpace(scraped)) return null;
             if (scraped.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 scraped.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 return scraped;
             if (!scraped.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                return existing;
+                return null;
+
+            var vaultKey = $"avatar:{accountId}";
+            var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(scraped)));
+            if (vault.TryGet(vaultKey, out var stored) && stored.StartsWith(hash + "|", StringComparison.Ordinal))
+                return stored[(hash.Length + 1)..];
 
             try
             {
                 var comma = scraped.IndexOf(',');
-                if (comma < 0) return existing;
+                if (comma < 0) return null;
                 var meta = scraped[5..comma];
                 var contentType = meta.Split(';')[0].Trim();
                 var bytes = Convert.FromBase64String(scraped[(comma + 1)..]);
@@ -58,13 +67,14 @@ namespace Schuly.Plugin.OdaOrg.Services
                     : "";
                 var ext = subtype switch { "jpeg" => "jpg", "" => "img", _ => subtype };
                 using var ms = new MemoryStream(bytes);
-                var blob = await storage.UploadAsync(ms, $"avatar.{ext}", contentType, ct);
-                return blob.Key;
+                var file = await files.SaveAsync(ms, $"avatar.{ext}", contentType, ct);
+                vault.Set(vaultKey, $"{hash}|{file.Key}");
+                return file.Key;
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "OdaOrg avatar upload failed; leaving previous value");
-                return existing;
+                return null;
             }
         }
     }

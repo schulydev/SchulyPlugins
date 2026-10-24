@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Services;
@@ -45,10 +43,8 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<VacationsSyncService>();
             services.AddScoped<SchoolProvisioningService>();
 
-            // The account auth secrets live in this plugin's isolated, in-memory
-            // vault (keyed by the plugin name by the host) instead of the database.
-            services.AddScoped(sp => new AccountSecretStore(
-                sp.GetRequiredKeyedService<IPluginVault>(PluginName)));
+            // The account auth secrets live in this plugin's encrypted vault instead of the database.
+            services.AddScoped<AccountSecretStore>();
 
             services.AddScoped<IPluginLogin, SchulwareLogin>();
         }
@@ -59,16 +55,7 @@ namespace Schuly.Plugin.Schulware
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
-            var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
-            var correctLessonTimes = pending.Any(m => m.EndsWith("_" + LessonTimeCorrection.MigrationName));
             await db.Database.MigrateAsync(cancellationToken);
-
-            if (correctLessonTimes)
-            {
-                var mainDb = scope.ServiceProvider.GetRequiredService<Schuly.Infrastructure.SchulyDbContext>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwarePlugin>>();
-                await LessonTimeCorrection.ApplyAsync(db, mainDb, logger, cancellationToken);
-            }
         }
     }
 }
