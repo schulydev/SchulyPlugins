@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Schuly.Infrastructure.Vault;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
@@ -58,7 +59,16 @@ namespace Schuly.Plugin.Schulware
         {
             using var scope = serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<SchulwareDbContext>();
+            var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
+            var correctLessonTimes = pending.Any(m => m.EndsWith("_" + LessonTimeCorrection.MigrationName));
             await db.Database.MigrateAsync(cancellationToken);
+
+            if (correctLessonTimes)
+            {
+                var mainDb = scope.ServiceProvider.GetRequiredService<Schuly.Infrastructure.SchulyDbContext>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchulwarePlugin>>();
+                await LessonTimeCorrection.ApplyAsync(db, mainDb, logger, cancellationToken);
+            }
         }
     }
 }
