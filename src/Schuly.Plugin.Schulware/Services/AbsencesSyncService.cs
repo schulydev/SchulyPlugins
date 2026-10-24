@@ -1,14 +1,14 @@
-using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Schuly.Domain;
-using Schuly.Domain.Enums;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Shared;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    public class AbsencesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<AbsencesSyncService> logger)
+    public class AbsencesSyncService(ISchoolData schoolData, ILogger<AbsencesSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
@@ -30,47 +30,29 @@ namespace Schuly.Plugin.Schulware.Services
             var absences = result?.Absences?.Absences;
             if (absences is null || absences.Count == 0) return;
 
-            var schoolUserId = account.SchoolUserId!.Value;
-            var synced = 0;
-
+            var records = new List<AbsenceRecord>();
             foreach (var absence in absences)
             {
                 if (!TryParseDate(absence.DateFrom, out var from) || !TryParseDate(absence.DateTo, out var to))
                     continue;
 
-                var existing = await mainDb.Absences
-                    .FirstOrDefaultAsync(a => a.SchoolUserId == schoolUserId
-                        && a.From == from && a.Until == to, ct);
-                if (existing is not null) continue;
-
-                mainDb.Absences.Add(new Absence
-                {
-                    SchoolUserId = schoolUserId,
-                    From = from,
-                    Until = to,
-                    Reason = absence.Reason ?? "Imported from Schulnetz",
-                    Type = AbsenceType.Absence,
-                });
-                synced++;
+                records.Add(new AbsenceRecord(ExternalIds.Of("absence", from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd")), SwissTime.UtcDate(from), SwissTime.UtcDate(to), absence.Reason ?? "Imported from Schulnetz"));
             }
 
-            if (synced > 0)
-            {
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Synced {Count} absences for account {AccountId}", synced, account.Id);
-            }
+            var synced = await schoolData.SyncAbsencesAsync(account.SchoolUserId!.Value, records, ct);
+            if (synced.Added + synced.Updated > 0)
+                logger.LogInformation("Synced absences for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
         }
 
-        private static bool TryParseDate(string? raw, out DateTime date)
+        private static bool TryParseDate(string? raw, out DateOnly date)
         {
             date = default;
             if (string.IsNullOrWhiteSpace(raw)) return false;
             var cleaned = raw.Contains(',') ? raw[(raw.IndexOf(',') + 1)..].Trim() : raw.Trim();
-            if (DateTime.TryParse(cleaned, System.Globalization.CultureInfo.GetCultureInfo("de-CH"),
-                    System.Globalization.DateTimeStyles.None, out date)
-                || DateTime.TryParse(cleaned, out date))
+            if (DateTime.TryParse(cleaned, CultureInfo.GetCultureInfo("de-CH"), DateTimeStyles.None, out var parsed)
+                || DateTime.TryParse(cleaned, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
             {
-                date = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+                date = DateOnly.FromDateTime(parsed);
                 return true;
             }
             return false;

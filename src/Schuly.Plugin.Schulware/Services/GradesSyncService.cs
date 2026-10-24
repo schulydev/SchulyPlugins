@@ -1,15 +1,14 @@
 using System.Globalization;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Schuly.Domain;
-using Schuly.Domain.Enums;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Shared;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    public class GradesSyncService(Schuly.Infrastructure.SchulyDbContext mainDb, ILogger<GradesSyncService> logger)
+    public class GradesSyncService(ISchoolData schoolData, ILogger<GradesSyncService> logger)
     {
         public async Task<Dictionary<string, string>> SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
@@ -28,10 +27,7 @@ namespace Schuly.Plugin.Schulware.Services
                 UserAgent = account.UserAgent,
             }, cancellationToken: ct);
 
-            // For the grades page, Success=false only ever means the web session
-            // (PHPSESSID) is dead — it can't be refreshed like the mobile token.
-            // Drop it to force a re-capture and surface the failure, rather than
-            // silently reporting a successful, empty sync.
+            // On the grades page Success=false only means the web session is dead.
             if (result is null || result.Success != true)
             {
                 account.WebSessionId = null;
@@ -47,12 +43,11 @@ namespace Schuly.Plugin.Schulware.Services
                 if (!string.IsNullOrWhiteSpace(c.CourseToken) && !string.IsNullOrWhiteSpace(c.Course))
                     subjectByToken[c.CourseToken!] = c.Course!;
 
-            var schoolUserId = account.SchoolUserId!.Value;
-            var synced = 0;
-
+            var records = new List<GradeRecord>();
             foreach (var course in courses)
             {
                 if (course.Exams is null) continue;
+                var subject = string.IsNullOrWhiteSpace(course.Course) ? "Default" : course.Course!;
 
                 foreach (var entry in course.Exams)
                 {
@@ -66,86 +61,15 @@ namespace Schuly.Plugin.Schulware.Services
                         entry.Date, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
                         ? d : null;
 
-                    var exam = await FindOrCreateExamAsync(course.Course, examName, examDate, schoolUserId, ct);
-                    var score = (decimal)entry.Mark.Value;
-                    var weighting = (decimal)(entry.Weight ?? 1);
-
-                    var existing = await mainDb.Grades
-                        .FirstOrDefaultAsync(g => g.SchoolUserId == schoolUserId && g.ExamId == exam.Id, ct);
-
-                    if (existing is null)
-                    {
-                        mainDb.Grades.Add(new Grade
-                        {
-                            SchoolUserId = schoolUserId,
-                            ExamId = exam.Id,
-                            Score = score,
-                            Weighting = weighting,
-                        });
-                        synced++;
-                    }
-                    else if (existing.Score != score)
-                    {
-                        existing.Score = score;
-                        existing.Weighting = weighting;
-                        synced++;
-                    }
+                    records.Add(new GradeRecord(ExternalIds.Of(course.CourseToken ?? subject, examName), subject, examName, (decimal)entry.Mark.Value, (decimal)(entry.Weight ?? 1), examDate));
                 }
             }
 
-            if (synced > 0)
-            {
-                await mainDb.SaveChangesAsync(ct);
-                logger.LogInformation("Synced {Count} grades for account {AccountId}", synced, account.Id);
-            }
+            var synced = await schoolData.SyncGradesAsync(account.SchoolUserId!.Value, records, ct);
+            if (synced.Added + synced.Updated > 0)
+                logger.LogInformation("Synced grades for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
 
             return subjectByToken;
-        }
-
-        private async Task<Exam> FindOrCreateExamAsync(string? courseName, string examName, DateOnly? examDate, Guid schoolUserId, CancellationToken ct)
-        {
-            var schoolUser = await mainDb.SchoolUsers
-                .Include(su => su.Classes)
-                .FirstOrDefaultAsync(su => su.Id == schoolUserId, ct);
-
-            Class? cls = null;
-            if (schoolUser is not null)
-            {
-                var className = string.IsNullOrWhiteSpace(courseName) ? "Default" : courseName;
-
-                cls = await mainDb.Classes
-                    .FirstOrDefaultAsync(c => c.Name == className && c.SchoolId == schoolUser.SchoolId, ct);
-                if (cls is null)
-                {
-                    cls = new Class { Name = className, SchoolId = schoolUser.SchoolId };
-                    mainDb.Classes.Add(cls);
-                    await mainDb.SaveChangesAsync(ct);
-                }
-
-                if (!schoolUser.Classes.Any(c => c.Id == cls.Id))
-                {
-                    schoolUser.Classes.Add(cls);
-                    await mainDb.SaveChangesAsync(ct);
-                }
-            }
-
-            var classId = cls?.Id ?? Guid.Empty;
-            if (classId == Guid.Empty)
-                return new Exam { Id = Guid.NewGuid(), Name = examName, Type = ExamType.Classic, Date = examDate, ClassId = classId };
-
-            var existing = await mainDb.Exams
-                .FirstOrDefaultAsync(e => e.Name == examName && e.ClassId == classId, ct);
-            if (existing is not null)
-            {
-                if (existing.Date is null && examDate is not null)
-                    existing.Date = examDate;
-                return existing;
-            }
-
-            var exam = new Exam { Name = examName, Type = ExamType.Classic, Date = examDate, ClassId = classId };
-            mainDb.Exams.Add(exam);
-            await mainDb.SaveChangesAsync(ct);
-            return exam;
         }
     }
 }

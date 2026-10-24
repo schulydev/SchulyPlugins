@@ -34,8 +34,8 @@ namespace Schuly.Plugin.OdaOrg.Models
         public required string Course { get; set; }
         public string? Topic { get; set; }
         public string? Room { get; set; }
-        public DateTime Date { get; set; }
-        public DateTime? EndDate { get; set; }
+        public DateTimeOffset Date { get; set; }
+        public DateTimeOffset? EndDate { get; set; }
         public string? Instructor { get; set; }
     }
 }

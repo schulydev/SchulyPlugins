@@ -90,7 +90,7 @@ jobs:
               Microsoft.AspNetCore.*|Microsoft.Extensions.*) continue ;;
               Microsoft.EntityFrameworkCore.*|Npgsql.*) continue ;;
               Mediator.*) continue ;;
-              Schuly.Plugin.Abstractions.dll|Schuly.Domain.dll|Schuly.Infrastructure.dll) continue ;;
+              Schuly.Plugin.Abstractions.dll) continue ;;
               *) cp "$f" "deps-staging/$base" ;;
             esac
           done
@@ -98,6 +98,13 @@ jobs:
             echo "Plugin has no third-party deps." > deps-staging/.empty
           fi
           (cd deps-staging && zip -q "../staging/dll/${deps_name}" -r .)
+
+          assets="$(dirname '${{ matrix.csproj }}')/obj/project.assets.json"
+          contract=$(jq -r '.libraries | keys[] | select(startswith("Schuly.Plugin.Abstractions/"))' "$assets" | head -n1 | cut -d/ -f2 | cut -d. -f1,2)
+          if [ -z "$contract" ]; then
+            echo "Could not resolve the Schuly.Plugin.Abstractions version for $name" >&2
+            exit 1
+          fi
 
           jq -n \
             --arg name "$name" \
@@ -107,7 +114,8 @@ jobs:
             --arg version "$version" \
             --arg description '${{ steps.meta.outputs.desc }}' \
             --arg authors '${{ steps.meta.outputs.authors }}' \
-            '{name: $name, pkg: $pkg, dll: $dll, deps: $deps, version: $version, description: $description, authors: $authors}' \
+            --arg contract "$contract" \
+            '{name: $name, pkg: $pkg, dll: $dll, deps: $deps, version: $version, contract: $contract, description: $description, authors: $authors}' \
             > 'staging/${{ steps.meta.outputs.pkg }}.json'
 
       - uses: actions/upload-artifact@v4

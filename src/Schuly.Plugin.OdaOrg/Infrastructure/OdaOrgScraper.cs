@@ -4,6 +4,7 @@ using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.OdaOrg.Models;
+using Schuly.Plugin.Shared;
 
 namespace Schuly.Plugin.OdaOrg.Infrastructure
 {
@@ -211,11 +212,12 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
         }
 
-        private static DateTime WithTime(DateOnly date, string? time)
+        private static DateTimeOffset WithTime(DateOnly date, string? time)
         {
-            var dt = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
             var m = time is null ? Match.Empty : TimeRx.Match(time);
-            return m.Success ? dt.AddHours(int.Parse(m.Groups[1].Value)).AddMinutes(int.Parse(m.Groups[2].Value)) : dt;
+            if (!m.Success) return SwissTime.UtcDate(date);
+            var wallClock = date.ToDateTime(TimeOnly.MinValue).AddHours(int.Parse(m.Groups[1].Value)).AddMinutes(int.Parse(m.Groups[2].Value));
+            return SwissTime.TryToUtc(wallClock, out var utc) ? utc : SwissTime.UtcDate(date);
         }
 
         private static decimal? ParseDecimal(string? s) =>
