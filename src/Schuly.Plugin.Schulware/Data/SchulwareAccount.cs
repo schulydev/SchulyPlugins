@@ -15,6 +15,8 @@ namespace Schuly.Plugin.Schulware.Data
 
         public bool AutoRefresh { get; set; } = true;
 
+        public Guid? LinkedAccountId { get; set; }
+
         public DateTime? MobileTokenExpiresAt { get; set; }
 
         [NotMapped] public string? MobileAccessToken { get; set; }

@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
-using Schuly.Plugin.Microsoft.Data;
 using Schuly.Plugin.Microsoft.Infrastructure;
 using Schuly.Plugin.Microsoft.Services;
 
@@ -25,18 +23,12 @@ namespace Schuly.Plugin.Microsoft
                     "Microsoft plugin: missing config. Drop a Schuly.Plugin.Microsoft.yml into the backend's " +
                     "plugins-config directory with MicrosoftApi.BaseUrl pointing at a SchulyMicrosoft instance.");
 
-            services.AddDbContext<MicrosoftDbContext>(options => options.UseNpgsql(context.ConnectionString));
-            services.AddScoped<MicrosoftTokenStore>();
+            services.AddScoped<PendingLinkStore>();
             services.AddScoped<MicrosoftServiceClient>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }
 
-        public async Task MigrateAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
-        {
-            using var scope = serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<MicrosoftDbContext>();
-            await db.Database.MigrateAsync(cancellationToken);
-        }
+        public Task MigrateAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

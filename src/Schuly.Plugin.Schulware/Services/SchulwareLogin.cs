@@ -8,7 +8,7 @@ using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    public class SchulwareLogin(IPluginUserContext userContext, SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<SchulwareLogin> logger) : IPluginLogin
+    public class SchulwareLogin(IPluginUserContext userContext, SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, ILinkedAccounts linkedAccounts, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<SchulwareLogin> logger) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
         {
@@ -18,16 +18,17 @@ namespace Schuly.Plugin.Schulware.Services
             PrivateAuthStrategy = "token",
             StatelessBasePath = "/api/plugins/schulware/stateless",
             PluginBasePath = "/api/plugins/schulware",
+            LoginMethodPath = "/api/plugins/schulware/stateless/login-method",
             SortOrder = 0,
             LoginFields =
             [
                 new() { Key = "baseUrl",  Label = "Schulnetz URL", Type = "url",      Placeholder = "https://your-schulnetz.example.ch", Required = true },
-                new() { Key = "email",    Label = "Email",         Type = "text",     Required = true },
-                new() { Key = "password", Label = "Password",      Type = "password", Required = true },
+                new() { Key = "email",    Label = "Email",         Type = "text",     Required = true, ReplacedByLinkedAccount = true },
+                new() { Key = "password", Label = "Password",      Type = "password", Required = true, ReplacedByLinkedAccount = true },
                 // Optional: the TOTP *secret* (base32 seed / otpauth:// URI), not a live
                 // 6-digit code - SchulwareAPI regenerates the code each login so it works
                 // for background refresh too. Left blank, no second factor is sent.
-                new() { Key = "totp",     Label = "2FA secret (optional)", Type = "totp", Placeholder = "TOTP secret or otpauth:// URI", Required = false },
+                new() { Key = "totp",     Label = "2FA secret (optional)", Type = "totp", Placeholder = "TOTP secret or otpauth:// URI", Required = false, ReplacedByLinkedAccount = true },
             ],
         };
 
@@ -39,16 +40,29 @@ namespace Schuly.Plugin.Schulware.Services
             var totp = Field(fields, "totp");
             // Opt-out: any explicit "false" disables ongoing background refresh.
             var autoRefresh = !string.Equals(Field(fields, "autoRefresh"), "false", StringComparison.OrdinalIgnoreCase);
-            if (string.IsNullOrWhiteSpace(baseUrl)
-                || string.IsNullOrWhiteSpace(email)
-                || string.IsNullOrWhiteSpace(password))
-                return new PluginLoginResult(false, null, "baseUrl, email and password are required");
+            var linkedField = Field(fields, SchoolSystemDescriptor.LinkedAccountFieldKey);
+            Guid? linkedAccountId = Guid.TryParse(linkedField, out var parsedLinkedId) ? parsedLinkedId : null;
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return new PluginLoginResult(false, null, "baseUrl is required");
+            if (linkedAccountId is null && (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)))
+                return new PluginLoginResult(false, null, "email and password, or a linked Microsoft account, are required");
 
             if (!BaseUrlGuard.IsAllowed(baseUrl))
                 return new PluginLoginResult(false, null, "baseUrl is not an allowed target");
 
             var apiBaseUrl = configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
             var userId = await userContext.GetCurrentUserIdAsync(cancellationToken);
+
+            List<LoginRequestDto_session_cookies>? linkedSession = null;
+            if (linkedAccountId is { } linkedId)
+            {
+                var linked = await linkedAccounts.GetAsync(userId, linkedId, cancellationToken);
+                if (linked is null || linked.Provider != LinkedProviders.Microsoft)
+                    return new PluginLoginResult(false, null, "The selected Microsoft account is not linked to your Schuly account");
+                linkedSession = SessionCookies.FromJson(await linkedAccounts.GetSecretAsync(userId, linkedId, LinkedSecrets.SessionCookies, cancellationToken));
+                if (linkedSession is null || linkedSession.Count == 0)
+                    return new PluginLoginResult(false, null, "The Microsoft sign-in of that account has expired. Link it again in Settings.");
+            }
 
             var account = await db.Accounts.FirstOrDefaultAsync(
                 a => a.ApplicationUserId == userId && a.SchulnetzBaseUrl == baseUrl, cancellationToken);
@@ -65,13 +79,15 @@ namespace Schuly.Plugin.Schulware.Services
             try
             {
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl, baseUrl);
-                res = await client.Api.Authenticate.Login.PostAsync(new LoginRequestDto
-                {
-                    SchulnetzBaseUrl = baseUrl,
-                    Email = email,
-                    Password = password,
-                    TotpSecret = string.IsNullOrWhiteSpace(totp) ? null : totp,
-                }, cancellationToken: cancellationToken);
+                res = await client.Api.Authenticate.Login.PostAsync(linkedSession is not null
+                    ? new LoginRequestDto { SchulnetzBaseUrl = baseUrl, SessionCookies = linkedSession }
+                    : new LoginRequestDto
+                    {
+                        SchulnetzBaseUrl = baseUrl,
+                        Email = email,
+                        Password = password,
+                        TotpSecret = string.IsNullOrWhiteSpace(totp) ? null : totp,
+                    }, cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
@@ -80,7 +96,13 @@ namespace Schuly.Plugin.Schulware.Services
             }
 
             if (res is null || res.Success != true || string.IsNullOrEmpty(res.AccessToken))
-                return new PluginLoginResult(false, null, res?.Message ?? "Login failed");
+                return new PluginLoginResult(false, null, linkedSession is not null
+                    ? "The Microsoft sign-in of that account has expired. Link it again in Settings."
+                    : res?.Message ?? "Login failed");
+
+            account.LinkedAccountId = linkedAccountId;
+            if (linkedAccountId is { } usedLinkedId && SessionCookies.ToJson(res.SessionCookies) is { } rotated)
+                await linkedAccounts.SetSecretAsync(userId, usedLinkedId, LinkedSecrets.SessionCookies, rotated, cancellationToken);
 
             account.MobileAccessToken = res.AccessToken;
             account.MobileRefreshToken = res.RefreshToken;

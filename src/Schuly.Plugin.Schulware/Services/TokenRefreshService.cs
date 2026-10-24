@@ -1,11 +1,13 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
+using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    public class TokenRefreshService(IHttpClientFactory httpClientFactory, SchulwareDbContext db, ILogger<TokenRefreshService> logger)
+    public class TokenRefreshService(IHttpClientFactory httpClientFactory, SchulwareDbContext db, ILinkedAccounts linkedAccounts, ILogger<TokenRefreshService> logger)
     {
         public async Task<bool> RefreshAsync(SchulwareAccount account, CancellationToken ct)
         {
@@ -53,31 +55,25 @@ namespace Schuly.Plugin.Schulware.Services
 
         public async Task<bool> RefreshViaRunnerAsync(SchulwareAccount account, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(account.SessionCookiesJson))
+            var linkedSession = account.LinkedAccountId is { } linkedId
+                ? await linkedAccounts.GetSecretAsync(account.ApplicationUserId, linkedId, LinkedSecrets.SessionCookies, ct)
+                : null;
+            var sessions = new[] { account.SessionCookiesJson, linkedSession }
+                .Where(json => !string.IsNullOrWhiteSpace(json))
+                .Distinct()
+                .ToList();
+            if (sessions.Count == 0)
             {
                 logger.LogWarning("Account {AccountId} has no stored session cookies. " +
                     "User must sign in again to seed them.", account.Id);
                 return false;
             }
 
-            try
+            foreach (var session in sessions)
             {
-                var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
-                var result = await client.Api.Authenticate.Login.PostAsync(
-                    new Client.Models.LoginRequestDto
-                    {
-                        SchulnetzBaseUrl = account.SchulnetzBaseUrl,
-                        UserAgent = account.UserAgent,
-                        SessionCookies = SessionCookies.FromJson(account.SessionCookiesJson),
-                    },
-                    cancellationToken: ct);
-
-                if (result is null || result.Success != true)
-                {
-                    logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}",
-                        account.Id, result?.Message ?? "no response");
-                    return false;
-                }
+                var result = await LoginWithSessionAsync(account, session!, ct);
+                if (result is null)
+                    continue;
 
                 if (!string.IsNullOrEmpty(result.AccessToken)) account.MobileAccessToken = result.AccessToken;
                 if (!string.IsNullOrEmpty(result.RefreshToken)) account.MobileRefreshToken = result.RefreshToken;
@@ -86,7 +82,9 @@ namespace Schuly.Plugin.Schulware.Services
                 if (!string.IsNullOrEmpty(result.WebSessionUserId)) account.WebSessionUserId = result.WebSessionUserId;
                 if (!string.IsNullOrEmpty(result.WebSessionTransId)) account.WebSessionTransId = result.WebSessionTransId;
 
-                account.SessionCookiesJson = SessionCookies.ToJson(result.SessionCookies) ?? account.SessionCookiesJson;
+                account.SessionCookiesJson = SessionCookies.ToJson(result.SessionCookies) ?? session;
+                if (account.LinkedAccountId is { } usedLinkedId)
+                    await linkedAccounts.SetSecretAsync(account.ApplicationUserId, usedLinkedId, LinkedSecrets.SessionCookies, account.SessionCookiesJson, ct);
 
                 account.UpdatedAt = DateTime.UtcNow;
                 db.Accounts.Update(account);
@@ -95,10 +93,34 @@ namespace Schuly.Plugin.Schulware.Services
                     account.Id, account.MobileTokenExpiresAt);
                 return true;
             }
+
+            return false;
+        }
+
+        private async Task<LoginResponseDto?> LoginWithSessionAsync(SchulwareAccount account, string sessionJson, CancellationToken ct)
+        {
+            try
+            {
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl);
+                var result = await client.Api.Authenticate.Login.PostAsync(
+                    new LoginRequestDto
+                    {
+                        SchulnetzBaseUrl = account.SchulnetzBaseUrl,
+                        UserAgent = account.UserAgent,
+                        SessionCookies = SessionCookies.FromJson(sessionJson),
+                    },
+                    cancellationToken: ct);
+
+                if (result is not null && result.Success == true)
+                    return result;
+                logger.LogWarning("SchulwareAPI /refresh failed for account {AccountId}: {Message}",
+                    account.Id, result?.Message ?? "no response");
+                return null;
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "SchulwareAPI /refresh error for account {AccountId}", account.Id);
-                return false;
+                return null;
             }
         }
     }

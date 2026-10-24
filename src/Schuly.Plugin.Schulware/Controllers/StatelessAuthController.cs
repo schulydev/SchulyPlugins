@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Dtos;
 using Schuly.Plugin.Schulware.Infrastructure;
@@ -18,10 +20,30 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/schulware/stateless")]
-    public class StatelessAuthController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
+    public class StatelessAuthController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<StatelessAuthController> logger) : ControllerBase
     {
         private string BaseUrl =>
             configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+
+        /// <summary>The descriptor's <c>LoginMethodPath</c>: a Microsoft-SSO school signs in with a linked Microsoft account.</summary>
+        [HttpGet("login-method")]
+        public async Task<IActionResult> LoginMethod([FromQuery] string baseUrl, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(baseUrl) || !BaseUrlGuard.IsAllowed(baseUrl))
+                return BadRequest(new { message = "baseUrl is not an allowed target" });
+
+            try
+            {
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl, baseUrl.TrimEnd('/'));
+                var result = await client.Api.Authenticate.LoginMethod.GetAsync(cancellationToken: ct);
+                return Ok(new LoginMethodResult(result?.Method == LoginMethodDto_method.Microsoft ? LinkedProviders.Microsoft : null));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not detect the Schulnetz login method; falling back to credentials");
+                return Ok(new LoginMethodResult(null));
+            }
+        }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
