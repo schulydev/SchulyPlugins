@@ -1,49 +1,40 @@
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
-using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Shared;
 
 namespace Schuly.Plugin.Schulware.Services
 {
+    /// <summary>Syncs the timetable from Schulnetz's mobile API (<c>/me/events</c>), five weeks back to four months ahead.</summary>
     public class AgendaSyncService(ISchoolData schoolData, ILogger<AgendaSyncService> logger)
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
         {
-            if (string.IsNullOrEmpty(account.WebSessionId))
+            var today = DateTime.UtcNow.Date;
+            var events = await client.Api.Mobile.Events.GetAsync(config =>
             {
-                logger.LogWarning("Account {AccountId} has no web session; skipping agenda scrape", account.Id);
-                return;
-            }
-
-            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
-            {
-                Page = "schedule",
-                SessionId = account.WebSessionId,
-                Id = account.WebSessionUserId,
-                Transid = account.WebSessionTransId,
-                UserAgent = account.UserAgent,
-            }, cancellationToken: ct);
-
-            var events = result?.Schedule;
+                config.QueryParameters.MinDate = today.AddDays(-35).ToString("yyyy-MM-dd");
+                config.QueryParameters.MaxDate = today.AddDays(120).ToString("yyyy-MM-dd");
+            }, ct);
             if (events is null || events.Count == 0) return;
 
+            static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
             var records = new List<AgendaRecord>();
             foreach (var ev in events)
             {
+                if (!string.Equals(ev.EventType, "Timetable", StringComparison.OrdinalIgnoreCase)) continue;
                 if (!SwissTime.TryParseToUtc(ev.StartDate, out var start)) continue;
 
-                static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
                 string? mapped = null;
-                if (Blank(ev.Kurskuerzel) is { } token)
+                if (Blank(ev.CourseToken) is { } token)
                     subjectNames.TryGetValue(token, out mapped);
-                var title = Blank(mapped) ?? Blank(ev.Fachkuerzel) ?? Blank(ev.Text)
-                    ?? Blank(ev.Kurskuerzel) ?? Blank(ev.Klasse) ?? "Lektion";
+                var title = Blank(ev.CourseName) ?? Blank(mapped) ?? Blank(ev.Text) ?? Blank(ev.CourseToken) ?? "Lektion";
                 DateTimeOffset? end = SwissTime.TryParseToUtc(ev.EndDate, out var e) && e >= start ? e : null;
-                var course = Blank(ev.Kurskuerzel) ?? Blank(ev.Fachkuerzel) ?? title;
+                var course = Blank(ev.CourseToken) ?? title;
+                var teachers = ev.Teachers is { Count: > 0 } names ? string.Join(", ", names) : null;
 
-                records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), course), AgendaKind.Lesson, title, start, end, ev.Zimmerkuerzel ?? ev.Zimmer, string.IsNullOrWhiteSpace(ev.Kommentar) ? ev.Lehrerkuerzelname : ev.Kommentar));
+                records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), course), AgendaKind.Lesson, title, start, end, Blank(ev.RoomToken), Blank(ev.Comment) ?? teachers));
             }
 
             var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);

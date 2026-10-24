@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Abstractions;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.Token;
 using Schuly.Plugin.Schulware.Client.Models;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +18,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class NotificationsRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The token property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.Token.TokenRequestBuilder Token
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.Token.TokenRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Mobile.Notifications.NotificationsRequestBuilder"/> and sets the default values.
         /// </summary>

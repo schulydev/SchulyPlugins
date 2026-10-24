@@ -54,6 +54,8 @@ namespace Schuly.Plugin.Schulware.Services
             var agenda = scopedSp.GetRequiredService<AgendaSyncService>();
             var documents = scopedSp.GetRequiredService<DocumentsSyncService>();
             var vacations = scopedSp.GetRequiredService<VacationsSyncService>();
+            var semesterReports = scopedSp.GetRequiredService<SemesterReportsSyncService>();
+            var push = scopedSp.GetRequiredService<PushRegistrationService>();
             var httpClientFactory = scopedSp.GetRequiredService<IHttpClientFactory>();
             var logger = scopedSp.GetRequiredService<ILogger<SchulwareSyncTask>>();
 
@@ -101,14 +103,17 @@ namespace Schuly.Plugin.Schulware.Services
                     httpClientFactory, account.SchulwareApiBaseUrl,
                     account.SchulnetzBaseUrl, account.MobileAccessToken);
 
-                // Grades first so Classes are populated, then agenda (which
-                // looks up Class by name) and absences. Documents are scraper-only
-                // and no-op without a web session.
+                // Grades and absences still come from the web pages; timetable, documents,
+                // holidays and semester reports from the mobile API.
                 var subjectNames = await grades.SyncAsync(client, account, ct);
                 await agenda.SyncAsync(client, account, subjectNames, ct);
                 await absences.SyncAsync(client, account, ct);
                 await documents.SyncAsync(client, account, ct);
                 await vacations.SyncAsync(client, account, ct);
+                await semesterReports.SyncAsync(client, account, ct);
+
+                try { await push.EnsureAsync(account, ct); }
+                catch (Exception ex) { logger.LogWarning(ex, "Push registration failed for {AccountId}", account.Id); }
 
                 syncState.LastSyncAt = DateTime.UtcNow;
                 syncState.LastSyncStatus = "Success";

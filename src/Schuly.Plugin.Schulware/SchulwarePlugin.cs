@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Schulware.Infrastructure;
 using Schuly.Plugin.Schulware.Services;
 
 namespace Schuly.Plugin.Schulware
@@ -41,6 +42,9 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<AgendaSyncService>();
             services.AddScoped<DocumentsSyncService>();
             services.AddScoped<VacationsSyncService>();
+            services.AddScoped<SemesterReportsSyncService>();
+            services.AddScoped<PushRelayClient>();
+            services.AddScoped<PushRegistrationService>();
             services.AddScoped<SchoolProvisioningService>();
 
             // The account auth secrets live in this plugin's encrypted vault instead of the database.

@@ -14,6 +14,44 @@ namespace Schuly.Plugin.Schulware.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The appEnabled property</summary>
+        public bool? AppEnabled { get; set; }
+        /// <summary>The appSubscribed property</summary>
+        public bool? AppSubscribed { get; set; }
+        /// <summary>The comment property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Comment { get; set; }
+#nullable restore
+#else
+        public string Comment { get; set; }
+#endif
+        /// <summary>The id property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Id { get; set; }
+#nullable restore
+#else
+        public string Id { get; set; }
+#endif
+        /// <summary>The mailEnabled property</summary>
+        public bool? MailEnabled { get; set; }
+        /// <summary>The mailSubscribed property</summary>
+        public bool? MailSubscribed { get; set; }
+        /// <summary>The mandatory property</summary>
+        public bool? Mandatory { get; set; }
+        /// <summary>The pushEnabled property</summary>
+        public bool? PushEnabled { get; set; }
+        /// <summary>The pushSubscribed property</summary>
+        public bool? PushSubscribed { get; set; }
+        /// <summary>The title property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Title { get; set; }
+#nullable restore
+#else
+        public string Title { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.TopicDto"/> and sets the default values.
         /// </summary>
@@ -39,6 +77,16 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "appEnabled", n => { AppEnabled = n.GetBoolValue(); } },
+                { "appSubscribed", n => { AppSubscribed = n.GetBoolValue(); } },
+                { "comment", n => { Comment = n.GetStringValue(); } },
+                { "id", n => { Id = n.GetStringValue(); } },
+                { "mailEnabled", n => { MailEnabled = n.GetBoolValue(); } },
+                { "mailSubscribed", n => { MailSubscribed = n.GetBoolValue(); } },
+                { "mandatory", n => { Mandatory = n.GetBoolValue(); } },
+                { "pushEnabled", n => { PushEnabled = n.GetBoolValue(); } },
+                { "pushSubscribed", n => { PushSubscribed = n.GetBoolValue(); } },
+                { "title", n => { Title = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -48,6 +96,16 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteBoolValue("appEnabled", AppEnabled);
+            writer.WriteBoolValue("appSubscribed", AppSubscribed);
+            writer.WriteStringValue("comment", Comment);
+            writer.WriteStringValue("id", Id);
+            writer.WriteBoolValue("mailEnabled", MailEnabled);
+            writer.WriteBoolValue("mailSubscribed", MailSubscribed);
+            writer.WriteBoolValue("mandatory", Mandatory);
+            writer.WriteBoolValue("pushEnabled", PushEnabled);
+            writer.WriteBoolValue("pushSubscribed", PushSubscribed);
+            writer.WriteStringValue("title", Title);
             writer.WriteAdditionalData(AdditionalData);
         }
     }

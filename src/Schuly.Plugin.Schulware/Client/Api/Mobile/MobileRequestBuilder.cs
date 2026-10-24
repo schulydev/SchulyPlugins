@@ -6,10 +6,13 @@ using Schuly.Plugin.Schulware.Client.Api.Mobile.Absencenotices;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Absencenoticestatus;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Absences;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Certificates;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Courses;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Customfields;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Events;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Exams;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories;
+using Schuly.Plugin.Schulware.Client.Api.Mobile.Filestore;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Grades;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Homework;
 using Schuly.Plugin.Schulware.Client.Api.Mobile.Lateness;
@@ -52,6 +55,16 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Agenda.AgendaRequestBuilder(PathParameters, RequestAdapter);
         }
+        /// <summary>The certificates property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Certificates.CertificatesRequestBuilder Certificates
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Certificates.CertificatesRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The courses property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Courses.CoursesRequestBuilder Courses
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Courses.CoursesRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The customfields property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Customfields.CustomfieldsRequestBuilder Customfields
         {
@@ -71,6 +84,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Mobile
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories.FilecategoriesRequestBuilder Filecategories
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filecategories.FilecategoriesRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The filestore property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filestore.FilestoreRequestBuilder Filestore
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Mobile.Filestore.FilestoreRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>The grades property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Mobile.Grades.GradesRequestBuilder Grades
