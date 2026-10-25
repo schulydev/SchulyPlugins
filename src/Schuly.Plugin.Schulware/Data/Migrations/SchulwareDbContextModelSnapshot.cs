@@ -40,6 +40,9 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("LinkedAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("MobileTokenExpiresAt")
                         .HasColumnType("timestamp with time zone");
 

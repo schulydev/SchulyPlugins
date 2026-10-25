@@ -3,6 +3,7 @@
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Login;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -19,6 +20,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Login.LoginRequestBuilder Login
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Login.LoginRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The loginMethod property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod.LoginMethodRequestBuilder LoginMethod
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod.LoginMethodRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Authenticate.AuthenticateRequestBuilder"/> and sets the default values.
