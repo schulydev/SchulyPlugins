@@ -3,7 +3,7 @@ using System.Runtime.Serialization;
 using System;
 namespace Schuly.Plugin.Schulware.Client.Models
 {
-    /// <summary>`microsoft`: Entra SSO (sign in with a Microsoft session or credentials). `native`: Schulnetz&apos;s own login form.</summary>
+    /// <summary>`microsoft`: Entra SSO (sign in with a Microsoft session or credentials). `native`: Schulnetz&apos;s own login form. `browser`: any other sign-in (e.g. a cantonal login); the user signs in in a browser started with /api/authenticate/browser/start.</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public enum LoginMethodDto_method
     {
@@ -14,6 +14,10 @@ namespace Schuly.Plugin.Schulware.Client.Models
         [EnumMember(Value = "native")]
         #pragma warning disable CS1591
         Native,
+        #pragma warning restore CS1591
+        [EnumMember(Value = "browser")]
+        #pragma warning disable CS1591
+        Browser,
         #pragma warning restore CS1591
     }
 }

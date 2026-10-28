@@ -25,6 +25,7 @@ namespace Schuly.Plugin.Schulware.Services
                     new KeyValuePair<string, string>("grant_type", "refresh_token"),
                     new KeyValuePair<string, string>("refresh_token", account.MobileRefreshToken!),
                     new KeyValuePair<string, string>("client_id", "ppyybShnMerHdtBQ"),
+                    new KeyValuePair<string, string>("device_id", account.DeviceId ?? ""),
                 });
 
                 var response = await httpClient.PostAsync($"{account.SchulnetzBaseUrl}/token.php", content, ct);
