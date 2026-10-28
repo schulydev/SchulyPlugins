@@ -8,7 +8,7 @@
   See [migrations.md](../migrations.md).
 - **[Kiota](https://learn.microsoft.com/openapi/kiota/install)** - only needed to regenerate
   the Schulware API client. See [setup/kiota-client.md](kiota-client.md).
-- A running **[SchulyBackend](https://github.com/schulydev/SchulyBackend)** with PostgreSQL to
+- A running **[SchulyServer](https://github.com/schulydev/SchulyServer)** with PostgreSQL to
   load and test a plugin end-to-end.
 
 ## The abstractions dependency
@@ -54,7 +54,7 @@ Each plugin also has a `.slnx` solution file for opening it standalone in an IDE
 The backend's plugin host loads plugin DLLs from its `plugins/` directory (`/app/plugins/` in
 the container) and reads each plugin's YAML config from its plugins-config directory.
 
-1. Bring up SchulyBackend + Postgres (see the backend's README).
+1. Bring up SchulyServer + Postgres (see the backend's README).
 2. `dotnet publish` the plugin (above) and copy the plugin DLL plus its third-party
    dependency DLLs into the backend's `plugins/` folder. Host-shared assemblies
    (ASP.NET Core, EF Core, Npgsql, the abstractions, Schuly host assemblies) are already
