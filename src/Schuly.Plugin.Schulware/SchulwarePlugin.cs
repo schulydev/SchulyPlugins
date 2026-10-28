@@ -40,6 +40,8 @@ namespace Schuly.Plugin.Schulware
             services.AddSingleton<IPluginBackgroundTask>(sp => sp.GetRequiredService<SchulwareSyncTask>());
             services.AddScoped<TokenRefreshService>();
             services.AddScoped<GradesSyncService>();
+            services.AddScoped<MobileGradesSyncService>();
+            services.AddScoped<MobileAbsencesSyncService>();
             services.AddScoped<AbsencesSyncService>();
             services.AddScoped<AgendaSyncService>();
             services.AddScoped<DocumentsSyncService>();

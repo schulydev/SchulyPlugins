@@ -11,7 +11,8 @@ namespace Schuly.Plugin.Schulware.Services
     {
         public async Task<string?> EnsureAsync(SchulwareAccount account, Guid userId)
         {
-            if (account.MobileAccessToken is null) return null;
+            if (account.MobileAccessToken is null || account.MobileApiAvailable == false)
+                return await EnsureWithoutProfileAsync(account, userId);
 
             try
             {
@@ -32,6 +33,22 @@ namespace Schuly.Plugin.Schulware.Services
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Auto-provisioning School/SchoolUser failed for {AccountId}", account.Id);
+                return "setting up your school profile failed";
+            }
+        }
+
+        private async Task<string?> EnsureWithoutProfileAsync(SchulwareAccount account, Guid userId)
+        {
+            if (account.SchoolUserId is not null) return null;
+            try
+            {
+                var schoolId = await schoolData.EnsureSchoolAsync(InstanceUrl.School(account.SchulnetzBaseUrl, account.DisplayName));
+                account.SchoolUserId = await schoolData.EnsureStudentAsync(schoolId, userId, new StudentRecord());
+                return null;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Setting up the school profile without the mobile API failed for {AccountId}", account.Id);
                 return "setting up your school profile failed";
             }
         }

@@ -9,15 +9,14 @@ namespace Schuly.Plugin.Schulware.Services
     /// <summary>Syncs the timetable from Schulnetz's mobile API (<c>/me/events</c>), five weeks back to four months ahead.</summary>
     public class AgendaSyncService(ISchoolData schoolData, ILogger<AgendaSyncService> logger)
     {
-        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
+        public async Task<int> SyncAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, IReadOnlySet<string> gradedExamIds, CancellationToken ct)
         {
             var today = DateTime.UtcNow.Date;
             var events = await client.Api.Mobile.Events.GetAsync(config =>
             {
                 config.QueryParameters.MinDate = today.AddDays(-35).ToString("yyyy-MM-dd");
                 config.QueryParameters.MaxDate = today.AddDays(120).ToString("yyyy-MM-dd");
-            }, ct);
-            if (events is null || events.Count == 0) return;
+            }, ct) ?? [];
 
             static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
             var records = new List<AgendaRecord>();
@@ -37,9 +36,26 @@ namespace Schuly.Plugin.Schulware.Services
                 records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), course), AgendaKind.Lesson, title, start, end, Blank(ev.RoomToken), Blank(ev.Comment) ?? teachers));
             }
 
+            var exams = await client.Api.Mobile.Exams.GetAsync(cancellationToken: ct) ?? [];
+            foreach (var exam in exams)
+            {
+                if (Blank(exam.Id) is not { } examId || gradedExamIds.Contains(examId)) continue;
+                if (!SwissTime.TryParseToUtc(exam.StartDate, out var start) || start < today.AddDays(-35)) continue;
+
+                string? mapped = null;
+                if (Blank(exam.CourseToken) is { } token)
+                    subjectNames.TryGetValue(token, out mapped);
+                var subject = Blank(exam.CourseName) ?? Blank(mapped) ?? Blank(exam.CourseToken) ?? "Prüfung";
+                var title = Blank(exam.Text) is { } text ? $"{subject}: {text}" : $"Prüfung {subject}";
+                DateTimeOffset? end = SwissTime.TryParseToUtc(exam.EndDate, out var e) && e >= start ? e : null;
+                records.Add(new AgendaRecord(ExternalIds.Of("exam", examId), AgendaKind.Test, title, start, end, Blank(exam.RoomToken), Blank(exam.Comment)));
+            }
+
+            if (records.Count == 0) return 0;
             var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced agenda for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
+            return records.Count;
         }
     }
 }

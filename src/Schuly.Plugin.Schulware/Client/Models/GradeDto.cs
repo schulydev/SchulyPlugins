@@ -14,6 +14,8 @@ namespace Schuly.Plugin.Schulware.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
+        /// <summary>The classGrade property</summary>
+        public double? ClassGrade { get; set; }
         /// <summary>The comment property</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -90,6 +92,8 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #endif
         /// <summary>The isConfirmed property</summary>
         public bool? IsConfirmed { get; set; }
+        /// <summary>The isConfirmedByParent property</summary>
+        public bool? IsConfirmedByParent { get; set; }
         /// <summary>The isConfirmedByTrainer property</summary>
         public bool? IsConfirmedByTrainer { get; set; }
         /// <summary>The mark property</summary>
@@ -163,6 +167,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
         {
             return new Dictionary<string, Action<IParseNode>>
             {
+                { "classGrade", n => { ClassGrade = n.GetDoubleValue(); } },
                 { "comment", n => { Comment = n.GetStringValue(); } },
                 { "course", n => { Course = n.GetStringValue(); } },
                 { "courseGrade", n => { CourseGrade = n.GetDoubleValue(); } },
@@ -174,6 +179,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "id", n => { Id = n.GetStringValue(); } },
                 { "inputType", n => { InputType = n.GetStringValue(); } },
                 { "isConfirmed", n => { IsConfirmed = n.GetBoolValue(); } },
+                { "isConfirmedByParent", n => { IsConfirmedByParent = n.GetBoolValue(); } },
                 { "isConfirmedByTrainer", n => { IsConfirmedByTrainer = n.GetBoolValue(); } },
                 { "mark", n => { Mark = n.GetDoubleValue(); } },
                 { "points", n => { Points = n.GetDoubleValue(); } },
@@ -192,6 +198,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
         public virtual void Serialize(ISerializationWriter writer)
         {
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
+            writer.WriteDoubleValue("classGrade", ClassGrade);
             writer.WriteStringValue("comment", Comment);
             writer.WriteStringValue("course", Course);
             writer.WriteDoubleValue("courseGrade", CourseGrade);
@@ -203,6 +210,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteStringValue("id", Id);
             writer.WriteStringValue("inputType", InputType);
             writer.WriteBoolValue("isConfirmed", IsConfirmed);
+            writer.WriteBoolValue("isConfirmedByParent", IsConfirmedByParent);
             writer.WriteBoolValue("isConfirmedByTrainer", IsConfirmedByTrainer);
             writer.WriteDoubleValue("mark", Mark);
             writer.WriteDoubleValue("points", Points);

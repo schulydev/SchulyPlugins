@@ -42,6 +42,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public List<global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto> Exams { get; set; }
 #endif
+        /// <summary>The semester property</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public string? Semester { get; set; }
+#nullable restore
+#else
+        public string Semester { get; set; }
+#endif
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.CourseGradesDto"/> and sets the default values.
         /// </summary>
@@ -72,6 +80,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
                 { "course", n => { Course = n.GetStringValue(); } },
                 { "course_token", n => { CourseToken = n.GetStringValue(); } },
                 { "exams", n => { Exams = n.GetCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto>(global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto.CreateFromDiscriminatorValue)?.AsList(); } },
+                { "semester", n => { Semester = n.GetStringValue(); } },
             };
         }
         /// <summary>
@@ -86,6 +95,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             writer.WriteStringValue("course", Course);
             writer.WriteStringValue("course_token", CourseToken);
             writer.WriteCollectionOfObjectValues<global::Schuly.Plugin.Schulware.Client.Models.ExamGradeDto>("exams", Exams);
+            writer.WriteStringValue("semester", Semester);
             writer.WriteAdditionalData(AdditionalData);
         }
     }
