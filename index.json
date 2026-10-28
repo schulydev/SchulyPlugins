@@ -32,10 +32,10 @@
   {
     "name": "Schuly.Plugin.Schulware",
     "pkg": "schuly.plugin.schulware",
-    "dll": "Schuly.Plugin.Schulware-v3.1.0.dll",
-    "deps": "Schuly.Plugin.Schulware-v3.1.0-deps.zip",
-    "version": "3.1.0",
-    "contract": "0.9",
+    "dll": "Schuly.Plugin.Schulware-v3.2.0.dll",
+    "deps": "Schuly.Plugin.Schulware-v3.2.0-deps.zip",
+    "version": "3.2.0",
+    "contract": "0.10",
     "description": "SchulnetzintegrationviaSchulwareAPI.Syncsschools,classes,exams,grades,andabsencesintotheSchulybackend.",
     "authors": "schulydev"
   }
