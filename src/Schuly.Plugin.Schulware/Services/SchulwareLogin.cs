@@ -40,11 +40,15 @@ namespace Schuly.Plugin.Schulware.Services
             var totp = Field(fields, "totp");
             // Opt-out: any explicit "false" disables ongoing background refresh.
             var autoRefresh = !string.Equals(Field(fields, "autoRefresh"), "false", StringComparison.OrdinalIgnoreCase);
+            var browser = BrowserSignIn.Parse(Field(fields, BrowserLoginStart.ContextFieldKey));
+            var browserCode = browser is null ? null : BrowserSignIn.CodeFrom(Field(fields, BrowserLoginStart.CallbackFieldKey), browser);
             var linkedField = Field(fields, SchoolSystemDescriptor.LinkedAccountFieldKey);
             Guid? linkedAccountId = Guid.TryParse(linkedField, out var parsedLinkedId) ? parsedLinkedId : null;
             if (string.IsNullOrWhiteSpace(baseUrl))
                 return new PluginLoginResult(false, null, "baseUrl is required");
-            if (linkedAccountId is null && (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)))
+            if (browser is not null && browserCode is null)
+                return new PluginLoginResult(false, null, "The sign-in didn't finish. Try again.");
+            if (linkedAccountId is null && browser is null && (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)))
                 return new PluginLoginResult(false, null, "email and password, or a linked Microsoft account, are required");
 
             if (!BaseUrlGuard.IsAllowed(baseUrl))
@@ -79,7 +83,9 @@ namespace Schuly.Plugin.Schulware.Services
             try
             {
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl, baseUrl);
-                res = await client.Api.Authenticate.Login.PostAsync(linkedSession is not null
+                res = browser is not null
+                    ? await client.Api.Authenticate.Browser.Complete.PostAsync(new BrowserLoginCompleteRequestDto { SchulnetzBaseUrl = baseUrl, Code = browserCode, CodeVerifier = browser.CodeVerifier, DeviceId = browser.DeviceId }, cancellationToken: cancellationToken)
+                    : await client.Api.Authenticate.Login.PostAsync(linkedSession is not null
                     ? new LoginRequestDto { SchulnetzBaseUrl = baseUrl, SessionCookies = linkedSession }
                     : new LoginRequestDto
                     {
@@ -101,6 +107,7 @@ namespace Schuly.Plugin.Schulware.Services
                     : res?.Message ?? "Login failed");
 
             account.LinkedAccountId = linkedAccountId;
+            account.DeviceId = browser?.DeviceId;
             if (linkedAccountId is { } usedLinkedId && SessionCookies.ToJson(res.SessionCookies) is { } rotated)
                 await linkedAccounts.SetSecretAsync(userId, usedLinkedId, LinkedSecrets.SessionCookies, rotated, cancellationToken);
 

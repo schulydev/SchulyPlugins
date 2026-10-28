@@ -17,6 +17,9 @@ namespace Schuly.Plugin.Schulware.Data
 
         public Guid? LinkedAccountId { get; set; }
 
+        /// <summary>Set when the account signed in through a browser; its mobile tokens are bound to this device id.</summary>
+        public string? DeviceId { get; set; }
+
         public DateTime? MobileTokenExpiresAt { get; set; }
         public bool? MobileApiAvailable { get; set; }
         public DateTime? HistorySyncedAt { get; set; }

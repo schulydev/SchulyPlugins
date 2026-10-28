@@ -22,6 +22,8 @@ namespace Schuly.Plugin.Schulware.Controllers
     [Route("api/plugins/schulware/stateless")]
     public class StatelessAuthController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<StatelessAuthController> logger) : ControllerBase
     {
+        private const string StatelessPath = "/api/plugins/schulware/stateless";
+
         private string BaseUrl =>
             configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
 
@@ -36,7 +38,12 @@ namespace Schuly.Plugin.Schulware.Controllers
             {
                 var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl, baseUrl.TrimEnd('/'));
                 var result = await client.Api.Authenticate.LoginMethod.GetAsync(cancellationToken: ct);
-                return Ok(new LoginMethodResult(result?.Method == LoginMethodDto_method.Microsoft ? LinkedProviders.Microsoft : null));
+                return Ok(result?.Method switch
+                {
+                    LoginMethodDto_method.Microsoft => new LoginMethodResult(LinkedProviders.Microsoft),
+                    LoginMethodDto_method.Browser => new LoginMethodResult(null) { BrowserLoginPath = $"{StatelessPath}/browser/start" },
+                    _ => new LoginMethodResult(null),
+                });
             }
             catch (Exception ex)
             {
@@ -44,6 +51,42 @@ namespace Schuly.Plugin.Schulware.Controllers
                 return Ok(new LoginMethodResult(null));
             }
         }
+
+        [HttpPost("browser/start")]
+        public async Task<IActionResult> BrowserStart([FromBody] StatelessBrowserStartRequest request, CancellationToken ct)
+        {
+            if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
+                return BadRequest(new { message = "baseUrl is not an allowed target" });
+
+            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+            var start = await client.Api.Authenticate.Browser.Start.PostAsync(new BrowserLoginStartRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/') }, cancellationToken: ct);
+            if (start is null)
+                return StatusCode(502, new { message = "Could not start the sign-in" });
+
+            var context = BrowserSignIn.Serialize(new BrowserSignIn.Context(start.CodeVerifier!, start.DeviceId!, start.State!));
+            return Ok(new BrowserLoginStart(start.AuthUrl!, start.CallbackUrl!, start.State!, context, $"{StatelessPath}/browser/complete"));
+        }
+
+        [HttpPost("browser/complete")]
+        public async Task<IActionResult> BrowserComplete([FromBody] StatelessBrowserCompleteRequest request, CancellationToken ct)
+        {
+            if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
+                return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
+
+            var context = BrowserSignIn.Parse(request.BrowserContext);
+            var code = context is null ? null : BrowserSignIn.CodeFrom(request.BrowserCallbackUrl, context);
+            if (context is null || code is null)
+                return Ok(new StatelessRefreshResponse(false, "The sign-in didn't finish. Try again.", null, null, null, null, null, null));
+
+            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+            var result = await client.Api.Authenticate.Browser.Complete.PostAsync(new BrowserLoginCompleteRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), Code = code, CodeVerifier = context.CodeVerifier, DeviceId = context.DeviceId }, cancellationToken: ct);
+            if (result is null || result.Success != true)
+                return Ok(new StatelessRefreshResponse(false, result?.Message ?? "Sign-in failed", null, null, null, null, null, null));
+
+            return Ok(new StatelessRefreshResponse(true, result.Message, result.AccessToken, result.RefreshToken, null, null, null, BrowserState(result.RefreshToken, context.DeviceId)));
+        }
+
+        private static JsonElement BrowserState(string? refreshToken, string deviceId) => JsonSerializer.SerializeToElement(new { refreshToken, deviceId });
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] StatelessLoginRequest request)
@@ -84,6 +127,14 @@ namespace Schuly.Plugin.Schulware.Controllers
                 return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
 
             var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+            if (request.ContextState.ValueKind == JsonValueKind.Object && request.ContextState.TryGetProperty("deviceId", out var deviceId) && request.ContextState.TryGetProperty("refreshToken", out var refreshToken))
+            {
+                var refreshed = await client.Api.Authenticate.Refresh.PostAsync(new MobileTokenRefreshRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), RefreshToken = refreshToken.GetString(), DeviceId = deviceId.GetString() });
+                return Ok(refreshed?.Success == true
+                    ? new StatelessRefreshResponse(true, refreshed.Message, refreshed.AccessToken, refreshed.RefreshToken, null, null, null, BrowserState(refreshed.RefreshToken, deviceId.GetString()!))
+                    : new StatelessRefreshResponse(false, refreshed?.Message ?? "Sign in again", null, null, null, null, null, null));
+            }
+
             var result = await client.Api.Authenticate.Login.PostAsync(
                 new LoginRequestDto
                 {

@@ -2,8 +2,10 @@
 #pragma warning disable CS0618
 using Microsoft.Kiota.Abstractions.Extensions;
 using Microsoft.Kiota.Abstractions;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.Browser;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.Login;
 using Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod;
+using Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -16,6 +18,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
     [global::System.CodeDom.Compiler.GeneratedCode("Kiota", "1.0.0")]
     public partial class AuthenticateRequestBuilder : BaseRequestBuilder
     {
+        /// <summary>The browser property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Browser.BrowserRequestBuilder Browser
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Browser.BrowserRequestBuilder(PathParameters, RequestAdapter);
+        }
         /// <summary>The login property</summary>
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Login.LoginRequestBuilder Login
         {
@@ -25,6 +32,11 @@ namespace Schuly.Plugin.Schulware.Client.Api.Authenticate
         public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod.LoginMethodRequestBuilder LoginMethod
         {
             get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.LoginMethod.LoginMethodRequestBuilder(PathParameters, RequestAdapter);
+        }
+        /// <summary>The refresh property</summary>
+        public global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder Refresh
+        {
+            get => new global::Schuly.Plugin.Schulware.Client.Api.Authenticate.Refresh.RefreshRequestBuilder(PathParameters, RequestAdapter);
         }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Api.Authenticate.AuthenticateRequestBuilder"/> and sets the default values.

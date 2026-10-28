@@ -144,7 +144,7 @@ namespace Schuly.Plugin.Schulware.Services
                 return $"{reportSemesters.Count} semesters";
             });
 
-            if (account.HistorySyncedAt is null || account.HistorySyncedAt < DateTime.UtcNow - HistoryInterval)
+            if (account.DeviceId is null && (account.HistorySyncedAt is null || account.HistorySyncedAt < DateTime.UtcNow - HistoryInterval))
             {
                 var current = Semesters.Current(DateOnly.FromDateTime(DateTime.UtcNow));
                 var past = reportSemesters.Where(s => s != current).ToList();

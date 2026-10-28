@@ -37,6 +37,9 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DeviceId")
+                        .HasColumnType("text");
+
                     b.Property<string>("DisplayName")
                         .HasColumnType("text");
 

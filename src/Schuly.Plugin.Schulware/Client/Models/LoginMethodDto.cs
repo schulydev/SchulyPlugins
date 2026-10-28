@@ -15,7 +15,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
     {
         /// <summary>Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.</summary>
         public IDictionary<string, object> AdditionalData { get; set; }
-        /// <summary>`microsoft`: Entra SSO (sign in with a Microsoft session or credentials). `native`: Schulnetz&apos;s own login form.</summary>
+        /// <summary>`microsoft`: Entra SSO (sign in with a Microsoft session or credentials). `native`: Schulnetz&apos;s own login form. `browser`: any other sign-in (e.g. a cantonal login); the user signs in in a browser started with /api/authenticate/browser/start.</summary>
         public global::Schuly.Plugin.Schulware.Client.Models.LoginMethodDto_method? Method { get; set; }
         /// <summary>
         /// Instantiates a new <see cref="global::Schuly.Plugin.Schulware.Client.Models.LoginMethodDto"/> and sets the default values.
