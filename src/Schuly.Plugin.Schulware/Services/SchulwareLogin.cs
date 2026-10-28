@@ -22,7 +22,7 @@ namespace Schuly.Plugin.Schulware.Services
             SortOrder = 0,
             LoginFields =
             [
-                new() { Key = "baseUrl",  Label = "Schulnetz URL", Type = "url",      Placeholder = "https://your-schulnetz.example.ch", Required = true },
+                new() { Key = "baseUrl",  Label = "Schulnetz URL", Type = "url",      Placeholder = "https://your-schulnetz.example.ch", Required = true, Suggestions = SchulnetzSchools.All },
                 new() { Key = "email",    Label = "Email",         Type = "text",     Required = true, ReplacedByLinkedAccount = true },
                 new() { Key = "password", Label = "Password",      Type = "password", Required = true, ReplacedByLinkedAccount = true },
                 // Optional: the TOTP *secret* (base32 seed / otpauth:// URI), not a live
