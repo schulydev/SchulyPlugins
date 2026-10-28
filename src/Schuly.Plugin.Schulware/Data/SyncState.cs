@@ -8,5 +8,6 @@ namespace Schuly.Plugin.Schulware.Data
         public DateTime? LastSyncAt { get; set; }
         public string? LastSyncStatus { get; set; }
         public string? LastSyncError { get; set; }
+        public string? LastSyncDetails { get; set; }
     }
 }

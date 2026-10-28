@@ -11,10 +11,11 @@ namespace Schuly.Plugin.Schulware.Services
     /// <summary>Syncs semester reports (Semesterzeugnisse) from Schulnetz's mobile API (<c>/me/certificates/grades</c>), one row per subject.</summary>
     public partial class SemesterReportsSyncService(ISchoolData schoolData, ILogger<SemesterReportsSyncService> logger)
     {
-        public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
+        /// <summary>Syncs the reports and returns the semester labels the student has reports for (e.g. "1. 25/26").</summary>
+        public async Task<IReadOnlyList<string>> SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
             var rows = await client.Api.Mobile.Certificates.GetAsync(cancellationToken: ct);
-            if (rows is null || rows.Count == 0) return;
+            if (rows is null || rows.Count == 0) return [];
 
             var reports = rows
                 .Where(r => !string.IsNullOrWhiteSpace(r.CertificateId))
@@ -26,6 +27,7 @@ namespace Schuly.Plugin.Schulware.Services
             var synced = await schoolData.SyncSemesterReportsAsync(account.SchoolUserId!.Value, reports, ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced semester reports for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
+            return rows.Select(r => r.SemesterTitle?.Trim()).OfType<string>().Where(t => t.Length > 0).Distinct().ToList();
         }
 
         internal static SemesterReportRecord? ToReport(IEnumerable<CertificateGradeDto> certificate)

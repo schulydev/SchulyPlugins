@@ -40,8 +40,14 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("HistorySyncedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("LinkedAccountId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool?>("MobileApiAvailable")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("MobileTokenExpiresAt")
                         .HasColumnType("timestamp with time zone");
@@ -82,6 +88,9 @@ namespace Schuly.Plugin.Schulware.Data.Migrations
 
                     b.Property<DateTime?>("LastSyncAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastSyncDetails")
+                        .HasColumnType("text");
 
                     b.Property<string>("LastSyncError")
                         .HasColumnType("text");

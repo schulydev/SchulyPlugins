@@ -18,6 +18,8 @@ namespace Schuly.Plugin.Schulware.Data
         public Guid? LinkedAccountId { get; set; }
 
         public DateTime? MobileTokenExpiresAt { get; set; }
+        public bool? MobileApiAvailable { get; set; }
+        public DateTime? HistorySyncedAt { get; set; }
 
         [NotMapped] public string? MobileAccessToken { get; set; }
         [NotMapped] public string? MobileRefreshToken { get; set; }

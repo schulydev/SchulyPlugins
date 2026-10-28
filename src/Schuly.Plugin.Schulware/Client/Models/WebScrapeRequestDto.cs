@@ -31,6 +31,14 @@ namespace Schuly.Plugin.Schulware.Client.Models
 #else
         public string Page { get; set; }
 #endif
+        /// <summary>Grades only: semester labels to fetch, e.g. [&quot;2. 25/26&quot;, &quot;1. 25/26&quot;]. Omit to walk back from the current semester until the history ends.</summary>
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
+#nullable enable
+        public List<string>? Semesters { get; set; }
+#nullable restore
+#else
+        public List<string> Semesters { get; set; }
+#endif
         /// <summary>PHPSESSID cookie value</summary>
 #if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 #nullable enable
@@ -82,6 +90,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             {
                 { "id", n => { Id = n.GetStringValue(); } },
                 { "page", n => { Page = n.GetStringValue(); } },
+                { "semesters", n => { Semesters = n.GetCollectionOfPrimitiveValues<string>()?.AsList(); } },
                 { "session_id", n => { SessionId = n.GetStringValue(); } },
                 { "transid", n => { Transid = n.GetStringValue(); } },
                 { "user_agent", n => { UserAgent = n.GetStringValue(); } },
@@ -96,6 +105,7 @@ namespace Schuly.Plugin.Schulware.Client.Models
             if(ReferenceEquals(writer, null)) throw new ArgumentNullException(nameof(writer));
             writer.WriteStringValue("id", Id);
             writer.WriteStringValue("page", Page);
+            writer.WriteCollectionOfPrimitiveValues<string>("semesters", Semesters);
             writer.WriteStringValue("session_id", SessionId);
             writer.WriteStringValue("transid", Transid);
             writer.WriteStringValue("user_agent", UserAgent);
