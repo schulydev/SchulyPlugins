@@ -25,6 +25,7 @@ namespace Schuly.Plugin.Microsoft
 
             services.AddScoped<PendingLinkStore>();
             services.AddScoped<MicrosoftServiceClient>();
+            services.AddScoped<MicrosoftAccountReader>();
             services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>, MicrosoftUserPurgeHandler>();
         }
 
