@@ -37,7 +37,12 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 return NotFound();
             }
-            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnprocessableEntity)
+            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Forbidden)
+            {
+                // Writing to a notebook the user may only read.
+                return StatusCode(403, new { code = "read_only", message = "This notebook is read-only." });
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnprocessableEntity or HttpStatusCode.UnsupportedMediaType)
             {
                 // The service validated the request and refused it (bad address, size limit, unsupported attachment).
                 return StatusCode((int)ex.StatusCode!.Value, new { code = "invalid_request", message = "Microsoft 365 rejected the request." });

@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>2.9.0</Version>
+    <Version>2.10.0</Version>
     <Description>Microsoft 365 for students via SchulyMicrosoft. Links a Microsoft account with a browser sign-in (stored as a Schuly linked account) and reads mail, calendar, OneDrive files and Teams chats (rich send, files, GIFs, chat pictures, scheduled messages).</Description>
     <Authors>schulydev</Authors>
   </PropertyGroup>
