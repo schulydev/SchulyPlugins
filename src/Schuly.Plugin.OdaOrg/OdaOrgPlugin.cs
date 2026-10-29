@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Abstractions.Linking;
 using Schuly.Plugin.OdaOrg.Data;
 using Schuly.Plugin.OdaOrg.Infrastructure;
 using Schuly.Plugin.OdaOrg.Services;
@@ -35,6 +36,8 @@ namespace Schuly.Plugin.OdaOrg
             services.AddScoped<OdaOrgSecretStore>();
 
             services.AddScoped<IPluginLogin, OdaOrgLogin>();
+            services.AddSingleton<OdaOrgSyncLauncher>();
+            services.AddScoped<ILinkProvider, OdaOrgLinkProvider>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }

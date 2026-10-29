@@ -38,7 +38,7 @@ namespace Schuly.Plugin.Schulware.Services
             {
                 return AbsenceReasons.Merge(configured, await api.GetAbsencesAsync(ct));
             }
-            catch (AbsenceReportException ex) when (ex.Code != "schulnetz_signin_expired")
+            catch (AbsenceReportException ex) when (ex.Code != "signin_expired")
             {
                 logger.LogWarning("Could not read used absence reasons from Schulnetz ({Code}); returning the configured list only", ex.Code);
                 return AbsenceReasons.Merge(configured, []);

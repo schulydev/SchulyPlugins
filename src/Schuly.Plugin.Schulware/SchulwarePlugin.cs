@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Abstractions.Linking;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Infrastructure;
 using Schuly.Plugin.Schulware.Services;
@@ -55,7 +56,11 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<AccountSecretStore>();
 
             services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>, SchulwareUserPurgeHandler>();
+            services.AddSingleton<SchulwareSyncLauncher>();
+            services.AddScoped<ISchulwareConnector, SchulwareConnector>();
+            services.AddScoped<ISchulnetzLoginMethods, SchulnetzLoginMethods>();
             services.AddScoped<IPluginLogin, SchulwareLogin>();
+            services.AddScoped<ILinkProvider, SchulnetzLinkProvider>();
         }
 
         public void ConfigureEndpoints(IEndpointRouteBuilder endpoints) { }

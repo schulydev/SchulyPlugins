@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Abstractions.Linking;
 using Schuly.Plugin.Microsoft.Infrastructure;
 using Schuly.Plugin.Microsoft.Services;
 
@@ -25,6 +26,10 @@ namespace Schuly.Plugin.Microsoft
 
             services.AddScoped<PendingLinkStore>();
             services.AddScoped<MicrosoftServiceClient>();
+            services.AddScoped<IMicrosoftSignInApi>(sp => sp.GetRequiredService<MicrosoftServiceClient>());
+            services.AddScoped<MicrosoftAccountLinker>();
+            services.AddSingleton(new PasswordAttemptLimiter(TimeProvider.System));
+            services.AddScoped<ILinkProvider, MicrosoftLinkProvider>();
             services.AddScoped<MicrosoftAccountReader>();
             services.AddScoped<ScheduledMessageStore>();
             services.AddSingleton<IPluginBackgroundTask, ScheduledMessageTask>();

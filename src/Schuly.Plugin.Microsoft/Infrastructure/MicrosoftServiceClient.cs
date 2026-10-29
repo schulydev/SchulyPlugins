@@ -15,10 +15,27 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
     /// <summary>A binary read (null <see cref="Bytes"/> when the service answered 404) plus the refresh token to keep.</summary>
     public sealed record ServiceBinary(byte[]? Bytes, string ContentType, string RefreshToken, string? ContentDisposition = null);
 
+    /// <summary>One answer of SchulyMicrosoft's password sign-in. Status: complete, mfa_required, push_pending, otp_required, otp_invalid, denied, timed_out, error.</summary>
+    public sealed record PasswordSignInState(string Status, string? SignInId, IReadOnlyList<string> Methods, string? Number, int? ExpiresInSeconds, int? AttemptsLeft, string? RefreshToken, string? MicrosoftUserId, string? Email, string? Name, string? ErrorCode, string? Message);
+
+    /// <summary>What the link provider needs from SchulyMicrosoft: the browser sign-in and the password sign-in. Implemented once, by <see cref="MicrosoftServiceClient"/>.</summary>
+    public interface IMicrosoftSignInApi
+    {
+        Task<BrowserStart> StartBrowserLoginAsync(CancellationToken ct);
+        Task<SignInResult> CompleteBrowserLoginAsync(string code, string codeVerifier, CancellationToken ct);
+        /// <summary>False when no service key is configured; the password sign-in must then not be offered or called.</summary>
+        bool PasswordSignInConfigured { get; }
+        Task<PasswordSignInState> StartPasswordAsync(Guid userId, string username, string password, CancellationToken ct);
+        Task<PasswordSignInState> ChooseMethodAsync(Guid userId, string signInId, string method, CancellationToken ct);
+        Task<PasswordSignInState> SubmitOtpAsync(Guid userId, string signInId, string code, CancellationToken ct);
+        Task<PasswordSignInState> GetPasswordStatusAsync(Guid userId, string signInId, CancellationToken ct);
+        Task CancelPasswordAsync(Guid userId, string signInId, CancellationToken ct);
+    }
+
     public class MicrosoftSignInExpiredException() : Exception("The Microsoft sign-in expired; link the account again.");
 
     /// <summary>Client for SchulyMicrosoft (`MicrosoftApi:BaseUrl`). The service is stateless; this plugin keeps the tokens.</summary>
-    public class MicrosoftServiceClient(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public class MicrosoftServiceClient(IHttpClientFactory httpClientFactory, IConfiguration configuration) : IMicrosoftSignInApi
     {
         public const string RefreshTokenHeader = "X-MS-Refresh-Token";
 
@@ -42,6 +59,94 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             var account = body.TryGetProperty("account", out var a) && a.ValueKind == JsonValueKind.Object ? a : default;
             return new SignInResult(body.GetProperty("status").GetString()!, Str(body, "refresh_token"), Str(account, "id"), Str(account, "email"), Str(account, "name"), Str(body, "message"));
         }
+
+        // ---- Password sign-in (SchulyMicrosoft /api/auth/password/*). All request/response shapes live here. ----
+
+        private string? ServiceKey => configuration["MicrosoftApi:ServiceKey"];
+        private string ServiceKeyHeader => configuration["MicrosoftApi:ServiceKeyHeader"] ?? "X-Schuly-Service-Key";
+        public const string UserIdHeader = "X-Schuly-User-Id";
+
+        public bool PasswordSignInConfigured => !string.IsNullOrWhiteSpace(ServiceKey);
+
+        public Task<PasswordSignInState> StartPasswordAsync(Guid userId, string username, string password, CancellationToken ct) =>
+            SendPasswordAsync(userId, HttpMethod.Post, "api/auth/password/start", new { username, password }, ct);
+
+        public Task<PasswordSignInState> ChooseMethodAsync(Guid userId, string signInId, string method, CancellationToken ct) =>
+            SendPasswordAsync(userId, HttpMethod.Post, $"api/auth/password/{Uri.EscapeDataString(signInId)}/method", new { method }, ct);
+
+        public Task<PasswordSignInState> SubmitOtpAsync(Guid userId, string signInId, string code, CancellationToken ct) =>
+            SendPasswordAsync(userId, HttpMethod.Post, $"api/auth/password/{Uri.EscapeDataString(signInId)}/otp", new { code }, ct);
+
+        public Task<PasswordSignInState> GetPasswordStatusAsync(Guid userId, string signInId, CancellationToken ct) =>
+            SendPasswordAsync(userId, HttpMethod.Get, $"api/auth/password/{Uri.EscapeDataString(signInId)}", null, ct);
+
+        public async Task CancelPasswordAsync(Guid userId, string signInId, CancellationToken ct)
+        {
+            using var request = PasswordRequest(userId, HttpMethod.Delete, $"api/auth/password/{Uri.EscapeDataString(signInId)}", null);
+            using var response = await Client().SendAsync(request, ct);
+        }
+
+        /// <summary>Sends a password sign-in call and maps the answer; an error body is returned as a state, never thrown (bodies and request values are never logged).</summary>
+        private HttpRequestMessage PasswordRequest(Guid userId, HttpMethod method, string path, object? body)
+        {
+            if (!PasswordSignInConfigured)
+                throw new InvalidOperationException("The Microsoft password sign-in is not configured.");
+            var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+            request.Headers.Add(ServiceKeyHeader, ServiceKey);
+            request.Headers.Add(UserIdHeader, userId.ToString());
+            return request;
+        }
+
+        private async Task<PasswordSignInState> SendPasswordAsync(Guid userId, HttpMethod method, string path, object? body, CancellationToken ct)
+        {
+            using var request = PasswordRequest(userId, method, path, body);
+            using var response = await Client().SendAsync(request, ct);
+            var fromStatus = HttpError(response.StatusCode);
+            if (fromStatus is not null && response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
+                return fromStatus;
+            JsonElement json;
+            try { json = await response.Content.ReadFromJsonAsync<JsonElement>(ct); }
+            catch (JsonException) { return fromStatus ?? PasswordError("unavailable", "Microsoft sign-in is unavailable."); }
+            if (json.ValueKind != JsonValueKind.Object)
+                return fromStatus ?? PasswordError("unavailable", "Microsoft sign-in is unavailable.");
+            // A failing status without a usable error body still maps to a code.
+            if (fromStatus is not null && (Str(json, "status") ?? "error") == "error" && Str(json, "code") is null)
+                return fromStatus;
+
+            var account = json.TryGetProperty("account", out var a) && a.ValueKind == JsonValueKind.Object ? a : default;
+            var methods = json.TryGetProperty("methods", out var m) && m.ValueKind == JsonValueKind.Array
+                ? m.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToList()
+                : [];
+            return new PasswordSignInState(
+                Str(json, "status") ?? "error",
+                Str(json, "sign_in_id"),
+                methods,
+                Str(json, "number"),
+                Int(json, "expires_in"),
+                Int(json, "attempts_left"),
+                Str(json, "refresh_token"),
+                Str(account, "id"),
+                Str(account, "email"),
+                Str(account, "name"),
+                Str(json, "code"),
+                Str(json, "message"));
+        }
+
+        /// <summary>SchulyMicrosoft status codes: 401/503 service misconfigured, 404 unknown job, 409 wrong state, 422 malformed, 429 rate limited.</summary>
+        private static PasswordSignInState? HttpError(HttpStatusCode status) => status switch
+        {
+            HttpStatusCode.NotFound => PasswordError("expired", "The sign-in expired."),
+            HttpStatusCode.TooManyRequests => PasswordError("rate_limited", "Rate limited."),
+            HttpStatusCode.Conflict => PasswordError("conflict", "Wrong state."),
+            HttpStatusCode.UnprocessableEntity => PasswordError("invalid", "Malformed."),
+            HttpStatusCode.Unauthorized or HttpStatusCode.ServiceUnavailable => PasswordError("failed", "The Microsoft sign-in service is not available."),
+            _ => null,
+        };
+
+        private static PasswordSignInState PasswordError(string code, string message) => new("error", null, [], null, null, null, null, null, null, null, code, message);
+
+        private static int? Int(JsonElement element, string name) =>
+            element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var n) ? n : null;
 
         /// <summary>GETs `api/{path}` with the account's refresh token; throws <see cref="MicrosoftSignInExpiredException"/> on 401.</summary>
         public async Task<ServiceRead> ReadAsync(string path, string refreshToken, CancellationToken ct)

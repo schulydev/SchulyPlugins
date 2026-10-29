@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.10.*" />
+    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.11.*" />
   </ItemGroup>
 
 </Project>
