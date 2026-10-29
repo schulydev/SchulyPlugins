@@ -11,7 +11,8 @@ namespace Schuly.Plugin.Schulware.Services
     /// Syncs a Schulware account's school holidays (Ferien) and public holidays as
     /// Holiday agenda entries. Schulnetz's Mobile <c>/me/vacations</c> endpoint is empty;
     /// the holidays arrive in the Mobile agenda as all-day, course-less entries with
-    /// <c>eventType == "Event"</c> (e.g. "Sommerferien 2026", "Karfreitag 2026").
+    /// <c>eventType == "Event"</c> (e.g. "Sommerferien 2026", "Karfreitag 2026"). Other all-day school events arrive the
+    /// same way (e.g. "Kulturwoche (Theater)"), so only titles that name a day off become Holiday; the rest become Event.
     /// </summary>
     public class VacationsSyncService(ISchoolData schoolData, ILogger<VacationsSyncService> logger)
     {
@@ -30,12 +31,27 @@ namespace Schuly.Plugin.Schulware.Services
                 var title = string.IsNullOrWhiteSpace(e.Text) ? "Ferien" : e.Text!;
                 DateOnly? to = TryParseDay(e.EndDate, out var end, out _) && end > from ? end : null;
 
-                records.Add(new AgendaRecord(ExternalIds.Of("holiday", from.ToString("yyyy-MM-dd"), title), AgendaKind.Holiday, title, SwissTime.UtcDate(from), to is { } until ? SwissTime.UtcDate(until) : null));
+                // The id keeps its "holiday" prefix so entries synced before this distinction are updated, not duplicated.
+                records.Add(new AgendaRecord(ExternalIds.Of("holiday", from.ToString("yyyy-MM-dd"), title), IsDayOff(title) ? AgendaKind.Holiday : AgendaKind.Event, title, SwissTime.UtcDate(from), to is { } until ? SwissTime.UtcDate(until) : null));
             }
 
             var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced holidays for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
+        }
+
+        private static readonly string[] DayOffWords =
+        [
+            "ferien", "feiertag", "schulfrei", "unterrichtsfrei", "frei", "brückentag", "brueckentag", "vacances", "vacanze", "congé", "conge",
+            "neujahr", "berchtold", "karfreitag", "ostern", "ostermontag", "tag der arbeit", "auffahrt", "pfingst", "fronleichnam",
+            "bundesfeier", "nationalfeiertag", "maria himmelfahrt", "allerheiligen", "maria empfängnis", "weihnacht", "stephan",
+        ];
+
+        /// <summary>Whether an all-day, course-less entry is a day off (school holidays or a public holiday) rather than a school event.</summary>
+        internal static bool IsDayOff(string title)
+        {
+            var text = title.ToLowerInvariant();
+            return DayOffWords.Any(word => word == "frei" ? System.Text.RegularExpressions.Regex.IsMatch(text, @"\bfrei\b") : text.Contains(word));
         }
 
         private static bool TryParseDay(string? raw, out DateOnly day, out bool allDay)
