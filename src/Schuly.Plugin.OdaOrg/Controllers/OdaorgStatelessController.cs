@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Schuly.Plugin.OdaOrg.Infrastructure;
 using Schuly.Plugin.OdaOrg.Models;
 
@@ -10,7 +11,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/odaorg/stateless")]
-    public class OdaorgStatelessController(OdaOrgScraper scraper) : ControllerBase
+    public class OdaorgStatelessController(OdaOrgScraper scraper, ILogger<OdaorgStatelessController> logger) : ControllerBase
     {
         [HttpPost("data")]
         [ProducesResponseType(typeof(OdaorgStatelessData), StatusCodes.Status200OK)]
@@ -19,22 +20,23 @@ namespace Schuly.Plugin.OdaOrg.Controllers
             if (string.IsNullOrWhiteSpace(request.Username)
                 || string.IsNullOrWhiteSpace(request.Password)
                 || string.IsNullOrWhiteSpace(request.BaseUrl))
-                return BadRequest("username, password and baseUrl are required");
+                return BadRequest(ApiError.InvalidRequest("username, password and baseUrl are required"));
 
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
-                return BadRequest("baseUrl is not an allowed target");
+                return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
 
             OdaScrape? scrape;
             try
             {
                 scrape = await scraper.ScrapeAsync(request.BaseUrl, request.Username, request.Password, ct);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                logger.LogWarning(ex, "OdaOrg stateless scrape failed");
+                return StatusCode(StatusCodes.Status502BadGateway, ApiError.Unreachable());
             }
             if (scrape is null)
-                return Unauthorized("OdaOrg login or scrape failed");
+                return Unauthorized(new { code = "login_failed", message = ApiError.LoginFailedMessage });
 
             return Ok(Map(scrape));
         }
