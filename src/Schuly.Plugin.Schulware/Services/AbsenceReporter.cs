@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Schulware.Dtos;
 using Schuly.Plugin.Schulware.Infrastructure;
 
@@ -28,6 +29,20 @@ namespace Schuly.Plugin.Schulware.Services
                 .OrderBy(a => a.DateFrom, StringComparer.Ordinal)
                 .ThenBy(a => a.HourFrom, StringComparer.Ordinal)
                 .ToList();
+        }
+
+        /// <summary>The configured reasons plus those the student used before. A failed Schulnetz read still returns the configured list; an expired sign-in propagates so the caller can refresh and retry.</summary>
+        public async Task<IReadOnlyList<string>> ListReasonsAsync(IReadOnlyList<string> configured, ILogger logger, CancellationToken ct)
+        {
+            try
+            {
+                return AbsenceReasons.Merge(configured, await api.GetAbsencesAsync(ct));
+            }
+            catch (AbsenceReportException ex) when (ex.Code != "schulnetz_signin_expired")
+            {
+                logger.LogWarning("Could not read used absence reasons from Schulnetz ({Code}); returning the configured list only", ex.Code);
+                return AbsenceReasons.Merge(configured, []);
+            }
         }
 
         public async Task<AbsenceReportResult> CreateAsync(AbsenceReportRequest request, CancellationToken ct)

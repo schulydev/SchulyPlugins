@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
@@ -14,25 +15,29 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts/{accountId:guid}/absences")]
-    public class AbsenceReportController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore, TokenRefreshService refresh, IHttpClientFactory httpClientFactory, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<AbsenceReportController> logger) : ControllerBase
+    public class AbsenceReportController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore, TokenRefreshService refresh, IHttpClientFactory httpClientFactory, SchulwareSyncTask syncTask, IServiceProvider services, IConfiguration configuration, ILogger<AbsenceReportController> logger) : ControllerBase
     {
         [HttpGet("reported")]
         public Task<IActionResult> Reported(Guid accountId, CancellationToken ct) =>
-            RunAsync(accountId, false, async reporter => Ok(await reporter.ListReportedAsync(ct)), ct);
+            RunAsync(accountId, false, async (reporter, _) => Ok(await reporter.ListReportedAsync(ct)), ct);
+
+        [HttpGet("reasons")]
+        public Task<IActionResult> Reasons(Guid accountId, CancellationToken ct) =>
+            RunAsync(accountId, false, async (reporter, account) => Ok(await reporter.ListReasonsAsync(AbsenceReasons.Configured(configuration, account.SchulnetzBaseUrl), logger, ct)), ct);
 
         [HttpPost]
         public Task<IActionResult> Create(Guid accountId, [FromBody] AbsenceReportRequest request, CancellationToken ct) =>
-            RunAsync(accountId, true, async reporter => Ok(await reporter.CreateAsync(request, ct)), ct);
+            RunAsync(accountId, true, async (reporter, _) => Ok(await reporter.CreateAsync(request, ct)), ct);
 
         [HttpDelete]
         public Task<IActionResult> Withdraw(Guid accountId, [FromQuery] string[] ids, CancellationToken ct) =>
-            RunAsync(accountId, true, async reporter =>
+            RunAsync(accountId, true, async (reporter, _) =>
             {
                 await reporter.DeleteAsync(AbsenceReporter.ParseIds(ids), ct);
                 return NoContent();
             }, ct);
 
-        private async Task<IActionResult> RunAsync(Guid accountId, bool resync, Func<AbsenceReporter, Task<IActionResult>> operation, CancellationToken ct)
+        private async Task<IActionResult> RunAsync(Guid accountId, bool resync, Func<AbsenceReporter, SchulwareAccount, Task<IActionResult>> operation, CancellationToken ct)
         {
             var userId = await userContext.GetCurrentUserIdAsync();
             var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.ApplicationUserId == userId, ct);
@@ -48,12 +53,12 @@ namespace Schuly.Plugin.Schulware.Controllers
                 IActionResult result;
                 try
                 {
-                    result = await operation(CreateReporter(account));
+                    result = await operation(CreateReporter(account), account);
                 }
                 catch (AbsenceReportException ex) when (ex.Code == "schulnetz_signin_expired")
                 {
                     await RefreshAsync(account, ct);
-                    result = await operation(CreateReporter(account));
+                    result = await operation(CreateReporter(account), account);
                 }
 
                 if (resync) await ResyncAsync(accountId, ct);
