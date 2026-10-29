@@ -98,13 +98,13 @@ namespace Schuly.Plugin.Schulware.Services
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Schulnetz login failed");
-                return new PluginLoginResult(false, null, $"Login failed: {ex.Message}");
+                return new PluginLoginResult(false, null, ApiError.UnreachableMessage);
             }
 
             if (res is null || res.Success != true || string.IsNullOrEmpty(res.AccessToken))
                 return new PluginLoginResult(false, null, linkedSession is not null
                     ? "The Microsoft sign-in of that account has expired. Link it again in Settings."
-                    : res?.Message ?? "Login failed");
+                    : ApiError.LoginFailedMessage);
 
             account.LinkedAccountId = linkedAccountId;
             account.DeviceId = browser?.DeviceId;

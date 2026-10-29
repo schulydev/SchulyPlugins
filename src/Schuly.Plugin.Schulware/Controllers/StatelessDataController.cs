@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Schulware.Client;
 using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Dtos;
@@ -12,7 +13,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/schulware/stateless")]
-    public class StatelessDataController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
+    public class StatelessDataController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<StatelessDataController> logger) : ControllerBase
     {
         private string ProxyBaseUrl =>
             configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
@@ -42,19 +43,22 @@ namespace Schuly.Plugin.Schulware.Controllers
             var token = Request.Headers["X-Plugin-Token"].ToString();
             var schulnetzBaseUrl = Request.Headers["X-Provider-Base-Url"].ToString();
             if (string.IsNullOrWhiteSpace(token))
-                return BadRequest("Missing X-Plugin-Token header");
+                return BadRequest(ApiError.InvalidRequest("Missing X-Plugin-Token header"));
             if (string.IsNullOrWhiteSpace(schulnetzBaseUrl))
-                return BadRequest("Missing X-Provider-Base-Url header");
+                return BadRequest(ApiError.InvalidRequest("Missing X-Provider-Base-Url header"));
+            if (!BaseUrlGuard.IsAllowed(schulnetzBaseUrl))
+                return BadRequest(ApiError.InvalidRequest("Provider base URL is not allowed"));
 
             try
             {
                 var client = SchulwareApiClientFactory.Create(
-                    httpClientFactory, ProxyBaseUrl, schulnetzBaseUrl, token);
+                    httpClientFactory, ProxyBaseUrl, schulnetzBaseUrl.TrimEnd('/'), token);
                 return Ok(await fetch(client));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!HttpContext.RequestAborted.IsCancellationRequested)
             {
-                return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
+                logger.LogWarning(ex, "Stateless Schulware proxy request failed");
+                return StatusCode(StatusCodes.Status502BadGateway, ApiError.Unreachable());
             }
         }
 

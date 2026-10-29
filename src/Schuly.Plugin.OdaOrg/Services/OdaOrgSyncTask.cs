@@ -63,7 +63,7 @@ namespace Schuly.Plugin.OdaOrg.Services
                 {
                     state.LastSyncAt = DateTime.UtcNow;
                     state.LastSyncStatus = "AuthFailed";
-                    state.LastSyncError = "Login failed — check username/password.";
+                    state.LastSyncError = ApiError.LoginFailedMessage;
                     await db.SaveChangesAsync(ct);
                     return state;
                 }
@@ -84,7 +84,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             {
                 state.LastSyncAt = DateTime.UtcNow;
                 state.LastSyncStatus = "Failed";
-                state.LastSyncError = ex.Message;
+                state.LastSyncError = ex is HttpRequestException or TaskCanceledException ? ApiError.UnreachableMessage : ex.Message;
                 logger.LogError(ex, "Failed to sync OdaOrg account {Account}", account.Id);
             }
 

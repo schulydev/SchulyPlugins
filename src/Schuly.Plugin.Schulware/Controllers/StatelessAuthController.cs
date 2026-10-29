@@ -32,7 +32,7 @@ namespace Schuly.Plugin.Schulware.Controllers
         public async Task<IActionResult> LoginMethod([FromQuery] string baseUrl, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(baseUrl) || !BaseUrlGuard.IsAllowed(baseUrl))
-                return BadRequest(new { message = "baseUrl is not an allowed target" });
+                return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
 
             try
             {
@@ -56,12 +56,21 @@ namespace Schuly.Plugin.Schulware.Controllers
         public async Task<IActionResult> BrowserStart([FromBody] StatelessBrowserStartRequest request, CancellationToken ct)
         {
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
-                return BadRequest(new { message = "baseUrl is not an allowed target" });
+                return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
 
-            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
-            var start = await client.Api.Authenticate.Browser.Start.PostAsync(new BrowserLoginStartRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/') }, cancellationToken: ct);
+            BrowserLoginStartDto? start;
+            try
+            {
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+                start = await client.Api.Authenticate.Browser.Start.PostAsync(new BrowserLoginStartRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/') }, cancellationToken: ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Browser sign-in start failed");
+                return StatusCode(502, ApiError.Unreachable());
+            }
             if (start is null)
-                return StatusCode(502, new { message = "Could not start the sign-in" });
+                return StatusCode(502, ApiError.Unreachable());
 
             var context = BrowserSignIn.Serialize(new BrowserSignIn.Context(start.CodeVerifier!, start.DeviceId!, start.State!));
             return Ok(new BrowserLoginStart(start.AuthUrl!, start.CallbackUrl!, start.State!, context, $"{StatelessPath}/browser/complete"));
@@ -78,10 +87,19 @@ namespace Schuly.Plugin.Schulware.Controllers
             if (context is null || code is null)
                 return Ok(new StatelessRefreshResponse(false, "The sign-in didn't finish. Try again.", null, null, null, null, null, null));
 
-            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
-            var result = await client.Api.Authenticate.Browser.Complete.PostAsync(new BrowserLoginCompleteRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), Code = code, CodeVerifier = context.CodeVerifier, DeviceId = context.DeviceId }, cancellationToken: ct);
+            LoginResponseDto? result;
+            try
+            {
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+                result = await client.Api.Authenticate.Browser.Complete.PostAsync(new BrowserLoginCompleteRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), Code = code, CodeVerifier = context.CodeVerifier, DeviceId = context.DeviceId }, cancellationToken: ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Browser sign-in completion failed");
+                return StatusCode(502, ApiError.Unreachable());
+            }
             if (result is null || result.Success != true)
-                return Ok(new StatelessRefreshResponse(false, result?.Message ?? "Sign-in failed", null, null, null, null, null, null));
+                return Ok(new StatelessRefreshResponse(false, "Sign-in failed. Try again.", null, null, null, null, null, null));
 
             return Ok(new StatelessRefreshResponse(true, result.Message, result.AccessToken, result.RefreshToken, null, null, null, BrowserState(result.RefreshToken, context.DeviceId)));
         }
@@ -94,20 +112,29 @@ namespace Schuly.Plugin.Schulware.Controllers
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
                 return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
 
-            var client = SchulwareApiClientFactory.Create(
-                httpClientFactory, BaseUrl, request.BaseUrl);
-
-            var result = await client.Api.Authenticate.Login.PostAsync(new LoginRequestDto
+            LoginResponseDto? result;
+            try
             {
-                SchulnetzBaseUrl = request.BaseUrl,
-                Email = request.Email,
-                Password = request.Password,
-                TotpSecret = string.IsNullOrWhiteSpace(request.TotpSecret) ? null : request.TotpSecret,
-            });
+                var client = SchulwareApiClientFactory.Create(
+                    httpClientFactory, BaseUrl, request.BaseUrl);
+
+                result = await client.Api.Authenticate.Login.PostAsync(new LoginRequestDto
+                {
+                    SchulnetzBaseUrl = request.BaseUrl,
+                    Email = request.Email,
+                    Password = request.Password,
+                    TotpSecret = string.IsNullOrWhiteSpace(request.TotpSecret) ? null : request.TotpSecret,
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Stateless Schulnetz login failed");
+                return StatusCode(502, ApiError.Unreachable());
+            }
 
             if (result is null || result.Success != true)
                 return Ok(new StatelessRefreshResponse(
-                    false, result?.Message ?? "Login failed",
+                    false, ApiError.LoginFailedMessage,
                     null, null, null, null, null, null));
 
             // The opaque blob the caller persists is now the session_cookies jar.
@@ -126,35 +153,43 @@ namespace Schuly.Plugin.Schulware.Controllers
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
                 return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
 
-            var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
-            if (request.ContextState.ValueKind == JsonValueKind.Object && request.ContextState.TryGetProperty("deviceId", out var deviceId) && request.ContextState.TryGetProperty("refreshToken", out var refreshToken))
+            try
             {
-                var refreshed = await client.Api.Authenticate.Refresh.PostAsync(new MobileTokenRefreshRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), RefreshToken = refreshToken.GetString(), DeviceId = deviceId.GetString() });
-                return Ok(refreshed?.Success == true
-                    ? new StatelessRefreshResponse(true, refreshed.Message, refreshed.AccessToken, refreshed.RefreshToken, null, null, null, BrowserState(refreshed.RefreshToken, deviceId.GetString()!))
-                    : new StatelessRefreshResponse(false, refreshed?.Message ?? "Sign in again", null, null, null, null, null, null));
-            }
-
-            var result = await client.Api.Authenticate.Login.PostAsync(
-                new LoginRequestDto
+                var client = SchulwareApiClientFactory.Create(httpClientFactory, BaseUrl);
+                if (request.ContextState.ValueKind == JsonValueKind.Object && request.ContextState.TryGetProperty("deviceId", out var deviceId) && request.ContextState.TryGetProperty("refreshToken", out var refreshToken))
                 {
-                    SchulnetzBaseUrl = request.BaseUrl,
-                    UserAgent = request.UserAgent,
-                    SessionCookies = SessionCookies.FromElement(request.ContextState),
-                });
+                    var refreshed = await client.Api.Authenticate.Refresh.PostAsync(new MobileTokenRefreshRequestDto { SchulnetzBaseUrl = request.BaseUrl.TrimEnd('/'), RefreshToken = refreshToken.GetString(), DeviceId = deviceId.GetString() });
+                    return Ok(refreshed?.Success == true
+                        ? new StatelessRefreshResponse(true, refreshed.Message, refreshed.AccessToken, refreshed.RefreshToken, null, null, null, BrowserState(refreshed.RefreshToken, deviceId.GetString()!))
+                        : new StatelessRefreshResponse(false, "Sign in again", null, null, null, null, null, null));
+                }
 
-            if (result is null || result.Success != true)
+                var result = await client.Api.Authenticate.Login.PostAsync(
+                    new LoginRequestDto
+                    {
+                        SchulnetzBaseUrl = request.BaseUrl,
+                        UserAgent = request.UserAgent,
+                        SessionCookies = SessionCookies.FromElement(request.ContextState),
+                    });
+
+                if (result is null || result.Success != true)
+                    return Ok(new StatelessRefreshResponse(
+                        false, "Refresh failed. Sign in again.",
+                        null, null, null, null, null, null));
+
+                JsonElement? rotated = SessionCookies.ToElement(result.SessionCookies);
+
                 return Ok(new StatelessRefreshResponse(
-                    false, result?.Message ?? "Refresh failed",
-                    null, null, null, null, null, null));
-
-            JsonElement? rotated = SessionCookies.ToElement(result.SessionCookies);
-
-            return Ok(new StatelessRefreshResponse(
-                true, result.Message,
-                result.AccessToken, result.RefreshToken,
-                result.SessionId, result.WebSessionUserId, result.WebSessionTransId,
-                rotated));
+                    true, result.Message,
+                    result.AccessToken, result.RefreshToken,
+                    result.SessionId, result.WebSessionUserId, result.WebSessionTransId,
+                    rotated));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Stateless Schulnetz refresh failed");
+                return StatusCode(502, ApiError.Unreachable());
+            }
         }
     }
 }

@@ -19,7 +19,13 @@ namespace Schuly.Plugin.Schulware.Services
         {
             try
             {
-                using var httpClient = httpClientFactory.CreateClient("Schulware");
+                if (!BaseUrlGuard.IsAllowed(account.SchulnetzBaseUrl))
+                {
+                    logger.LogWarning("Direct token refresh skipped for account {AccountId}: stored base URL is not allowed", account.Id);
+                    return false;
+                }
+
+                using var httpClient = GuardedHttp.Create();
                 var content = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("grant_type", "refresh_token"),
@@ -28,7 +34,7 @@ namespace Schuly.Plugin.Schulware.Services
                     new KeyValuePair<string, string>("device_id", account.DeviceId ?? ""),
                 });
 
-                var response = await httpClient.PostAsync($"{account.SchulnetzBaseUrl}/token.php", content, ct);
+                var response = await httpClient.PostAsync($"{account.SchulnetzBaseUrl.TrimEnd('/')}/token.php", content, ct);
                 if (!response.IsSuccessStatusCode)
                 {
                     logger.LogWarning("Direct token refresh failed ({Status}), falling back to SchulwareAPI", response.StatusCode);

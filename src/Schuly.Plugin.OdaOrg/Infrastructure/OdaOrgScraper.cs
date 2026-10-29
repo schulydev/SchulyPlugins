@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
@@ -26,8 +27,9 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
         public async Task<OdaScrape?> ScrapeAsync(string baseUrl, string username, string password, CancellationToken ct)
         {
             baseUrl = baseUrl.TrimEnd('/');
-            using var handler = new HttpClientHandler { UseCookies = true, AllowAutoRedirect = true, CookieContainer = new() };
-            using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(60) };
+            if (!BaseUrlGuard.IsAllowed(baseUrl)) throw new HttpRequestException("Target is not allowed.");
+            var baseHost = new Uri(baseUrl).IdnHost;
+            using var http = GuardedHttp.Create(new CookieContainer(), timeoutSeconds: 20);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 SchulyOdaOrgPlugin");
 
             var loginForm = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -35,12 +37,12 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                 ["cusername"] = username,
                 ["cpassword"] = password,
             });
-            await http.PostAsync($"{baseUrl}/modules.php?name=IVVerwaltung&a=11140", loginForm, ct);
+            using (await SendAsync(http, HttpMethod.Post, $"{baseUrl}/modules.php?name=IVVerwaltung&a=11140", loginForm, ct)) { }
 
-            var home = await http.GetStringAsync($"{baseUrl}/modules.php?name=IVVerwaltung&a=99900", ct);
+            var home = await GetStringAsync(http, $"{baseUrl}/modules.php?name=IVVerwaltung&a=99900", ct);
             if (!home.Contains("Abmelden", StringComparison.OrdinalIgnoreCase))
             {
-                logger.LogWarning("OdaOrg login failed for {User} — no authenticated home page", username);
+                logger.LogWarning("OdaOrg login failed — no authenticated home page");
                 return null;
             }
 
@@ -63,8 +65,8 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                 string fragment;
                 try
                 {
-                    fragment = await http.GetStringAsync(
-                        $"{baseUrl}/modules.php?name={module}&a={source}&caction=00&api=box", ct);
+                    fragment = await GetStringAsync(
+                        http, $"{baseUrl}/modules.php?name={Uri.EscapeDataString(module)}&a={Uri.EscapeDataString(source)}&caction=00&api=box", ct);
                 }
                 catch (Exception ex) { logger.LogDebug(ex, "box {Module}/{Source} fetch failed", module, source); continue; }
 
@@ -85,9 +87,17 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             foreach (var href in gradeLinks)
             {
                 var url = href.StartsWith("http") ? href : $"{baseUrl}/{href.TrimStart('/')}";
+                // Links come from fetched HTML: only follow them on the validated portal host.
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var linkUri)
+                    || !linkUri.IdnHost.Equals(baseHost, StringComparison.OrdinalIgnoreCase)
+                    || !BaseUrlGuard.IsAllowed(url))
+                {
+                    logger.LogDebug("Dropping grade link outside the portal host");
+                    continue;
+                }
                 try
                 {
-                    var page = await http.GetStringAsync(url, ct);
+                    var page = await GetStringAsync(http, url, ct);
                     var grade = ParseGrade(page);
                     if (grade is not null) result.Grades.Add(grade);
                 }
@@ -97,6 +107,36 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             logger.LogInformation("OdaOrg scrape: profile={HasProfile} grades={Grades} courseDays={Days}",
                 result.Profile is not null, result.Grades.Count, result.CourseDays.Count);
             return result;
+        }
+
+        private const int MaxRedirects = 5;
+
+        private static async Task<string> GetStringAsync(HttpClient http, string url, CancellationToken ct)
+        {
+            using var response = await SendAsync(http, HttpMethod.Get, url, null, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync(ct);
+        }
+
+        /// <summary>Sends a request and follows redirects manually (max 5); every Location must pass <see cref="BaseUrlGuard.IsAllowed"/> and goes through the same guarded client.</summary>
+        private static async Task<HttpResponseMessage> SendAsync(HttpClient http, HttpMethod method, string url, HttpContent? content, CancellationToken ct)
+        {
+            var current = new Uri(url);
+            for (var hop = 0; ; hop++)
+            {
+                using var request = new HttpRequestMessage(method, current) { Content = content };
+                var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, ct);
+                var status = (int)response.StatusCode;
+                if (status is not (301 or 302 or 303 or 307 or 308) || response.Headers.Location is not { } location)
+                    return response;
+
+                response.Dispose();
+                if (hop >= MaxRedirects) throw new HttpRequestException("Too many redirects.");
+                var next = location.IsAbsoluteUri ? location : new Uri(current, location);
+                if (!BaseUrlGuard.IsAllowed(next.AbsoluteUri)) throw new HttpRequestException("Redirect target is not allowed.");
+                if (status is 301 or 302 or 303) { method = HttpMethod.Get; content = null; }
+                current = next;
+            }
         }
 
         // Address labels repeat across address-type boxes (Privatadresse,
