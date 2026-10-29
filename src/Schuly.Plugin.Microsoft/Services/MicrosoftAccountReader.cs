@@ -47,6 +47,17 @@ namespace Schuly.Plugin.Microsoft.Services
         public Task PostEmptyAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
             WithTokenAsync(userId, accountId, async token => (true, await service.PostEmptyAsync(path, token, ct)), ct);
 
+        public Task DeleteAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, async token => (true, await service.DeleteAsync(path, token, ct)), ct);
+
+        /// <summary>A binary read on the normal lane, never cached (attachments are private and the service's rotated token rides on the answer).</summary>
+        public Task<ServiceBinary> GetBinaryAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, async token =>
+            {
+                var read = await service.GetBytesAsync(path, token, ct);
+                return (read, read.RefreshToken);
+            }, ct);
+
         public async Task<PhotoResult> GetPhotoAsync(Guid userId, Guid accountId, string microsoftUserId, int size, CancellationToken ct)
         {
             var key = $"{accountId:N}|{microsoftUserId}|{size}";

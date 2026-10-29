@@ -13,7 +13,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
     public sealed record ServiceRead(JsonElement Data, string RefreshToken);
 
     /// <summary>A binary read (null <see cref="Bytes"/> when the service answered 404) plus the refresh token to keep.</summary>
-    public sealed record ServiceBinary(byte[]? Bytes, string ContentType, string RefreshToken);
+    public sealed record ServiceBinary(byte[]? Bytes, string ContentType, string RefreshToken, string? ContentDisposition = null);
 
     public class MicrosoftSignInExpiredException() : Exception("The Microsoft sign-in expired; link the account again.");
 
@@ -96,7 +96,21 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return new ServiceBinary(null, "", rotated);
             response.EnsureSuccessStatusCode();
-            return new ServiceBinary(await response.Content.ReadAsByteArrayAsync(ct), response.Content.Headers.ContentType?.MediaType ?? "", rotated);
+            var disposition = response.Content.Headers.TryGetValues("Content-Disposition", out var dispositions) ? dispositions.FirstOrDefault() : null;
+            return new ServiceBinary(await response.Content.ReadAsByteArrayAsync(ct), response.Content.Headers.ContentType?.MediaType ?? "", rotated, disposition);
+        }
+
+        /// <summary>DELETEs `api/{path}` (204-style) and returns the token to keep.</summary>
+        public async Task<string> DeleteAsync(string path, string refreshToken, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, $"api/{path}");
+            request.Headers.Add(RefreshTokenHeader, refreshToken);
+            using var response = await Client().SendAsync(request, ct);
+            var rotated = Rotated(response, refreshToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                throw new MicrosoftSignInExpiredException();
+            response.EnsureSuccessStatusCode();
+            return rotated;
         }
 
         private static string Rotated(HttpResponseMessage response, string current)
