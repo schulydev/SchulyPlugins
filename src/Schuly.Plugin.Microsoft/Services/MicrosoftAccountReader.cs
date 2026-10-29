@@ -73,8 +73,8 @@ namespace Schuly.Plugin.Microsoft.Services
         public Task<PhotoResult> GetChatMediaAsync(Guid userId, Guid accountId, string chatId, string messageId, string hostedId, CancellationToken ct) =>
             GetImageAsync(userId, accountId, $"media|{chatId}|{messageId}|{hostedId}", $"chats/{Uri.EscapeDataString(chatId)}/messages/{Uri.EscapeDataString(messageId)}/hostedContents/{Uri.EscapeDataString(hostedId)}", ct);
 
-        /// <summary>Images on the photo lane, cached ~1h (misses 10 min). The service answers them with no-store because the rotated token rides along; the cached copy here holds only the bytes.</summary>
-        private async Task<PhotoResult> GetImageAsync(Guid userId, Guid accountId, string kind, string path, CancellationToken ct)
+        /// <summary>Images (photos, pasted media, emoji, thumbnails) on the photo lane, cached ~1h (misses 10 min). The service answers them with no-store because the rotated token rides along; the cached copy here holds only the bytes.</summary>
+        public async Task<PhotoResult> GetImageAsync(Guid userId, Guid accountId, string kind, string path, CancellationToken ct)
         {
             var key = $"{accountId:N}|{kind}";
             if (Photos.TryGetValue(key, out PhotoResult? hit) && hit is not null)

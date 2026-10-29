@@ -12,7 +12,7 @@ using Schuly.Plugin.Microsoft.Services;
 
 namespace Schuly.Plugin.Microsoft.Controllers
 {
-    /// <summary>Teams chat extras for a linked Microsoft account: chat pictures, pasted images and shared files in messages, the rich composer send, meetings, scheduled messages and GIF search.</summary>
+    /// <summary>Teams chat extras for a linked Microsoft account: chat pictures, pasted images and shared files (with thumbnails) in messages, Teams emojis, the rich composer send, meetings, scheduled messages and GIF search.</summary>
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/accounts/{accountId:guid}")]
@@ -79,6 +79,46 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 return File(await upstream.Content.ReadAsStreamAsync(c), AttachmentResponse.SafeContentType(upstream.Content.Headers.ContentType?.MediaType), enableRangeProcessing: false);
             }, ct);
         }
+
+        /// <summary>The preview image of a file shared in a message (<c>files[].id</c>, only when <c>hasThumbnail</c>): JPEG, PNG or WEBP, 404 when there is none. <paramref name="size"/> is small, medium or large.</summary>
+        [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}/thumbnail")]
+        public Task<IActionResult> ChatFileThumbnail(Guid accountId, string chatId, string messageId, string attachmentId, [FromQuery] string size = "medium", CancellationToken ct = default)
+        {
+            if (!PathIds.IsSafe(ChatIdPattern, chatId) || !PathIds.IsSafe(MessageIdPattern, messageId) || !PathIds.IsSafe(AttachmentIdPattern, attachmentId))
+                return Task.FromResult(Invalid("Invalid chat, message or file id."));
+            if (!EmojiRequests.IsThumbnailSize(size))
+                return Task.FromResult(Invalid("size must be small, medium or large."));
+            return ImageAsync(accountId, (userId, c) => Reader.GetImageAsync(userId, accountId, $"thumb|{chatId}|{messageId}|{attachmentId}|{size}", $"chats/{Uri.EscapeDataString(chatId)}/messages/{Uri.EscapeDataString(messageId)}/files/{Uri.EscapeDataString(attachmentId)}/thumbnail?size={size}", c), ct);
+        }
+
+        /// <summary>The preview image of a OneDrive item (an <c>id</c> from the files list): JPEG, PNG or WEBP, 404 when there is none.</summary>
+        [HttpGet("files/{itemId}/thumbnail")]
+        public Task<IActionResult> DriveThumbnail(Guid accountId, string itemId, [FromQuery] string size = "medium", CancellationToken ct = default)
+        {
+            if (!EmojiRequests.IsDriveItemId(itemId))
+                return Task.FromResult(Invalid("Invalid item id."));
+            if (!EmojiRequests.IsThumbnailSize(size))
+                return Task.FromResult(Invalid("size must be small, medium or large."));
+            return ImageAsync(accountId, (userId, c) => Reader.GetImageAsync(userId, accountId, $"drivethumb|{itemId}|{size}", $"files/{Uri.EscapeDataString(itemId)}/thumbnail?size={size}", c), ct);
+        }
+
+        /// <summary>Teams' emoji catalogue: <c>{locale, version, assetBase, sizes, fps, categories: [{id, title, emojis: [{id, shortcuts, unicode, title, keywords, diverse, animated, staticUrl, animatedUrl, frames, frameMs, firstFrame, etag}]}], custom}</c>. The service caches it for 24 hours; it carries no token, so the browser may keep it too.</summary>
+        [HttpGet("emojis/catalogue")]
+        public async Task<IActionResult> EmojiCatalogue(Guid accountId, [FromQuery] string locale = "default", CancellationToken ct = default)
+        {
+            if (!EmojiRequests.IsLocale(locale))
+                return Invalid("Invalid locale.");
+            var result = await ReadAsync(accountId, $"emojis/catalogue?locale={Uri.EscapeDataString(locale)}", ct);
+            if (result is OkObjectResult)
+                Response.Headers.CacheControl = "private, max-age=3600";
+            return result;
+        }
+
+        /// <summary>A tenant custom emoji's image (<c>emojis[].documentId</c> of a message emoji with kind custom). <paramref name="animated"/> true is a GIF/WEBP that plays in a plain image tag.</summary>
+        [HttpGet("emojis/custom/{documentId}")]
+        public Task<IActionResult> CustomEmoji(Guid accountId, string documentId, [FromQuery] bool animated = true, CancellationToken ct = default) =>
+            !EmojiRequests.IsDocumentId(documentId) ? Task.FromResult(Invalid("Invalid emoji id.")) :
+            ImageAsync(accountId, (userId, c) => Reader.GetImageAsync(userId, accountId, $"emoji|{documentId}|{animated}", $"emojis/custom/{Uri.EscapeDataString(documentId)}?animated={animated.ToString().ToLowerInvariant()}", c), ct);
 
         /// <summary>Sends a chat message. JSON <c>{content, contentType: "text"|"html", importance, mentions, gif}</c> (legacy <c>{text}</c> still works), or multipart/form-data with the same fields (mentions and gif as JSON strings) plus <c>images</c> (inline, PNG/JPEG/GIF/WEBP, 3 MB total) and <c>files</c> parts (up to 100 MB each).</summary>
         [HttpPost("chats/{chatId}/messages")]
