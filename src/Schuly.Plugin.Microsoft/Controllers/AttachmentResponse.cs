@@ -37,6 +37,24 @@ namespace Schuly.Plugin.Microsoft.Controllers
             return new ContentDispositionHeaderValue("attachment") { FileNameStar = name }.ToString();
         }
 
+        /// <summary>An inline disposition for a converted PDF: the sanitized upstream name with a .pdf extension. Only for bodies already checked to be application/pdf.</summary>
+        public static string SafeInlinePdfDisposition(string? upstream)
+        {
+            var name = ContentDispositionHeaderValue.Parse(SafeContentDisposition(upstream)).FileNameStar ?? "document";
+            if (!name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                name = (name.Contains('.') ? name[..name.LastIndexOf('.')] : name) + ".pdf";
+            return new ContentDispositionHeaderValue("inline") { FileNameStar = name }.ToString();
+        }
+
+        /// <summary>Headers for a converted PDF: inline (the body is application/pdf), never stored, never sniffed, sandboxed if navigated to.</summary>
+        public static void ApplyInlinePdf(global::Microsoft.AspNetCore.Http.HttpResponse response, string? upstreamDisposition)
+        {
+            response.Headers.CacheControl = "private, no-store";
+            response.Headers["X-Content-Type-Options"] = "nosniff";
+            response.Headers["Content-Security-Policy"] = "sandbox; default-src 'none'";
+            response.Headers.ContentDisposition = SafeInlinePdfDisposition(upstreamDisposition);
+        }
+
         public static void Apply(global::Microsoft.AspNetCore.Http.HttpResponse response, string? upstreamDisposition)
         {
             response.Headers.CacheControl = "no-store";

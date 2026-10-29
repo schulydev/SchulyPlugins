@@ -246,9 +246,13 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         }
 
         /// <summary>GETs `api/{path}` and hands back the open response (headers read, body not yet) for streaming; null on 404. The caller disposes it.</summary>
-        public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct)
+        public Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct) =>
+            OpenStreamAsync(HttpMethod.Get, path, null, refreshToken, ct);
+
+        /// <summary>Sends <paramref name="content"/> to `api/{path}` with <paramref name="method"/> and hands back the open response for streaming, as <see cref="OpenStreamAsync(string, string, CancellationToken)"/> does.</summary>
+        public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(HttpMethod method, string path, HttpContent? content, string refreshToken, CancellationToken ct)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, PathIds.Upstream(new Uri(BaseUrl), path));
+            var request = new HttpRequestMessage(method, PathIds.Upstream(new Uri(BaseUrl), path)) { Content = content };
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             var response = await Client(UploadTimeout).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             var rotated = Rotated(response, refreshToken);
