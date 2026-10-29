@@ -14,10 +14,12 @@ namespace Schuly.Plugin.Microsoft.Controllers
     public class AccountsController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader) : MicrosoftControllerBase(userContext, linkedAccounts, reader)
     {
         private static readonly Regex ChatIdPattern = new("^[A-Za-z0-9:@._=-]{1,300}$", RegexOptions.Compiled);
+        private static readonly Regex FolderPattern = new("^[A-Za-z0-9=_\\-+/.]{1,512}$", RegexOptions.Compiled);
         private static readonly Regex UserIdPattern = new("^[A-Za-z0-9@._-]{1,200}$", RegexOptions.Compiled);
 
         [HttpGet("{accountId:guid}/mail")]
         public Task<IActionResult> Mail(Guid accountId, [FromQuery] string folder = "inbox", [FromQuery] int top = 25, [FromQuery] int skip = 0, [FromQuery] bool unread = false, [FromQuery] string? search = null, CancellationToken ct = default) =>
+            !PathIds.IsSafe(FolderPattern, folder) ? Task.FromResult(Invalid("Invalid folder.")) :
             ReadAsync(accountId, $"mail?folder={Uri.EscapeDataString(folder)}&top={Math.Clamp(top, 1, 500)}&skip={Math.Clamp(skip, 0, 10000)}&unread={unread.ToString().ToLowerInvariant()}" + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}"), ct);
 
         [HttpGet("{accountId:guid}/calendar")]
@@ -26,6 +28,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{accountId:guid}/files")]
         public Task<IActionResult> Files(Guid accountId, [FromQuery] string path = "root", [FromQuery] int top = 100, CancellationToken ct = default) =>
+            PathIds.HasDotSegment(path) ? Task.FromResult(Invalid("Invalid path.")) :
             ReadAsync(accountId, $"files?path={Uri.EscapeDataString(path)}&top={Math.Clamp(top, 1, 1000)}", ct);
 
         [HttpGet("{accountId:guid}/chats")]
@@ -42,13 +45,13 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{accountId:guid}/chats/{chatId}/messages")]
         public Task<IActionResult> ChatMessages(Guid accountId, string chatId, [FromQuery] int top = 30, CancellationToken ct = default) =>
-            !ChatIdPattern.IsMatch(chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
+            !PathIds.IsSafe(ChatIdPattern, chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
             ReadAsync(accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages?top={Math.Clamp(top, 1, 300)}", ct);
 
         [HttpPost("{accountId:guid}/chats/{chatId}/read")]
         public Task<IActionResult> MarkChatRead(Guid accountId, string chatId, CancellationToken ct = default)
         {
-            if (!ChatIdPattern.IsMatch(chatId))
+            if (!PathIds.IsSafe(ChatIdPattern, chatId))
                 return Task.FromResult(Invalid("Invalid chat id."));
             return RunAsync(accountId, async (userId, c) =>
             {
@@ -60,7 +63,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [HttpGet("{accountId:guid}/photos/{userId}")]
         public Task<IActionResult> Photo(Guid accountId, string userId, [FromQuery] int size = 64, CancellationToken ct = default)
         {
-            if (!UserIdPattern.IsMatch(userId))
+            if (!PathIds.IsSafe(UserIdPattern, userId))
                 return Task.FromResult(Invalid("Invalid user id."));
             return RunAsync(accountId, async (currentUserId, c) =>
             {

@@ -4,8 +4,10 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Microsoft.Infrastructure;
 using Schuly.Plugin.Microsoft.Services;
 
 namespace Schuly.Plugin.Microsoft.Controllers
@@ -19,6 +21,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
         /// <summary>A whole send: one 100 MB file plus the text and inline images (the service enforces the same cap).</summary>
         public const long MaxSendBytes = 105L * 1024 * 1024;
         private const int MaxJsonSendBytes = 256 * 1024;
+        private const int SmallBodyBytes = 16 * 1024;
         private const int MaxContentChars = 28000;
         private static readonly string[] FormFields = ["content", "text", "contentType", "importance", "mentions", "gif"];
         private static readonly string[] FileFields = ["images", "files"];
@@ -34,15 +37,15 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("chats/{chatId}/photo")]
         public Task<IActionResult> ChatPhoto(Guid accountId, string chatId, CancellationToken ct = default) =>
-            !ChatIdPattern.IsMatch(chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
+            !PathIds.IsSafe(ChatIdPattern, chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
             ImageAsync(accountId, (userId, c) => Reader.GetChatPhotoAsync(userId, accountId, chatId, c), ct);
 
         /// <summary>An image pasted into a message. <paramref name="hostedId"/> is the message's <c>media[].hostedContentId</c>; it may contain "/", so it is a catch-all.</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/media/{**hostedId}")]
         public Task<IActionResult> ChatMedia(Guid accountId, string chatId, string messageId, string hostedId, CancellationToken ct = default)
         {
-            hostedId = Uri.UnescapeDataString(hostedId);
-            if (!ChatIdPattern.IsMatch(chatId) || !MessageIdPattern.IsMatch(messageId) || !HostedIdPattern.IsMatch(hostedId))
+            hostedId = PathIds.DecodeCatchAll(hostedId);
+            if (!PathIds.IsSafe(ChatIdPattern, chatId) || !PathIds.IsSafe(MessageIdPattern, messageId) || !PathIds.IsSafe(HostedIdPattern, hostedId))
                 return Task.FromResult(Invalid("Invalid chat, message or media id."));
             return ImageAsync(accountId, (userId, c) => Reader.GetChatMediaAsync(userId, accountId, chatId, messageId, hostedId, c), ct);
         }
@@ -62,7 +65,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}")]
         public Task<IActionResult> ChatFile(Guid accountId, string chatId, string messageId, string attachmentId, CancellationToken ct = default)
         {
-            if (!ChatIdPattern.IsMatch(chatId) || !MessageIdPattern.IsMatch(messageId) || !AttachmentIdPattern.IsMatch(attachmentId))
+            if (!PathIds.IsSafe(ChatIdPattern, chatId) || !PathIds.IsSafe(MessageIdPattern, messageId) || !PathIds.IsSafe(AttachmentIdPattern, attachmentId))
                 return Task.FromResult(Invalid("Invalid chat, message or file id."));
             return RunAsync(accountId, async (userId, c) =>
             {
@@ -83,18 +86,25 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = MaxSendBytes, ValueLengthLimit = 256 * 1024)]
         public async Task<IActionResult> Send(Guid accountId, string chatId, CancellationToken ct = default)
         {
-            if (!ChatIdPattern.IsMatch(chatId))
+            if (!PathIds.IsSafe(ChatIdPattern, chatId))
                 return Invalid("Invalid chat id.");
             var path = $"chats/{Uri.EscapeDataString(chatId)}/messages";
             if (Request.HasFormContentType)
                 return await SendMultipartAsync(accountId, path, ct);
 
             if (Request.ContentLength > MaxJsonSendBytes)
-                return StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The message is too large; send files as multipart." });
+                return TooLarge();
             JsonElement body;
             try
             {
-                body = await JsonSerializer.DeserializeAsync<JsonElement>(Request.Body, cancellationToken: ct);
+                // Chunked bodies carry no Content-Length, so the cap is enforced while reading: the server limit where it can still be lowered, and a counting stream either way.
+                LimitBody(MaxJsonSendBytes);
+                await using var limited = new LengthLimitedStream(Request.Body, MaxJsonSendBytes);
+                body = await JsonSerializer.DeserializeAsync<JsonElement>(limited, cancellationToken: ct);
+            }
+            catch (Exception ex) when (IsTooLarge(ex))
+            {
+                return TooLarge();
             }
             catch (JsonException)
             {
@@ -110,7 +120,18 @@ namespace Schuly.Plugin.Microsoft.Controllers
         // ASP.NET spools form files above 64 KB to temporary files (deleted after the request), so nothing large sits in memory; each part is streamed on from there.
         private async Task<IActionResult> SendMultipartAsync(Guid accountId, string path, CancellationToken ct)
         {
-            var form = await Request.ReadFormAsync(ct);
+            if (Request.ContentLength > MaxSendBytes)
+                return TooLarge();
+            IFormCollection form;
+            try
+            {
+                LimitBody(MaxSendBytes);
+                form = await Request.ReadFormAsync(ct);
+            }
+            catch (Exception ex) when (IsTooLarge(ex))
+            {
+                return TooLarge();
+            }
             if (CheckFields(form["content"].FirstOrDefault() ?? form["text"].FirstOrDefault(), form["contentType"].FirstOrDefault(), form["importance"].FirstOrDefault()) is { } error)
                 return Invalid(error);
             if (form.Files.Any(f => !FileFields.Contains(f.Name)))
@@ -132,9 +153,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         /// <summary>Creates a Teams meeting with the chat's members as attendees: <c>{subject, start, end, description?}</c> → <c>{id, subject, start, end, webLink, joinUrl, attendees}</c>.</summary>
         [HttpPost("chats/{chatId}/meeting")]
+        [RequestSizeLimit(SmallBodyBytes)]
         public Task<IActionResult> Meeting(Guid accountId, string chatId, [FromBody] MeetingRequest? request, CancellationToken ct = default)
         {
-            if (!ChatIdPattern.IsMatch(chatId))
+            if (!PathIds.IsSafe(ChatIdPattern, chatId))
                 return Task.FromResult(Invalid("Invalid chat id."));
             if (request is null || string.IsNullOrWhiteSpace(request.Subject) || request.Subject.Length > 255 || request.End <= request.Start || (request.Description?.Length ?? 0) > 4000)
                 return Task.FromResult(Invalid("A meeting needs a subject (up to 255 characters) and an end after its start."));
@@ -143,9 +165,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         /// <summary>Schedules a text/HTML message: <c>{content, contentType, importance?, sendAt}</c>, sendAt within 7 days. Kept encrypted in the plugin vault until sent, then deleted.</summary>
         [HttpPost("chats/{chatId}/scheduled")]
+        [RequestSizeLimit(MaxJsonSendBytes)]
         public Task<IActionResult> Schedule(Guid accountId, string chatId, [FromBody] ScheduleMessageRequest? request, CancellationToken ct = default)
         {
-            if (!ChatIdPattern.IsMatch(chatId))
+            if (!PathIds.IsSafe(ChatIdPattern, chatId))
                 return Task.FromResult(Invalid("Invalid chat id."));
             if (request is null)
                 return Task.FromResult(Invalid("Missing body."));
@@ -205,6 +228,19 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 Response.Headers["X-Content-Type-Options"] = "nosniff";
                 return File(image.Bytes, image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && !image.ContentType.Contains("svg", StringComparison.OrdinalIgnoreCase) ? image.ContentType : "image/jpeg");
             }, ct);
+
+        private IActionResult TooLarge() =>
+            StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The message is larger than the send limit." });
+
+        private void LimitBody(long max)
+        {
+            if (HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } feature)
+                feature.MaxRequestBodySize = max;
+        }
+
+        // Kestrel's body limit throws BadHttpRequestException (413), the form reader InvalidDataException, the counting stream its own.
+        private static bool IsTooLarge(Exception ex) =>
+            ex is LengthLimitedStream.TooLargeException or InvalidDataException || (ex is BadHttpRequestException bad && bad.StatusCode == StatusCodes.Status413PayloadTooLarge);
 
         private static string? CheckFields(string? content, string? contentType, string? importance)
         {
