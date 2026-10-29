@@ -12,11 +12,11 @@
   {
     "name": "Schuly.Plugin.Microsoft",
     "pkg": "schuly.plugin.microsoft",
-    "dll": "Schuly.Plugin.Microsoft-v2.10.0.dll",
-    "deps": "Schuly.Plugin.Microsoft-v2.10.0-deps.zip",
-    "version": "2.10.0",
+    "dll": "Schuly.Plugin.Microsoft-v2.11.0.dll",
+    "deps": "Schuly.Plugin.Microsoft-v2.11.0-deps.zip",
+    "version": "2.11.0",
     "contract": "0.11",
-    "description": "Microsoft365forstudentsviaSchulyMicrosoft.LinksaMicrosoftaccountwithabrowsersign-in(storedasaSchulylinkedaccount)andreadsmail,calendar,OneDrivefilesandTeamschats(richsend,files,GIFs,chatpictures,scheduledmessages).",
+    "description": "Microsoft365forstudentsviaSchulyMicrosoft.LinksaMicrosoftaccountwithabrowsersign-in(storedasaSchulylinkedaccount)andreadsmail,calendar,OneDrivefiles(OfficefilesalsoasPDF)andTeamschats(richsend,files,GIFs,chatpictures,scheduledmessages).",
     "authors": "schulydev"
   },
   {
