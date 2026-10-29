@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Schulware.Dtos;
 using Schuly.Plugin.Schulware.Infrastructure;
 using Schuly.Plugin.Schulware.Services;
@@ -14,28 +15,32 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/schulware/stateless/absences")]
-    public class StatelessAbsenceReportController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ControllerBase
+    public class StatelessAbsenceReportController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<StatelessAbsenceReportController> logger) : ControllerBase
     {
         private string ProxyBaseUrl =>
             configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
 
         [HttpGet("reported")]
         public Task<IActionResult> Reported(CancellationToken ct) =>
-            RunAsync(async reporter => Ok(await reporter.ListReportedAsync(ct)));
+            RunAsync(async (reporter, _) => Ok(await reporter.ListReportedAsync(ct)));
+
+        [HttpGet("reasons")]
+        public Task<IActionResult> Reasons(CancellationToken ct) =>
+            RunAsync(async (reporter, schulnetzBaseUrl) => Ok(await reporter.ListReasonsAsync(AbsenceReasons.Configured(configuration, schulnetzBaseUrl), logger, ct)));
 
         [HttpPost]
         public Task<IActionResult> Create([FromBody] AbsenceReportRequest request, CancellationToken ct) =>
-            RunAsync(async reporter => Ok(await reporter.CreateAsync(request, ct)));
+            RunAsync(async (reporter, _) => Ok(await reporter.CreateAsync(request, ct)));
 
         [HttpDelete]
         public Task<IActionResult> Withdraw([FromQuery] string[] ids, CancellationToken ct) =>
-            RunAsync(async reporter =>
+            RunAsync(async (reporter, _) =>
             {
                 await reporter.DeleteAsync(AbsenceReporter.ParseIds(ids), ct);
                 return NoContent();
             });
 
-        private async Task<IActionResult> RunAsync(Func<AbsenceReporter, Task<IActionResult>> operation)
+        private async Task<IActionResult> RunAsync(Func<AbsenceReporter, string, Task<IActionResult>> operation)
         {
             var token = Request.Headers["X-Plugin-Token"].ToString();
             var schulnetzBaseUrl = Request.Headers["X-Provider-Base-Url"].ToString();
@@ -49,7 +54,7 @@ namespace Schuly.Plugin.Schulware.Controllers
             try
             {
                 var http = SchulwareApiClientFactory.CreateHttpClient(httpClientFactory, ProxyBaseUrl, schulnetzBaseUrl.TrimEnd('/'), token);
-                return await operation(new AbsenceReporter(new SchulnetzAbsenceApi(http, ProxyBaseUrl)));
+                return await operation(new AbsenceReporter(new SchulnetzAbsenceApi(http, ProxyBaseUrl)), schulnetzBaseUrl);
             }
             catch (AbsenceReportException ex)
             {
