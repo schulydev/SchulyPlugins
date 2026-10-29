@@ -18,7 +18,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{accountId:guid}/mail")]
         public Task<IActionResult> Mail(Guid accountId, [FromQuery] string folder = "inbox", [FromQuery] int top = 25, [FromQuery] bool unread = false, [FromQuery] string? search = null, CancellationToken ct = default) =>
-            ReadAsync(accountId, $"mail?folder={Uri.EscapeDataString(folder)}&top={Math.Clamp(top, 1, 100)}&unread={unread.ToString().ToLowerInvariant()}" + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}"), ct);
+            ReadAsync(accountId, $"mail?folder={Uri.EscapeDataString(folder)}&top={Math.Clamp(top, 1, 500)}&unread={unread.ToString().ToLowerInvariant()}" + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}"), ct);
 
         [HttpGet("{accountId:guid}/calendar")]
         public Task<IActionResult> Calendar(Guid accountId, [FromQuery] int top = 25, [FromQuery] DateTimeOffset? start = null, [FromQuery] DateTimeOffset? end = null, CancellationToken ct = default) =>
@@ -26,11 +26,11 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{accountId:guid}/files")]
         public Task<IActionResult> Files(Guid accountId, [FromQuery] string path = "root", [FromQuery] int top = 100, CancellationToken ct = default) =>
-            ReadAsync(accountId, $"files?path={Uri.EscapeDataString(path)}&top={Math.Clamp(top, 1, 200)}", ct);
+            ReadAsync(accountId, $"files?path={Uri.EscapeDataString(path)}&top={Math.Clamp(top, 1, 1000)}", ct);
 
         [HttpGet("{accountId:guid}/chats")]
         public Task<IActionResult> Chats(Guid accountId, [FromQuery] int top = 25, CancellationToken ct = default) =>
-            ReadAsync(accountId, $"chats?top={Math.Clamp(top, 1, 50)}", ct);
+            ReadAsync(accountId, $"chats?top={Math.Clamp(top, 1, 200)}", ct);
 
         [HttpGet("{accountId:guid}/notebooks")]
         public Task<IActionResult> Notebooks(Guid accountId, CancellationToken ct = default) =>
@@ -43,7 +43,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [HttpGet("{accountId:guid}/chats/{chatId}/messages")]
         public Task<IActionResult> ChatMessages(Guid accountId, string chatId, [FromQuery] int top = 30, CancellationToken ct = default) =>
             !ChatIdPattern.IsMatch(chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
-            ReadAsync(accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages?top={Math.Clamp(top, 1, 50)}", ct);
+            ReadAsync(accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages?top={Math.Clamp(top, 1, 300)}", ct);
 
         [HttpPost("{accountId:guid}/chats/{chatId}/messages")]
         public Task<IActionResult> SendChatMessage(Guid accountId, string chatId, [FromBody] SendChatMessageRequest? request, CancellationToken ct = default)
