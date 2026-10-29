@@ -9,13 +9,24 @@ namespace Schuly.Plugin.Microsoft.Services
     /// <summary>A profile photo: <see cref="Bytes"/> is null when the user has none.</summary>
     public sealed record PhotoResult(byte[]? Bytes, string ContentType);
 
-    /// <summary>Talks to Microsoft 365 for one linked account, one upstream call per account at a time so each call uses and stores the latest rotated refresh token.</summary>
+    /// <summary>Talks to Microsoft 365 for one linked account. Upstream calls run in parallel, in two lanes per account, so interactive calls never queue behind profile photos.</summary>
     public sealed class MicrosoftAccountReader(ILinkedAccounts linkedAccounts, MicrosoftServiceClient service)
     {
-        private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> Locks = new();
+        private const int CallLaneSize = 4;
+        private const int PhotoLaneSize = 2;
+
+        private sealed class AccountGates
+        {
+            public readonly SemaphoreSlim Calls = new(CallLaneSize, CallLaneSize);
+            public readonly SemaphoreSlim Photos = new(PhotoLaneSize, PhotoLaneSize);
+            public readonly SemaphoreSlim Persist = new(1, 1);
+        }
+
+        private static readonly ConcurrentDictionary<Guid, AccountGates> Gates = new();
 
         // Process-wide photo cache, ~1h. Keys start with the account id; callers only reach it after the controller's ownership check for that account.
         private static readonly MemoryCache Photos = new(new MemoryCacheOptions { SizeLimit = 32 * 1024 * 1024 });
+        private static readonly ConcurrentDictionary<string, Lazy<Task<PhotoResult>>> PhotosInFlight = new();
         private static readonly TimeSpan PhotoTtl = TimeSpan.FromHours(1);
         private static readonly TimeSpan MissTtl = TimeSpan.FromMinutes(10);
 
@@ -42,45 +53,83 @@ namespace Schuly.Plugin.Microsoft.Services
             if (Photos.TryGetValue(key, out PhotoResult? hit) && hit is not null)
                 return hit;
 
-            var gate = Locks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
-            await gate.WaitAsync(ct);
+            // One upstream fetch per key: concurrent misses share the task. It runs detached from any single caller's token, callers just stop waiting when theirs is cancelled.
+            var fetch = PhotosInFlight.GetOrAdd(key, _ => new Lazy<Task<PhotoResult>>(() => FetchPhotoAsync(key, userId, accountId, microsoftUserId, size)));
+            return await fetch.Value.WaitAsync(ct);
+        }
+
+        private async Task<PhotoResult> FetchPhotoAsync(string key, Guid userId, Guid accountId, string microsoftUserId, int size)
+        {
             try
             {
-                // Another request for the same photo may have filled the cache while this one waited for the gate.
-                if (Photos.TryGetValue(key, out hit) && hit is not null)
+                if (Photos.TryGetValue(key, out PhotoResult? hit) && hit is not null)
                     return hit;
 
-                var token = await linkedAccounts.GetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, ct) ?? throw new MicrosoftSignInExpiredException();
-                var binary = await service.GetBytesAsync($"users/{Uri.EscapeDataString(microsoftUserId)}/photo?size={size}", token, ct);
-                if (binary.RefreshToken != token)
-                    await linkedAccounts.SetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, binary.RefreshToken, ct);
+                var gates = Gates.GetOrAdd(accountId, _ => new AccountGates());
+                await gates.Photos.WaitAsync();
+                try
+                {
+                    var (binary, _) = await WithTokenAsync(userId, accountId, gates, async token =>
+                    {
+                        var read = await service.GetBytesAsync($"users/{Uri.EscapeDataString(microsoftUserId)}/photo?size={size}", token, CancellationToken.None);
+                        return (read, read.RefreshToken);
+                    }, CancellationToken.None);
 
-                var result = new PhotoResult(binary.Bytes, binary.ContentType);
-                Photos.Set(key, result, new MemoryCacheEntryOptions { Size = Math.Max(1, binary.Bytes?.Length ?? 1), AbsoluteExpirationRelativeToNow = binary.Bytes is null ? MissTtl : PhotoTtl });
-                return result;
+                    var result = new PhotoResult(binary.Bytes, binary.ContentType);
+                    Photos.Set(key, result, new MemoryCacheEntryOptions { Size = Math.Max(1, binary.Bytes?.Length ?? 1), AbsoluteExpirationRelativeToNow = binary.Bytes is null ? MissTtl : PhotoTtl });
+                    return result;
+                }
+                finally
+                {
+                    gates.Photos.Release();
+                }
             }
             finally
             {
-                gate.Release();
+                PhotosInFlight.TryRemove(key, out _);
             }
         }
 
         private async Task<T> WithTokenAsync<T>(Guid userId, Guid accountId, Func<string, Task<(T Result, string RefreshToken)>> call, CancellationToken ct)
         {
-            var gate = Locks.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
-            await gate.WaitAsync(ct);
+            var gates = Gates.GetOrAdd(accountId, _ => new AccountGates());
+            await gates.Calls.WaitAsync(ct);
             try
             {
-                var token = await linkedAccounts.GetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, ct) ?? throw new MicrosoftSignInExpiredException();
-                var (result, rotated) = await call(token);
-                if (rotated != token)
-                    await linkedAccounts.SetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, rotated, ct);
-                return result;
+                var (result, _) = await WithTokenAsync(userId, accountId, gates, async token =>
+                {
+                    var (data, rotated) = await call(token);
+                    return ((data, rotated), rotated);
+                }, ct);
+                return result.data;
             }
             finally
             {
-                gate.Release();
+                gates.Calls.Release();
             }
+        }
+
+        // Runs one upstream call with the stored refresh token and persists a rotated one. Calls overlap, so the write is a compare-and-set against the latest stored value under a short per-account lock.
+        // Last writer wins: Microsoft refresh tokens stay valid until they expire (rotation issues a new one, it does not revoke the previous), so a slightly older rotated token is still good.
+        private async Task<(T Result, string RefreshToken)> WithTokenAsync<T>(Guid userId, Guid accountId, AccountGates gates, Func<string, Task<(T Result, string RefreshToken)>> call, CancellationToken ct)
+        {
+            var token = await linkedAccounts.GetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, ct) ?? throw new MicrosoftSignInExpiredException();
+            var (result, rotated) = await call(token);
+            if (!string.IsNullOrEmpty(rotated) && rotated != token)
+            {
+                await gates.Persist.WaitAsync(ct);
+                try
+                {
+                    var latest = await linkedAccounts.GetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, ct);
+                    if (latest != rotated)
+                        await linkedAccounts.SetSecretAsync(userId, accountId, LinkedSecrets.RefreshToken, rotated, ct);
+                }
+                finally
+                {
+                    gates.Persist.Release();
+                }
+            }
+            return (result, rotated);
         }
     }
 }
