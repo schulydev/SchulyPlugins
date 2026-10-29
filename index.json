@@ -12,9 +12,9 @@
   {
     "name": "Schuly.Plugin.Microsoft",
     "pkg": "schuly.plugin.microsoft",
-    "dll": "Schuly.Plugin.Microsoft-v2.6.0.dll",
-    "deps": "Schuly.Plugin.Microsoft-v2.6.0-deps.zip",
-    "version": "2.6.0",
+    "dll": "Schuly.Plugin.Microsoft-v2.7.0.dll",
+    "deps": "Schuly.Plugin.Microsoft-v2.7.0-deps.zip",
+    "version": "2.7.0",
     "contract": "0.10",
     "description": "Microsoft365forstudentsviaSchulyMicrosoft.LinksaMicrosoftaccountwithabrowsersign-in(storedasaSchulylinkedaccount)andreadsmail,calendarandOneDrivefiles.",
     "authors": "schulydev"
