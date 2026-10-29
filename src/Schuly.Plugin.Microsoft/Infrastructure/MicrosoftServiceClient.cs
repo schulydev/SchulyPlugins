@@ -113,17 +113,60 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             return rotated;
         }
 
+        /// <summary>POSTs prepared content (multipart uploads) to `api/{path}` with a long timeout, streaming the body; returns the JSON answer and the token to keep.</summary>
+        public async Task<ServiceRead> PostContentAsync(string path, HttpContent content, string refreshToken, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"api/{path}") { Content = content };
+            request.Headers.Add(RefreshTokenHeader, refreshToken);
+            using var response = await Client(UploadTimeout).SendAsync(request, ct);
+            var rotated = Rotated(response, refreshToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                throw new MicrosoftSignInExpiredException();
+            response.EnsureSuccessStatusCode();
+            return new ServiceRead(await response.Content.ReadFromJsonAsync<JsonElement>(ct), rotated);
+        }
+
+        /// <summary>GETs `api/{path}` and hands back the open response (headers read, body not yet) for streaming; null on 404. The caller disposes it.</summary>
+        public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, $"api/{path}");
+            request.Headers.Add(RefreshTokenHeader, refreshToken);
+            var response = await Client(UploadTimeout).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            var rotated = Rotated(response, refreshToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                response.Dispose();
+                throw new MicrosoftSignInExpiredException();
+            }
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                response.Dispose();
+                return (null, rotated);
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                var status = response.StatusCode;
+                response.Dispose();
+                throw new HttpRequestException($"SchulyMicrosoft answered {(int)status}.", null, status);
+            }
+            return (response, rotated);
+        }
+
         private static string Rotated(HttpResponseMessage response, string current)
         {
             var rotated = response.Headers.TryGetValues(RefreshTokenHeader, out var values) ? values.FirstOrDefault() : null;
             return string.IsNullOrEmpty(rotated) ? current : rotated;
         }
 
-        private HttpClient Client()
+        private static readonly TimeSpan UploadTimeout = TimeSpan.FromMinutes(15);
+
+        private HttpClient Client() => Client(TimeSpan.FromSeconds(60));
+
+        private HttpClient Client(TimeSpan timeout)
         {
             var client = httpClientFactory.CreateClient();
             client.BaseAddress = new Uri(BaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(60);
+            client.Timeout = timeout;
             return client;
         }
 
