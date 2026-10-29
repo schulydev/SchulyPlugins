@@ -24,6 +24,14 @@ namespace Schuly.Plugin.Microsoft.Controllers
         public Task<IActionResult> Files(Guid accountId, [FromQuery] string path = "root", [FromQuery] int top = 100, CancellationToken ct = default) =>
             ReadAsync(accountId, $"files?path={Uri.EscapeDataString(path)}&top={Math.Clamp(top, 1, 200)}", ct);
 
+        [HttpGet("{accountId:guid}/chats")]
+        public Task<IActionResult> Chats(Guid accountId, [FromQuery] int top = 25, CancellationToken ct = default) =>
+            ReadAsync(accountId, $"chats?top={Math.Clamp(top, 1, 50)}", ct);
+
+        [HttpGet("{accountId:guid}/notebooks")]
+        public Task<IActionResult> Notebooks(Guid accountId, CancellationToken ct = default) =>
+            ReadAsync(accountId, "notebooks", ct);
+
         private async Task<IActionResult> ReadAsync(Guid accountId, string path, CancellationToken ct)
         {
             var userId = await userContext.GetCurrentUserIdAsync(ct);
