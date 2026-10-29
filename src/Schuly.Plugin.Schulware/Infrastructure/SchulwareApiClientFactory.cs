@@ -20,6 +20,15 @@ namespace Schuly.Plugin.Schulware.Infrastructure
 
         public static SchulwareApiClient Create(IHttpClientFactory httpClientFactory, string baseUrl, string? schulnetzBaseUrl = null, string? bearerToken = null)
         {
+            var httpClient = CreateHttpClient(httpClientFactory, baseUrl, schulnetzBaseUrl, bearerToken);
+            var adapter = new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient);
+            adapter.BaseUrl = baseUrl;
+            return new SchulwareApiClient(adapter);
+        }
+
+        /// <summary>The plain HttpClient behind <see cref="Create"/>, with the same bearer, Schulnetz base URL and service key headers.</summary>
+        public static HttpClient CreateHttpClient(IHttpClientFactory httpClientFactory, string baseUrl, string? schulnetzBaseUrl = null, string? bearerToken = null)
+        {
             var httpClient = httpClientFactory.CreateClient("Schulware");
             if (!string.IsNullOrWhiteSpace(bearerToken))
             {
@@ -33,9 +42,7 @@ namespace Schuly.Plugin.Schulware.Infrastructure
             }
             if (_serviceKey is not null && IsConfiguredHost(baseUrl))
                 httpClient.DefaultRequestHeaders.Add(ServiceKeyHeader, _serviceKey);
-            var adapter = new HttpClientRequestAdapter(new AnonymousAuthenticationProvider(), httpClient: httpClient);
-            adapter.BaseUrl = baseUrl;
-            return new SchulwareApiClient(adapter);
+            return httpClient;
         }
 
         /// <summary>The key only goes to the SchulwareAPI this backend is configured for, never to an account's older or foreign base URL.</summary>
