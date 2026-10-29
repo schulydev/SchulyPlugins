@@ -58,18 +58,34 @@ namespace Schuly.Plugin.Microsoft.Services
                 return (read, read.RefreshToken);
             }, ct);
 
-        public async Task<PhotoResult> GetPhotoAsync(Guid userId, Guid accountId, string microsoftUserId, int size, CancellationToken ct)
+        public Task<PhotoResult> GetPhotoAsync(Guid userId, Guid accountId, string microsoftUserId, int size, CancellationToken ct) =>
+            GetImageAsync(userId, accountId, $"user|{microsoftUserId}|{size}", $"users/{Uri.EscapeDataString(microsoftUserId)}/photo?size={size}", ct);
+
+        /// <summary>A group chat's custom picture (null bytes when it has none).</summary>
+        public Task<PhotoResult> GetChatPhotoAsync(Guid userId, Guid accountId, string chatId, CancellationToken ct) =>
+            GetImageAsync(userId, accountId, $"chat|{chatId}", $"chats/{Uri.EscapeDataString(chatId)}/photo", ct);
+
+        /// <summary>A person's photo by e-mail address (mail senders).</summary>
+        public Task<PhotoResult> GetPeoplePhotoAsync(Guid userId, Guid accountId, string email, int size, CancellationToken ct) =>
+            GetImageAsync(userId, accountId, $"mail|{email.ToLowerInvariant()}|{size}", $"people/photo?email={Uri.EscapeDataString(email)}&size={size}", ct);
+
+        /// <summary>An image pasted into a chat message (a Graph hosted content).</summary>
+        public Task<PhotoResult> GetChatMediaAsync(Guid userId, Guid accountId, string chatId, string messageId, string hostedId, CancellationToken ct) =>
+            GetImageAsync(userId, accountId, $"media|{chatId}|{messageId}|{hostedId}", $"chats/{Uri.EscapeDataString(chatId)}/messages/{Uri.EscapeDataString(messageId)}/hostedContents/{Uri.EscapeDataString(hostedId)}", ct);
+
+        /// <summary>Images on the photo lane, cached ~1h (misses 10 min). The service answers them with no-store because the rotated token rides along; the cached copy here holds only the bytes.</summary>
+        private async Task<PhotoResult> GetImageAsync(Guid userId, Guid accountId, string kind, string path, CancellationToken ct)
         {
-            var key = $"{accountId:N}|{microsoftUserId}|{size}";
+            var key = $"{accountId:N}|{kind}";
             if (Photos.TryGetValue(key, out PhotoResult? hit) && hit is not null)
                 return hit;
 
             // One upstream fetch per key: concurrent misses share the task. It runs detached from any single caller's token, callers just stop waiting when theirs is cancelled.
-            var fetch = PhotosInFlight.GetOrAdd(key, _ => new Lazy<Task<PhotoResult>>(() => FetchPhotoAsync(key, userId, accountId, microsoftUserId, size)));
+            var fetch = PhotosInFlight.GetOrAdd(key, _ => new Lazy<Task<PhotoResult>>(() => FetchImageAsync(key, userId, accountId, path)));
             return await fetch.Value.WaitAsync(ct);
         }
 
-        private async Task<PhotoResult> FetchPhotoAsync(string key, Guid userId, Guid accountId, string microsoftUserId, int size)
+        private async Task<PhotoResult> FetchImageAsync(string key, Guid userId, Guid accountId, string path)
         {
             try
             {
@@ -82,7 +98,7 @@ namespace Schuly.Plugin.Microsoft.Services
                 {
                     var (binary, _) = await WithTokenAsync(userId, accountId, gates, async token =>
                     {
-                        var read = await service.GetBytesAsync($"users/{Uri.EscapeDataString(microsoftUserId)}/photo?size={size}", token, CancellationToken.None);
+                        var read = await service.GetBytesAsync(path, token, CancellationToken.None);
                         return (read, read.RefreshToken);
                     }, CancellationToken.None);
 
@@ -100,6 +116,18 @@ namespace Schuly.Plugin.Microsoft.Services
                 PhotosInFlight.TryRemove(key, out _);
             }
         }
+
+        /// <summary>POSTs prepared (multipart) content on the normal lane.</summary>
+        public Task<JsonElement> PostContentAsync(Guid userId, Guid accountId, string path, HttpContent content, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, async token =>
+            {
+                var read = await service.PostContentAsync(path, content, token, ct);
+                return (read.Data, read.RefreshToken);
+            }, ct);
+
+        /// <summary>Opens a streamed download; the lane is held only until the headers arrive, and the rotated token is persisted before the body is read. Null on 404.</summary>
+        public Task<HttpResponseMessage?> OpenStreamAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, token => service.OpenStreamAsync(path, token, ct), ct);
 
         private async Task<T> WithTokenAsync<T>(Guid userId, Guid accountId, Func<string, Task<(T Result, string RefreshToken)>> call, CancellationToken ct)
         {

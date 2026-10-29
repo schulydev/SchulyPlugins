@@ -45,17 +45,6 @@ namespace Schuly.Plugin.Microsoft.Controllers
             !ChatIdPattern.IsMatch(chatId) ? Task.FromResult(Invalid("Invalid chat id.")) :
             ReadAsync(accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages?top={Math.Clamp(top, 1, 300)}", ct);
 
-        [HttpPost("{accountId:guid}/chats/{chatId}/messages")]
-        public Task<IActionResult> SendChatMessage(Guid accountId, string chatId, [FromBody] SendChatMessageRequest? request, CancellationToken ct = default)
-        {
-            if (!ChatIdPattern.IsMatch(chatId))
-                return Task.FromResult(Invalid("Invalid chat id."));
-            var text = request?.Text?.Trim();
-            if (string.IsNullOrEmpty(text) || text.Length > 4000)
-                return Task.FromResult(Invalid("Message text must be 1-4000 characters."));
-            return RunAsync(accountId, async (userId, c) => Ok(await Reader.PostAsync(userId, accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages", new { text }, c)), ct);
-        }
-
         [HttpPost("{accountId:guid}/chats/{chatId}/read")]
         public Task<IActionResult> MarkChatRead(Guid accountId, string chatId, CancellationToken ct = default)
         {
@@ -85,5 +74,4 @@ namespace Schuly.Plugin.Microsoft.Controllers
         }
     }
 
-    public record SendChatMessageRequest(string? Text);
 }
