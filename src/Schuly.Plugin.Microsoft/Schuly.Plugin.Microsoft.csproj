@@ -4,14 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>2.3.0</Version>
+    <Version>2.3.1</Version>
     <Description>Microsoft 365 for students via SchulyMicrosoft. Links a Microsoft account with a browser sign-in (stored as a Schuly linked account) and reads mail, calendar and OneDrive files.</Description>
     <Authors>schulydev</Authors>
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.8.*" />
+    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.10.*" />
   </ItemGroup>
 
 </Project>
