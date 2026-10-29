@@ -78,15 +78,97 @@ namespace Schuly.Plugins.Linking.Tests
         }
 
         [Theory]
-        [InlineData("unsupported")]
-        [InlineData("blocked")]
-        public async Task UnsupportedOrBlocked_Fails(string code)
+        [InlineData("unsupported", MicrosoftLinkProvider.Unsupported)]
+        [InlineData("blocked", MicrosoftLinkProvider.BlockedMessage)]
+        [InlineData("failed", MicrosoftLinkProvider.FailedMessage)]
+        [InlineData("anything-else", MicrosoftLinkProvider.FailedMessage)]
+        public async Task TerminalCodes_FailWithFixedTexts(string code, string expected)
         {
             var (p, api, _, _, _) = Create();
-            api.Start.Enqueue(S("error", null, code: code));
+            api.Start.Enqueue(new PasswordSignInState("error", null, [], null, null, null, null, null, null, null, code, "SERVICE TEXT must not show"));
             var result = await Credentials(p, await StartPassword(p));
             Assert.Equal(LinkStepKind.Error, result.Step.Kind);
-            Assert.Equal(MicrosoftLinkProvider.Unsupported, result.Step.Error);
+            Assert.Equal(expected, result.Step.Error);
+        }
+
+        [Fact]
+        public async Task RateLimited_StaysOnCredentialsWithAFixedError()
+        {
+            var (p, api, _, _, _) = Create();
+            api.Start.Enqueue(S("error", null, code: "rate_limited"));
+            var result = await Credentials(p, await StartPassword(p));
+            Assert.Equal("credentials", result.Step.Id);
+            Assert.Equal(MicrosoftLinkProvider.RateLimitedMessage, result.Step.Error);
+        }
+
+        [Fact]
+        public async Task Working_KeepsThePushStep_UntilThePollKnowsTheNumber()
+        {
+            var (p, api, accounts, _, _) = Create();
+            api.Start.Enqueue(S("mfa_required", methods: ["push", "otp"]));
+            api.Method.Enqueue(S("working"));
+            var select = await Credentials(p, await StartPassword(p));
+            var push = await p.SubmitAsync(StepAssert.Submit(User, "password", select, new() { ["value"] = "push" }));
+            Assert.Equal(LinkStepKind.PushCode, push.Step.Kind);
+            Assert.Null(push.Step.PushCode!.Number);
+
+            api.Status.Enqueue(S("working"));
+            var still = await p.PollAsync(new LinkPollContext(User, "password", LinkPlatform.Web, "push", push.State, null));
+            Assert.Equal(LinkStepKind.PushCode, still.Step.Kind);
+
+            api.Status.Enqueue(S("push_pending", number: "55", expires: 90));
+            var withNumber = await p.PollAsync(new LinkPollContext(User, "password", LinkPlatform.Web, "push", still.State, null));
+            Assert.Equal("55", withNumber.Step.PushCode!.Number);
+
+            api.Status.Enqueue(Complete());
+            var done = await p.PollAsync(new LinkPollContext(User, "password", LinkPlatform.Web, "push", withNumber.State, null));
+            Assert.Equal(LinkStepKind.Done, done.Step.Kind);
+            Assert.Single(accounts.Rows);
+        }
+
+        [Fact]
+        public async Task Denied_UsesTheMethodsTheServiceReturns()
+        {
+            var (p, api, _, _, _) = Create();
+            api.Start.Enqueue(S("mfa_required", methods: ["push", "otp"]));
+            api.Method.Enqueue(S("push_pending", number: "1", expires: 60));
+            var select = await Credentials(p, await StartPassword(p));
+            var push = await p.SubmitAsync(StepAssert.Submit(User, "password", select, new() { ["value"] = "push" }));
+            api.Status.Enqueue(S("denied", methods: ["otp"]));
+            var back = await p.PollAsync(new LinkPollContext(User, "password", LinkPlatform.Web, "push", push.State, null));
+            Assert.Equal("mfa-method", back.Step.Id);
+            Assert.Equal(["otp"], back.Step.Options.Select(o => o.Value));
+        }
+
+        [Fact]
+        public async Task OtpWithNoAttemptsLeft_GoesBackToTheMethodStep_AndExhaustedFails()
+        {
+            var (p, api, _, _, _) = Create();
+            api.Start.Enqueue(S("mfa_required", methods: ["push", "otp"]));
+            api.Method.Enqueue(S("otp_required"));
+            var select = await Credentials(p, await StartPassword(p));
+            var otp = await p.SubmitAsync(StepAssert.Submit(User, "password", select, new() { ["value"] = "otp" }));
+
+            api.Otp.Enqueue(S("otp_invalid", left: 0));
+            var back = await p.SubmitAsync(StepAssert.Submit(User, "password", otp, new() { ["code"] = "111111" }));
+            Assert.Equal("mfa-method", back.Step.Id);
+            Assert.NotNull(back.Step.Error);
+
+            api.Otp.Enqueue(S("error", code: "otp_exhausted"));
+            var dead = await p.SubmitAsync(StepAssert.Submit(User, "password", otp, new() { ["code"] = "222222" }));
+            Assert.Equal(LinkStepKind.Error, dead.Step.Kind);
+            Assert.Equal(MicrosoftLinkProvider.ExhaustedMessage, dead.Step.Error);
+        }
+
+        [Fact]
+        public async Task Cancel_DeletesTheSignIn()
+        {
+            var (p, api, _, _, _) = Create();
+            api.Start.Enqueue(S("mfa_required", methods: ["push"]));
+            var select = await Credentials(p, await StartPassword(p));
+            var cancelled = await p.SubmitAsync(StepAssert.Submit(User, "password", select, action: "cancel"));
+            Assert.Equal(LinkStepKind.Error, cancelled.Step.Kind);
+            Assert.Contains("sid", api.Cancelled);
         }
 
         [Fact]

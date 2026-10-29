@@ -24,6 +24,10 @@ namespace Schuly.Plugin.Microsoft.Services
         public const string UseOtpAction = "use-otp";
         public const string UsePushAction = "use-push";
         public const string Unsupported = "Your school's Microsoft sign-in isn't supported here yet. Use the Schuly mobile app to link this account.";
+        public const string BlockedMessage = "Your school's Microsoft policy blocks this sign-in here. Use the Schuly mobile app to link this account.";
+        public const string RateLimitedMessage = "Too many attempts, try again later.";
+        public const string FailedMessage = "The Microsoft sign-in failed. Start again.";
+        public const string ExhaustedMessage = "Too many wrong codes. Start again.";
         public const string ExpiredMessage = "The sign-in expired. Start again.";
         private const int PollIntervalSeconds = 2;
 
@@ -116,15 +120,18 @@ namespace Schuly.Plugin.Microsoft.Services
                 switch (status.Status)
                 {
                     case "push_pending":
+                        var next = status.Number is null ? state : state with { Number = status.Number, ExpiresAt = status.ExpiresInSeconds is { } secs ? DateTimeOffset.UtcNow.AddSeconds(secs) : state.ExpiresAt };
+                        return new LinkStepResult(PushForm(next, null), Write(next));
+                    case "working":
                         return new LinkStepResult(PushForm(state, null), context.State);
                     case "complete":
                         return await CompleteAsync(context.ApplicationUserId, status, null, cancellationToken);
                     case "denied":
-                        return MethodSelect(state, "The sign-in was denied on your device. Choose a method to try again.");
+                        return MethodSelect(WithMethods(state, status.Methods), "The sign-in was denied on your device. Choose a method to try again.");
                     case "timed_out":
-                        return MethodSelect(state, "The approval timed out. Choose a method to try again.");
+                        return MethodSelect(WithMethods(state, status.Methods), "The approval timed out. Choose a method to try again.");
                     default:
-                        return status.ErrorCode == "expired" ? LinkStepResult.Fail(ExpiredMessage) : MethodSelect(state, "Microsoft could not confirm the sign-in. Try again.");
+                        return Terminal(status) ?? MethodSelect(state, "Microsoft could not confirm the sign-in. Try again.");
                 }
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
@@ -175,19 +182,16 @@ namespace Schuly.Plugin.Microsoft.Services
                     limiter.Reset(userId);
                     return MethodSelect(new State(result.SignInId, methods, null, null, null), null);
                 default:
-                    switch (result.ErrorCode)
+                    if (result.ErrorCode == "invalid_credentials")
                     {
-                        case "invalid_credentials":
-                            limiter.RecordFailure(userId);
-                            return new LinkStepResult(CredentialsForm(email, "The email or password is wrong."), null);
-                        case "rate_limited":
-                            return new LinkStepResult(CredentialsForm(email, "Microsoft asks you to wait a moment before trying again."), null);
-                        case "unsupported":
-                        case "blocked":
-                            return LinkStepResult.Fail(Unsupported);
-                        default:
-                            return new LinkStepResult(CredentialsForm(email, "The sign-in did not work. Try again."), null);
+                        limiter.RecordFailure(userId);
+                        return new LinkStepResult(CredentialsForm(email, "The email or password is wrong."), null);
                     }
+                    if (result.ErrorCode == "rate_limited")
+                        return new LinkStepResult(CredentialsForm(email, RateLimitedMessage), null);
+                    if (result.ErrorCode == "invalid")
+                        return new LinkStepResult(CredentialsForm(email, "Check the email and password and try again."), null);
+                    return Terminal(result) ?? LinkStepResult.Fail(FailedMessage);
             }
         }
 
@@ -225,11 +229,15 @@ namespace Schuly.Plugin.Microsoft.Services
             {
                 case "complete":
                     return await CompleteAsync(context.ApplicationUserId, result, null, ct);
+                case "otp_invalid" when result.AttemptsLeft == 0:
+                    return MethodSelect(WithMethods(state, result.Methods), "Too many wrong codes. Choose a method to try again.");
                 case "otp_invalid":
                     var left = result.AttemptsLeft is { } n ? $" {n} attempt{(n == 1 ? "" : "s")} left." : "";
                     return new LinkStepResult(OtpForm(state, "That code is not right." + left), context.State);
                 default:
-                    return result.ErrorCode == "expired" ? LinkStepResult.Fail(ExpiredMessage) : MethodSelect(state, "Microsoft could not confirm the code. Choose a method to try again.");
+                    if (result.ErrorCode == "rate_limited")
+                        return new LinkStepResult(OtpForm(state, RateLimitedMessage), context.State);
+                    return Terminal(result) ?? MethodSelect(state, "Microsoft could not confirm the code. Choose a method to try again.");
             }
         }
 
@@ -244,12 +252,18 @@ namespace Schuly.Plugin.Microsoft.Services
                 case "push_pending":
                     var next = state with { Number = result.Number, ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(result.ExpiresInSeconds ?? 60) };
                     return new LinkStepResult(PushForm(next, null), Write(next));
+                case "working":
+                    // The number is not known yet: show the step and let the poll fill it in.
+                    var waiting = state with { Number = null, ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(60) };
+                    return method == "push" ? new LinkStepResult(PushForm(waiting, null), Write(waiting)) : new LinkStepResult(OtpForm(state, null), Write(state));
                 case "otp_required":
                     return new LinkStepResult(OtpForm(state, null), Write(state));
                 case "complete":
                     return await CompleteAsync(userId, result, null, ct);
                 default:
-                    return result.ErrorCode == "expired" ? LinkStepResult.Fail(ExpiredMessage) : MethodSelect(state, "That method did not work. Choose another one.");
+                    if (result.ErrorCode == "rate_limited")
+                        return MethodSelect(state, RateLimitedMessage);
+                    return Terminal(result) ?? MethodSelect(state, "That method did not work. Choose another one.");
             }
         }
 
@@ -331,6 +345,23 @@ namespace Schuly.Plugin.Microsoft.Services
         {
             try { await api.CancelPasswordAsync(userId, signInId, CancellationToken.None); }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException) { }
+        }
+
+        /// <summary>Terminal error codes of the service as fixed texts (service messages are never surfaced); null when the caller should stay on its step.</summary>
+        private static LinkStepResult? Terminal(PasswordSignInState result) => result.ErrorCode switch
+        {
+            "unsupported" => LinkStepResult.Fail(Unsupported),
+            "blocked" => LinkStepResult.Fail(BlockedMessage),
+            "otp_exhausted" => LinkStepResult.Fail(ExhaustedMessage),
+            "expired" => LinkStepResult.Fail(ExpiredMessage),
+            "failed" or "unavailable" => LinkStepResult.Fail(FailedMessage),
+            _ => null,
+        };
+
+        private static State WithMethods(State state, IReadOnlyList<string> offered)
+        {
+            var methods = Supported(offered);
+            return methods.Count == 0 ? state : state with { Methods = methods };
         }
 
         private static List<string> Supported(IReadOnlyList<string> offered) =>

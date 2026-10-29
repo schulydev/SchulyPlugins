@@ -101,13 +101,17 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         {
             using var request = PasswordRequest(userId, method, path, body);
             using var response = await Client().SendAsync(request, ct);
-            if (response.StatusCode == HttpStatusCode.NotFound)
-                return PasswordError("expired", "The sign-in expired.");
+            var fromStatus = HttpError(response.StatusCode);
+            if (fromStatus is not null && response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.ServiceUnavailable or HttpStatusCode.NotFound)
+                return fromStatus;
             JsonElement json;
             try { json = await response.Content.ReadFromJsonAsync<JsonElement>(ct); }
-            catch (JsonException) { return PasswordError("unavailable", "Microsoft sign-in is unavailable."); }
+            catch (JsonException) { return fromStatus ?? PasswordError("unavailable", "Microsoft sign-in is unavailable."); }
             if (json.ValueKind != JsonValueKind.Object)
-                return PasswordError("unavailable", "Microsoft sign-in is unavailable.");
+                return fromStatus ?? PasswordError("unavailable", "Microsoft sign-in is unavailable.");
+            // A failing status without a usable error body still maps to a code.
+            if (fromStatus is not null && (Str(json, "status") ?? "error") == "error" && Str(json, "code") is null)
+                return fromStatus;
 
             var account = json.TryGetProperty("account", out var a) && a.ValueKind == JsonValueKind.Object ? a : default;
             var methods = json.TryGetProperty("methods", out var m) && m.ValueKind == JsonValueKind.Array
@@ -127,6 +131,17 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                 Str(json, "code"),
                 Str(json, "message"));
         }
+
+        /// <summary>SchulyMicrosoft status codes: 401/503 service misconfigured, 404 unknown job, 409 wrong state, 422 malformed, 429 rate limited.</summary>
+        private static PasswordSignInState? HttpError(HttpStatusCode status) => status switch
+        {
+            HttpStatusCode.NotFound => PasswordError("expired", "The sign-in expired."),
+            HttpStatusCode.TooManyRequests => PasswordError("rate_limited", "Rate limited."),
+            HttpStatusCode.Conflict => PasswordError("conflict", "Wrong state."),
+            HttpStatusCode.UnprocessableEntity => PasswordError("invalid", "Malformed."),
+            HttpStatusCode.Unauthorized or HttpStatusCode.ServiceUnavailable => PasswordError("failed", "The Microsoft sign-in service is not available."),
+            _ => null,
+        };
 
         private static PasswordSignInState PasswordError(string code, string message) => new("error", null, [], null, null, null, null, null, null, null, code, message);
 
