@@ -45,7 +45,8 @@ namespace Schuly.Plugin.Microsoft.Controllers
             }
             catch (MicrosoftSignInExpiredException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                // 409, not 401: clients read 401 as their own Schuly session expiring and sign out.
+                return Conflict(new { code = "microsoft_signin_expired", message = ex.Message });
             }
         }
     }
