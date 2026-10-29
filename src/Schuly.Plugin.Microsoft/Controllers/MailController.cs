@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Schuly.Plugin.Abstractions;
+using Schuly.Plugin.Microsoft.Infrastructure;
 using Schuly.Plugin.Microsoft.Services;
 
 namespace Schuly.Plugin.Microsoft.Controllers
@@ -22,18 +23,18 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{messageId:regex(^(?!(folders|send|drafts)$).+$)}")]
         public Task<IActionResult> Message(Guid accountId, string messageId, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             ReadAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}", ct);
 
         [HttpGet("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/attachments")]
         public Task<IActionResult> Attachments(Guid accountId, string messageId, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             ReadAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/attachments", ct);
 
         [HttpGet("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/attachments/{attachmentId}")]
         public Task<IActionResult> Attachment(Guid accountId, string messageId, string attachmentId, CancellationToken ct = default)
         {
-            if (!IdPattern.IsMatch(messageId) || !IdPattern.IsMatch(attachmentId))
+            if (!PathIds.IsSafe(IdPattern, messageId) || !PathIds.IsSafe(IdPattern, attachmentId))
                 return Task.FromResult(Invalid("Invalid message or attachment id."));
             return RunAsync(accountId, async (userId, c) =>
             {
@@ -60,7 +61,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpPost("drafts/{messageId}/send")]
         public Task<IActionResult> SendDraft(Guid accountId, string messageId, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             RunAsync(accountId, async (userId, c) =>
             {
                 await Reader.PostEmptyAsync(userId, accountId, $"mail/drafts/{Uri.EscapeDataString(messageId)}/send", c);
@@ -69,37 +70,37 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/reply")]
         public Task<IActionResult> Reply(Guid accountId, string messageId, [FromBody] MailReplyRequest? request, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             request?.Comment is null ? Task.FromResult(Invalid("A comment is required.")) :
             NoContentAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/reply", request, ct);
 
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/forward")]
         public Task<IActionResult> Forward(Guid accountId, string messageId, [FromBody] MailForwardRequest? request, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             request?.To is not { Count: > 0 and <= MaxRecipients } ? Task.FromResult(Invalid($"1-{MaxRecipients} recipients are required.")) :
             NoContentAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/forward", request, ct);
 
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/read")]
         public Task<IActionResult> MarkRead(Guid accountId, string messageId, [FromBody] MailReadRequest? request, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             request is null ? Task.FromResult(Invalid("read is required.")) :
             PostAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/read", request, ct);
 
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/flag")]
         public Task<IActionResult> Flag(Guid accountId, string messageId, [FromBody] MailFlagRequest? request, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             request?.Status is not ("flagged" or "complete" or "notFlagged") ? Task.FromResult(Invalid("status must be flagged, complete or notFlagged.")) :
             PostAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/flag", request, ct);
 
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/move")]
         public Task<IActionResult> Move(Guid accountId, string messageId, [FromBody] MailMoveRequest? request, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
-            request?.Folder is not { } folder || !IdPattern.IsMatch(folder) ? Task.FromResult(Invalid("Invalid folder.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            request?.Folder is not { } folder || !PathIds.IsSafe(IdPattern, folder) ? Task.FromResult(Invalid("Invalid folder.")) :
             PostAsync(accountId, $"mail/{Uri.EscapeDataString(messageId)}/move", request, ct);
 
         [HttpDelete("{messageId:regex(^(?!(folders|send|drafts)$).+$)}")]
         public Task<IActionResult> Delete(Guid accountId, string messageId, CancellationToken ct = default) =>
-            !IdPattern.IsMatch(messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
+            !PathIds.IsSafe(IdPattern, messageId) ? Task.FromResult(Invalid("Invalid message id.")) :
             RunAsync(accountId, async (userId, c) =>
             {
                 await Reader.DeleteAsync(userId, accountId, $"mail/{Uri.EscapeDataString(messageId)}", c);

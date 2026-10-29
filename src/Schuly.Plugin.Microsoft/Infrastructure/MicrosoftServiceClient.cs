@@ -46,7 +46,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>GETs `api/{path}` with the account's refresh token; throws <see cref="MicrosoftSignInExpiredException"/> on 401.</summary>
         public async Task<ServiceRead> ReadAsync(string path, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"api/{path}");
+            using var request = new HttpRequestMessage(HttpMethod.Get, PathIds.Upstream(new Uri(BaseUrl), path));
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client().SendAsync(request, ct);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -60,7 +60,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>POSTs a JSON body to `api/{path}`; <see cref="ServiceRead.Data"/> is default (Undefined) when the service answers with no content.</summary>
         public async Task<ServiceRead> PostJsonAsync(string path, object body, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"api/{path}") { Content = JsonContent.Create(body) };
+            using var request = new HttpRequestMessage(HttpMethod.Post, PathIds.Upstream(new Uri(BaseUrl), path)) { Content = JsonContent.Create(body) };
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client().SendAsync(request, ct);
             var rotated = Rotated(response, refreshToken);
@@ -74,7 +74,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>POSTs with no body to `api/{path}` (204-style actions) and returns the token to keep.</summary>
         public async Task<string> PostEmptyAsync(string path, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"api/{path}");
+            using var request = new HttpRequestMessage(HttpMethod.Post, PathIds.Upstream(new Uri(BaseUrl), path));
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client().SendAsync(request, ct);
             var rotated = Rotated(response, refreshToken);
@@ -87,7 +87,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>GETs raw bytes from `api/{path}`; a 404 yields null bytes (still returning the rotated token).</summary>
         public async Task<ServiceBinary> GetBytesAsync(string path, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"api/{path}");
+            using var request = new HttpRequestMessage(HttpMethod.Get, PathIds.Upstream(new Uri(BaseUrl), path));
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client().SendAsync(request, ct);
             var rotated = Rotated(response, refreshToken);
@@ -103,7 +103,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>DELETEs `api/{path}` (204-style) and returns the token to keep.</summary>
         public async Task<string> DeleteAsync(string path, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Delete, $"api/{path}");
+            using var request = new HttpRequestMessage(HttpMethod.Delete, PathIds.Upstream(new Uri(BaseUrl), path));
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client().SendAsync(request, ct);
             var rotated = Rotated(response, refreshToken);
@@ -116,7 +116,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>POSTs prepared content (multipart uploads) to `api/{path}` with a long timeout, streaming the body; returns the JSON answer and the token to keep.</summary>
         public async Task<ServiceRead> PostContentAsync(string path, HttpContent content, string refreshToken, CancellationToken ct)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"api/{path}") { Content = content };
+            using var request = new HttpRequestMessage(HttpMethod.Post, PathIds.Upstream(new Uri(BaseUrl), path)) { Content = content };
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             using var response = await Client(UploadTimeout).SendAsync(request, ct);
             var rotated = Rotated(response, refreshToken);
@@ -129,7 +129,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         /// <summary>GETs `api/{path}` and hands back the open response (headers read, body not yet) for streaming; null on 404. The caller disposes it.</summary>
         public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"api/{path}");
+            var request = new HttpRequestMessage(HttpMethod.Get, PathIds.Upstream(new Uri(BaseUrl), path));
             request.Headers.Add(RefreshTokenHeader, refreshToken);
             var response = await Client(UploadTimeout).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             var rotated = Rotated(response, refreshToken);
