@@ -71,6 +71,20 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             return new ServiceRead(data, rotated);
         }
 
+        /// <summary>PATCHes a JSON body to `api/{path}`; <see cref="ServiceRead.Data"/> is default (Undefined) when the service answers with no content.</summary>
+        public async Task<ServiceRead> PatchJsonAsync(string path, object body, string refreshToken, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Patch, PathIds.Upstream(new Uri(BaseUrl), path)) { Content = JsonContent.Create(body) };
+            request.Headers.Add(RefreshTokenHeader, refreshToken);
+            using var response = await Client().SendAsync(request, ct);
+            var rotated = Rotated(response, refreshToken);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                throw new MicrosoftSignInExpiredException();
+            response.EnsureSuccessStatusCode();
+            var data = response.StatusCode == HttpStatusCode.NoContent || response.Content.Headers.ContentLength == 0 ? default : await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            return new ServiceRead(data, rotated);
+        }
+
         /// <summary>POSTs with no body to `api/{path}` (204-style actions) and returns the token to keep.</summary>
         public async Task<string> PostEmptyAsync(string path, string refreshToken, CancellationToken ct)
         {

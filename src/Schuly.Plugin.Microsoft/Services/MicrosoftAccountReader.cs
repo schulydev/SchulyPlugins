@@ -44,6 +44,13 @@ namespace Schuly.Plugin.Microsoft.Services
                 return (read.Data, read.RefreshToken);
             }, ct);
 
+        public Task<JsonElement> PatchAsync(Guid userId, Guid accountId, string path, object body, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, async token =>
+            {
+                var read = await service.PatchJsonAsync(path, body, token, ct);
+                return (read.Data, read.RefreshToken);
+            }, ct);
+
         public Task PostEmptyAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
             WithTokenAsync(userId, accountId, async token => (true, await service.PostEmptyAsync(path, token, ct)), ct);
 
