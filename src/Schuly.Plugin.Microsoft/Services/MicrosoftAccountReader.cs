@@ -136,6 +136,10 @@ namespace Schuly.Plugin.Microsoft.Services
         public Task<HttpResponseMessage?> OpenStreamAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
             WithTokenAsync(userId, accountId, token => service.OpenStreamAsync(path, token, ct), ct);
 
+        /// <summary>POSTs <paramref name="content"/> (streamed) and opens the answer for streaming, like <see cref="OpenStreamAsync"/>; the lane is held until the headers arrive.</summary>
+        public Task<HttpResponseMessage?> OpenPostStreamAsync(Guid userId, Guid accountId, string path, HttpContent content, CancellationToken ct) =>
+            WithTokenAsync(userId, accountId, token => service.OpenStreamAsync(HttpMethod.Post, path, content, token, ct), ct);
+
         private async Task<T> WithTokenAsync<T>(Guid userId, Guid accountId, Func<string, Task<(T Result, string RefreshToken)>> call, CancellationToken ct)
         {
             var gates = Gates.GetOrAdd(accountId, _ => new AccountGates());
