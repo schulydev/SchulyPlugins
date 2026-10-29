@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace Schuly.Plugin.Schulware.Infrastructure
 {
     /// <summary>The opaque context of a browser sign-in and the code its callback URL carries.</summary>
-    internal static class BrowserSignIn
+    public static class BrowserSignIn
     {
         public sealed record Context(string CodeVerifier, string DeviceId, string State);
 

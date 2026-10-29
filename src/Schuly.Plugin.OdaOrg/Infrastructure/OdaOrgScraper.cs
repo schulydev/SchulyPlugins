@@ -24,6 +24,27 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
         private static readonly Regex RoundedRx = new(@"(?<!un)gerundet\)\s*:?\s*([\d.]+)", RegexOptions.Compiled);
         private static readonly Regex UnroundedRx = new(@"ungerundet\)\s*:?\s*([\d.]+)", RegexOptions.Compiled);
 
+        /// <summary>Cheap credential check: signs in and looks for the authenticated home page. Null when unreachable.</summary>
+        public virtual async Task<bool?> CheckLoginAsync(string baseUrl, string username, string password, CancellationToken ct)
+        {
+            baseUrl = baseUrl.TrimEnd('/');
+            if (!BaseUrlGuard.IsAllowed(baseUrl)) return null;
+            try
+            {
+                using var http = GuardedHttp.Create(new CookieContainer(), timeoutSeconds: 20);
+                http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 SchulyOdaOrgPlugin");
+                var loginForm = new FormUrlEncodedContent(new Dictionary<string, string> { ["cusername"] = username, ["cpassword"] = password });
+                using (await SendAsync(http, HttpMethod.Post, $"{baseUrl}/modules.php?name=IVVerwaltung&a=11140", loginForm, ct)) { }
+                var home = await GetStringAsync(http, $"{baseUrl}/modules.php?name=IVVerwaltung&a=99900", ct);
+                return home.Contains("Abmelden", StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                logger.LogWarning("OdaOrg login check could not reach the portal");
+                return null;
+            }
+        }
+
         public async Task<OdaScrape?> ScrapeAsync(string baseUrl, string username, string password, CancellationToken ct)
         {
             baseUrl = baseUrl.TrimEnd('/');

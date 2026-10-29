@@ -7,6 +7,9 @@ namespace Schuly.Plugin.Microsoft.Services
     {
         public sealed record Cookie(string Domain, string Name, string Path, string Value);
 
+        /// <summary>The Microsoft sign-in domains whose cookies the browser sign-in captures.</summary>
+        public static readonly IReadOnlyList<string> SignInDomains = ["login.microsoftonline.com", "login.microsoft.com", "login.live.com"];
+
         private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
         /// <summary>Keeps only cookies of Microsoft's sign-in hosts; returns the JSON to store, or null when none are left.</summary>

@@ -1,14 +1,10 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
-using Schuly.Plugin.Schulware.Client.Models;
-using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Schulware.Infrastructure;
 
 namespace Schuly.Plugin.Schulware.Services
 {
-    public class SchulwareLogin(IPluginUserContext userContext, SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, ILinkedAccounts linkedAccounts, SchulwareSyncTask syncTask, IServiceProvider services, ILogger<SchulwareLogin> logger) : IPluginLogin
+    /// <summary>Legacy login for app versions that predate the link providers; the work happens in <see cref="ISchulwareConnector"/>.</summary>
+    public class SchulwareLogin(IPluginUserContext userContext, ISchulwareConnector connector) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
         {
@@ -34,125 +30,15 @@ namespace Schuly.Plugin.Schulware.Services
 
         public async Task<PluginLoginResult> ConnectAsync(IReadOnlyDictionary<string, string> fields, string? displayName, CancellationToken cancellationToken = default)
         {
-            var baseUrl = Field(fields, "baseUrl")?.TrimEnd('/');
-            var email = Field(fields, "email");
-            var password = Field(fields, "password");
-            var totp = Field(fields, "totp");
             // Opt-out: any explicit "false" disables ongoing background refresh.
             var autoRefresh = !string.Equals(Field(fields, "autoRefresh"), "false", StringComparison.OrdinalIgnoreCase);
             var browser = BrowserSignIn.Parse(Field(fields, BrowserLoginStart.ContextFieldKey));
             var browserCode = browser is null ? null : BrowserSignIn.CodeFrom(Field(fields, BrowserLoginStart.CallbackFieldKey), browser);
-            var linkedField = Field(fields, SchoolSystemDescriptor.LinkedAccountFieldKey);
-            Guid? linkedAccountId = Guid.TryParse(linkedField, out var parsedLinkedId) ? parsedLinkedId : null;
-            if (string.IsNullOrWhiteSpace(baseUrl))
-                return new PluginLoginResult(false, null, "baseUrl is required");
-            if (browser is not null && browserCode is null)
-                return new PluginLoginResult(false, null, "The sign-in didn't finish. Try again.");
-            if (linkedAccountId is null && browser is null && (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)))
-                return new PluginLoginResult(false, null, "email and password, or a linked Microsoft account, are required");
-
-            if (!BaseUrlGuard.IsAllowed(baseUrl))
-                return new PluginLoginResult(false, null, "baseUrl is not an allowed target");
-
-            var apiBaseUrl = configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+            Guid? linkedAccountId = Guid.TryParse(Field(fields, SchoolSystemDescriptor.LinkedAccountFieldKey), out var parsedLinkedId) ? parsedLinkedId : null;
             var userId = await userContext.GetCurrentUserIdAsync(cancellationToken);
 
-            List<LoginRequestDto_session_cookies>? linkedSession = null;
-            if (linkedAccountId is { } linkedId)
-            {
-                var linked = await linkedAccounts.GetAsync(userId, linkedId, cancellationToken);
-                if (linked is null || linked.Provider != LinkedProviders.Microsoft)
-                    return new PluginLoginResult(false, null, "The selected Microsoft account is not linked to your Schuly account");
-                linkedSession = SessionCookies.FromJson(await linkedAccounts.GetSecretAsync(userId, linkedId, LinkedSecrets.SessionCookies, cancellationToken));
-                if (linkedSession is null || linkedSession.Count == 0)
-                    return new PluginLoginResult(false, null, "The Microsoft sign-in of that account has expired. Link it again in Settings.");
-            }
-
-            var account = await db.Accounts.FirstOrDefaultAsync(
-                a => a.ApplicationUserId == userId && a.SchulnetzBaseUrl == baseUrl, cancellationToken);
-            var isNew = account is null;
-            account ??= new SchulwareAccount
-            {
-                ApplicationUserId = userId,
-                SchulnetzBaseUrl = baseUrl,
-                SchulwareApiBaseUrl = apiBaseUrl,
-                DisplayName = displayName,
-            };
-
-            LoginResponseDto? res;
-            try
-            {
-                var client = SchulwareApiClientFactory.Create(httpClientFactory, account.SchulwareApiBaseUrl, baseUrl);
-                res = browser is not null
-                    ? await client.Api.Authenticate.Browser.Complete.PostAsync(new BrowserLoginCompleteRequestDto { SchulnetzBaseUrl = baseUrl, Code = browserCode, CodeVerifier = browser.CodeVerifier, DeviceId = browser.DeviceId }, cancellationToken: cancellationToken)
-                    : await client.Api.Authenticate.Login.PostAsync(linkedSession is not null
-                    ? new LoginRequestDto { SchulnetzBaseUrl = baseUrl, SessionCookies = linkedSession }
-                    : new LoginRequestDto
-                    {
-                        SchulnetzBaseUrl = baseUrl,
-                        Email = email,
-                        Password = password,
-                        TotpSecret = string.IsNullOrWhiteSpace(totp) ? null : totp,
-                    }, cancellationToken: cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Schulnetz login failed");
-                return new PluginLoginResult(false, null, ApiError.UnreachableMessage);
-            }
-
-            if (res is null || res.Success != true || string.IsNullOrEmpty(res.AccessToken))
-                return new PluginLoginResult(false, null, linkedSession is not null
-                    ? "The Microsoft sign-in of that account has expired. Link it again in Settings."
-                    : ApiError.LoginFailedMessage);
-
-            account.LinkedAccountId = linkedAccountId;
-            account.DeviceId = browser?.DeviceId;
-            if (linkedAccountId is { } usedLinkedId && SessionCookies.ToJson(res.SessionCookies) is { } rotated)
-                await linkedAccounts.SetSecretAsync(userId, usedLinkedId, LinkedSecrets.SessionCookies, rotated, cancellationToken);
-
-            account.MobileAccessToken = res.AccessToken;
-            account.MobileRefreshToken = res.RefreshToken;
-            account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
-            account.WebSessionId = res.SessionId;
-            account.WebSessionUserId = res.WebSessionUserId;
-            account.WebSessionTransId = res.WebSessionTransId;
-            account.SessionCookiesJson = SessionCookies.ToJson(res.SessionCookies) ?? account.SessionCookiesJson;
-            if (!string.IsNullOrWhiteSpace(displayName))
-                account.DisplayName = displayName;
-            account.AutoRefresh = autoRefresh;
-
-            if (isNew) db.Accounts.Add(account);
-
-            // Provisioning must succeed for the account to be usable (it mints the
-            // SchoolUser the app renders). If it fails, don't report a successful
-            // connect - roll a newly-added account back so the user can cleanly retry
-            // and surface the reason instead of a silent, empty "connected" account.
-            var provisioningError = await provisioning.EnsureAsync(account, userId);
-            if (provisioningError is not null)
-            {
-                if (isNew) db.Accounts.Remove(account);
-                await db.SaveChangesAsync(cancellationToken);
-                return new PluginLoginResult(false, null, $"Connected to Schulnetz, but {provisioningError}. Please try again.");
-            }
-
-            account.UpdatedAt = DateTime.UtcNow;
-            // Only non-secret metadata is persisted here; the secret fields are
-            // [NotMapped] and go to the vault instead.
-            await db.SaveChangesAsync(cancellationToken);
-
-            secretStore.Save(account);
-
-            if (account.SchoolUserId is not null && account.MobileAccessToken is not null)
-            {
-                try { await syncTask.SyncAccountAsync(account.Id, services, cancellationToken); }
-                catch (Exception ex) { logger.LogWarning(ex, "Initial sync failed for {AccountId}", account.Id); }
-            }
-
-            if (!autoRefresh)
-                secretStore.Remove(account.Id);
-
-            return new PluginLoginResult(true, account.Id, "Connected");
+            var outcome = await connector.ConnectAsync(userId, new SchulwareConnectRequest(Field(fields, "baseUrl"), Field(fields, "email"), Field(fields, "password"), Field(fields, "totp"), autoRefresh, browser, browserCode, linkedAccountId, displayName, false), cancellationToken);
+            return new PluginLoginResult(outcome.Success, outcome.AccountId, outcome.Message);
         }
 
         private static string? Field(IReadOnlyDictionary<string, string> f, string key)

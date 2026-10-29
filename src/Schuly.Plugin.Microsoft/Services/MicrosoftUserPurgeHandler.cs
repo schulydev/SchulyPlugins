@@ -7,7 +7,7 @@ namespace Schuly.Plugin.Microsoft.Services
     {
         public async Task HandleAsync(PluginUserPurgeEvent command, CancellationToken cancellationToken = default)
         {
-            pending.Remove(command.ApplicationUserId);
+            pending.RemoveLatest(command.ApplicationUserId);
             await scheduled.RemoveUserAsync(command.ApplicationUserId, cancellationToken);
         }
     }

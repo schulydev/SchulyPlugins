@@ -55,7 +55,7 @@ namespace Schuly.Plugin.Schulware.Controllers
                 {
                     result = await operation(CreateReporter(account), account);
                 }
-                catch (AbsenceReportException ex) when (ex.Code == "schulnetz_signin_expired")
+                catch (AbsenceReportException ex) when (ex.Code == "signin_expired")
                 {
                     await RefreshAsync(account, ct);
                     result = await operation(CreateReporter(account), account);
