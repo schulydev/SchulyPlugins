@@ -21,6 +21,17 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         OneNoteSections,
         OneNotePages,
         OneNotePage,
+        Teams,
+        Channels,
+        /// <summary><c>{driveId, folder, items[]}</c> of a team or channel library folder.</summary>
+        TeamFiles,
+        /// <summary>Drive items addressed with their drive id (<c>drives/*</c>, shared, recent): item and parent ids seal as <see cref="IdKinds.DriveItemOther"/>.</summary>
+        DriveItemsInDrive,
+        ChannelMessages,
+        /// <summary>The SearchResult: each hit's id is sealed as the kind of its <c>type</c> (file, mail, chat, channel).</summary>
+        Search,
+        /// <summary>A file text answer: no ids expected, any that show up are sealed opaque.</summary>
+        FileText,
     }
 
     /// <summary>
@@ -43,6 +54,9 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             ["documentId"] = IdKinds.Emoji,
             ["notebookId"] = IdKinds.Notebook,
             ["sectionId"] = IdKinds.Section,
+            ["driveId"] = IdKinds.Drive,
+            ["teamId"] = IdKinds.Team,
+            ["channelId"] = IdKinds.Channel,
         };
 
         // *Id names that are not Graph object ids: a mail attachment's MIME Content-ID, which the mail body refers to as cid:.
@@ -54,6 +68,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             ["user"] = IdKinds.User,
             ["childFolders"] = IdKinds.MailFolder,
             ["parentReference"] = IdKinds.DriveItem,
+            ["folder"] = IdKinds.DriveItem,
             ["files"] = IdKinds.ChatFile,
             ["resources"] = IdKinds.Resource,
             ["notebook"] = IdKinds.Notebook,
@@ -97,7 +112,13 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                     foreach (var item in items)
                         Walk(item, scope, shape, null, itemKind);
                     break;
-                case JsonObject obj when shape is IdShape.OneNotePages && obj["items"] is JsonArray pages:
+                case JsonObject obj when shape is IdShape.Search && obj["hits"] is JsonArray hits:
+                    foreach (var hit in hits)
+                        if (hit is JsonObject hitObject)
+                            WalkObject(hitObject, scope, shape, "hits", HitKind(Text(hitObject["type"])));
+                    WalkObject(obj, scope, shape, null, null, skip: "hits");
+                    break;
+                case JsonObject obj when shape is IdShape.OneNotePages or IdShape.TeamFiles && obj["items"] is JsonArray pages:
                     foreach (var item in pages)
                         Walk(item, scope, shape, null, itemKind);
                     WalkObject(obj, scope, shape, null, null, skip: "items");
@@ -119,8 +140,22 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             IdShape.Chats => IdKinds.Chat,
             IdShape.ChatMessages => IdKinds.ChatMessage,
             IdShape.Notebooks => IdKinds.Notebook,
+            IdShape.Teams => IdKinds.Team,
+            IdShape.Channels => IdKinds.Channel,
+            IdShape.TeamFiles or IdShape.DriveItemsInDrive => IdKinds.DriveItemOther,
+            IdShape.ChannelMessages => IdKinds.ChannelMessage,
             IdShape.OneNotePages or IdShape.OneNotePage => IdKinds.Page,
             _ => null,
+        };
+
+        // A search hit's id opens as the kind the matching route takes: file -> drive item, mail -> mail message, chat -> chat message, channel -> channel message.
+        private static string HitKind(string? type) => type switch
+        {
+            "file" => IdKinds.DriveItemOther,
+            "mail" => IdKinds.MailMessage,
+            "chat" => IdKinds.ChatMessage,
+            "channel" => IdKinds.ChannelMessage,
+            _ => IdKinds.Opaque,
         };
 
         private static void Walk(JsonNode? node, IdScope scope, IdShape shape, string? container, string? itemKind)
@@ -160,7 +195,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                         obj[name] = scope.Seal(idKind, raw);
                     continue;
                 }
-                if (Text(value) is { Length: > 0 } text && (NamedKinds.TryGetValue(name, out var kind) || (IsIdName(name) && !RawNames.Contains(name))))
+                if (Text(value) is { Length: > 0 } text && (NamedKind(name, shape, out var kind) || (IsIdName(name) && !RawNames.Contains(name))))
                 {
                     obj[name] = scope.Seal(kind ?? IdKinds.Opaque, text);
                     continue;
@@ -176,10 +211,21 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                     body["content"] = GraphUrl().Replace(content, "");
                 else if (name == "html" && shape == IdShape.OneNotePage && Text(value) is { } html)
                     obj[name] = DataResource().Replace(html, m => $"data-resource=\"{scope.Seal(IdKinds.Resource, System.Net.WebUtility.HtmlDecode(m.Groups[1].Value))}\"");
-                else if (name == "path" && container == "parentReference" && Text(value) is { } path)
+                else if (name == "path" && container is "parentReference" or "folder" && Text(value) is { } path)
                     obj[name] = DrivePathPrefix().Replace(path, "/drive/");
                 Walk(value, scope, shape, name, null);
             }
+        }
+
+        private static bool NamedKind(string name, IdShape shape, out string? kind)
+        {
+            // A channel reply points at a channel message, not a chat message.
+            if (name == "replyToId" && shape == IdShape.ChannelMessages)
+            {
+                kind = IdKinds.ChannelMessage;
+                return true;
+            }
+            return NamedKinds.TryGetValue(name, out kind);
         }
 
         private static string? IdKindOf(JsonObject obj, IdShape shape, string? container, string? itemKind)
@@ -191,7 +237,9 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             if (container == "children" && shape == IdShape.OneNoteSections)
                 return Text(obj["kind"]) == "group" ? IdKinds.SectionGroup : IdKinds.Section;
             if (container == "attachments")
-                return shape == IdShape.ChatMessages ? IdKinds.ChatFile : IdKinds.MailAttachment;
+                return shape == IdShape.ChatMessages ? IdKinds.ChatFile : shape == IdShape.ChannelMessages ? IdKinds.Opaque : IdKinds.MailAttachment;
+            if (container is "parentReference" or "folder" && shape is IdShape.TeamFiles or IdShape.DriveItemsInDrive or IdShape.Search)
+                return IdKinds.DriveItemOther;
             if (container is not null && ContainerKinds.TryGetValue(container, out var kind))
                 return kind;
             return itemKind ?? IdKinds.Opaque;
