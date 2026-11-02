@@ -15,36 +15,24 @@ namespace Schuly.Plugin.Microsoft.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/accounts/{accountId:guid}")]
-    public class FilePdfController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader) : MicrosoftControllerBase(userContext, linkedAccounts, reader)
+    public class FilePdfController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
     {
-        private static readonly Regex ChatIdPattern = new("^[A-Za-z0-9:@._=-]{1,300}$", RegexOptions.Compiled);
-        private static readonly Regex MessageIdPattern = new("^[A-Za-z0-9_-]{1,64}$", RegexOptions.Compiled);
-        private static readonly Regex AttachmentIdPattern = new("^[A-Za-z0-9_-]{1,100}$", RegexOptions.Compiled);
         private static readonly Regex MailIdPattern = new("^[A-Za-z0-9=_\\-+/.]{1,512}$", RegexOptions.Compiled);
 
         /// <summary>A OneDrive item (an <c>id</c> from the files list), converted where it lives.</summary>
         [HttpGet("files/{itemId}/pdf")]
         public Task<IActionResult> DriveItem(Guid accountId, string itemId, CancellationToken ct = default) =>
-            !EmojiRequests.IsDriveItemId(itemId) ? Task.FromResult(Invalid("Invalid item id.")) :
-            PdfAsync(accountId, (userId, c) => Reader.OpenStreamAsync(userId, accountId, $"files/{Uri.EscapeDataString(itemId)}/pdf", c), ct);
+            PdfAsync(accountId, (ids, c) => Reader.OpenStreamAsync(ids.UserId, accountId, $"files/{Uri.EscapeDataString(ChatsController.DriveItemId(ids, itemId))}/pdf", c), ct);
 
         /// <summary>A file shared in a chat message (<c>files[].id</c>), converted where it lives (SharePoint / OneDrive).</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}/pdf")]
-        public Task<IActionResult> ChatFile(Guid accountId, string chatId, string messageId, string attachmentId, CancellationToken ct = default)
-        {
-            if (!PathIds.IsSafe(ChatIdPattern, chatId) || !PathIds.IsSafe(MessageIdPattern, messageId) || !PathIds.IsSafe(AttachmentIdPattern, attachmentId))
-                return Task.FromResult(Invalid("Invalid chat, message or file id."));
-            return PdfAsync(accountId, (userId, c) => Reader.OpenStreamAsync(userId, accountId, $"chats/{Uri.EscapeDataString(chatId)}/messages/{Uri.EscapeDataString(messageId)}/files/{Uri.EscapeDataString(attachmentId)}/pdf", c), ct);
-        }
+        public Task<IActionResult> ChatFile(Guid accountId, string chatId, string messageId, string attachmentId, CancellationToken ct = default) =>
+            PdfAsync(accountId, (ids, c) => Reader.OpenStreamAsync(ids.UserId, accountId, ChatsController.FilePath(ids, chatId, messageId, attachmentId) + "/pdf", c), ct);
 
         /// <summary>A mail attachment (up to 25 MB), converted through a temporary file in the account's app folder that the service deletes right after.</summary>
         [HttpGet("mail/{messageId}/attachments/{attachmentId}/pdf")]
-        public Task<IActionResult> MailAttachment(Guid accountId, string messageId, string attachmentId, CancellationToken ct = default)
-        {
-            if (!PathIds.IsSafe(MailIdPattern, messageId) || !PathIds.IsSafe(MailIdPattern, attachmentId))
-                return Task.FromResult(Invalid("Invalid message or attachment id."));
-            return PdfAsync(accountId, (userId, c) => Reader.OpenStreamAsync(userId, accountId, $"mail/{Uri.EscapeDataString(messageId)}/attachments/{Uri.EscapeDataString(attachmentId)}/pdf", c), ct);
-        }
+        public Task<IActionResult> MailAttachment(Guid accountId, string messageId, string attachmentId, CancellationToken ct = default) =>
+            PdfAsync(accountId, (ids, c) => Reader.OpenStreamAsync(ids.UserId, accountId, $"mail/{Uri.EscapeDataString(OpenSafe(ids, IdKinds.MailMessage, messageId, MailIdPattern))}/attachments/{Uri.EscapeDataString(OpenSafe(ids, IdKinds.MailAttachment, attachmentId, MailIdPattern))}/pdf", c), ct);
 
         /// <summary>The request body (the raw file bytes, up to 105 MB) converted to PDF; <paramref name="name"/> is the file name, whose extension picks the type. For files that aren't in a drive, such as school documents.</summary>
         [HttpPost("convert/pdf")]
@@ -60,23 +48,23 @@ namespace Schuly.Plugin.Microsoft.Controllers
             // Chunked bodies carry no Content-Length, so the cap is also enforced while the body streams on.
             if (HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } feature)
                 feature.MaxRequestBodySize = PdfPreview.MaxConvertBytes;
-            return PdfAsync(accountId, (userId, c) =>
+            return PdfAsync(accountId, (ids, c) =>
             {
                 var content = new StreamContent(new LengthLimitedStream(Request.Body, PdfPreview.MaxConvertBytes));
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                 if (Request.ContentLength is { } length)
                     content.Headers.ContentLength = length;
-                return Reader.OpenPostStreamAsync(userId, accountId, $"convert/pdf?name={Uri.EscapeDataString(name!)}", content, c);
+                return Reader.OpenPostStreamAsync(ids.UserId, accountId, $"convert/pdf?name={Uri.EscapeDataString(name!)}", content, c);
             }, ct);
         }
 
-        private Task<IActionResult> PdfAsync(Guid accountId, Func<Guid, CancellationToken, Task<HttpResponseMessage?>> open, CancellationToken ct) =>
-            RunAsync(accountId, async (userId, c) =>
+        private Task<IActionResult> PdfAsync(Guid accountId, Func<IdScope, CancellationToken, Task<HttpResponseMessage?>> open, CancellationToken ct) =>
+            RunAsync(accountId, async (ids, c) =>
             {
                 HttpResponseMessage? upstream;
                 try
                 {
-                    upstream = await open(userId, c);
+                    upstream = await open(ids, c);
                 }
                 catch (Exception ex) when (IsTooLarge(ex))
                 {
