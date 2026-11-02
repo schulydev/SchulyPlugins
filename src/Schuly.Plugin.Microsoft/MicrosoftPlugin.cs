@@ -24,6 +24,7 @@ namespace Schuly.Plugin.Microsoft
                     "Microsoft plugin: missing config. Drop a Schuly.Plugin.Microsoft.yml into the backend's " +
                     "plugins-config directory with MicrosoftApi.BaseUrl pointing at a SchulyMicrosoft instance.");
 
+            services.AddSingleton(sp => new IdSealer(sp.GetRequiredService<IPluginVault>(), sp.GetRequiredService<global::Microsoft.Extensions.Configuration.IConfiguration>()));
             services.AddScoped<PendingLinkStore>();
             services.AddScoped<MicrosoftServiceClient>();
             services.AddScoped<IMicrosoftSignInApi>(sp => sp.GetRequiredService<MicrosoftServiceClient>());

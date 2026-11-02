@@ -12,7 +12,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/calendar")]
-    public class CalendarController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, ILogger<CalendarController> logger) : ControllerBase
+    public class CalendarController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer, ILogger<CalendarController> logger) : ControllerBase
     {
         private const int MaxDays = 62;
         private const int MaxEventsPerAccount = 500;
@@ -28,7 +28,9 @@ namespace Schuly.Plugin.Microsoft.Controllers
             var path = $"calendar?start={Uri.EscapeDataString(Iso(start))}&end={Uri.EscapeDataString(Iso(end))}&top={MaxEventsPerAccount}";
 
             var results = await Task.WhenAll(accounts.Select(account => FetchAsync(userId, account, path, ct)));
-            return new MicrosoftCalendarFeed(results.Select(r => r.Account).ToList(), MicrosoftCalendarEvents.Merge(results.Select(r => r.Events)));
+            // Merged (and deduped) on the raw ids, then sealed per account so no Graph id leaves the plugin.
+            var events = MicrosoftCalendarEvents.Merge(results.Select(r => r.Events)).Select(e => e with { Id = sealer.Seal(userId, e.AccountId, IdKinds.CalendarEvent, e.Id) }).ToList();
+            return new MicrosoftCalendarFeed(results.Select(r => r.Account).ToList(), events);
         }
 
         private async Task<(MicrosoftCalendarAccount Account, List<MicrosoftCalendarEvent> Events)> FetchAsync(Guid userId, LinkedAccount account, string path, CancellationToken ct)
