@@ -27,6 +27,12 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         public const string Page = "onenote-page";
         public const string Resource = "onenote-resource";
         public const string Scheduled = "scheduled-message";
+        public const string Team = "team";
+        public const string Channel = "channel";
+        public const string Drive = "drive";
+        /// <summary>An item addressed together with its drive id (team and shared libraries): not the same kind as an own-OneDrive item.</summary>
+        public const string DriveItemOther = "drive-item-other";
+        public const string ChannelMessage = "channel-message";
 
         /// <summary>Ids no route takes (tenant, membership, iCal ids...): sealed so nothing raw leaves the plugin, but they open nowhere.</summary>
         public const string Opaque = "opaque";

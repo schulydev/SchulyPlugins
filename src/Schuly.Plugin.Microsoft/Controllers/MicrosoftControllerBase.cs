@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Microsoft.Infrastructure;
@@ -70,5 +71,70 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         /// <summary>An opened id that failed the path-safety check; <see cref="RunAsync"/> answers 400.</summary>
         protected sealed class UnsafeIdException() : Exception("Invalid id.");
+
+        /// <summary>Images go on the photo lane and its cache; the browser may keep them an hour (this response carries no token).</summary>
+        protected Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct) =>
+            RunAsync(accountId, async (ids, c) =>
+            {
+                var image = await fetch(ids, c);
+                if (image.Bytes is null)
+                    return NotFound();
+                Response.Headers.CacheControl = "private, max-age=3600";
+                Response.Headers["X-Content-Type-Options"] = "nosniff";
+                return File(image.Bytes, image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && !image.ContentType.Contains("svg", StringComparison.OrdinalIgnoreCase) ? image.ContentType : "image/jpeg");
+            }, ct);
+
+        protected Task<IActionResult> PdfAsync(Guid accountId, Func<IdScope, CancellationToken, Task<HttpResponseMessage?>> open, CancellationToken ct) =>
+            RunAsync(accountId, async (ids, c) =>
+            {
+                HttpResponseMessage? upstream;
+                try
+                {
+                    upstream = await open(ids, c);
+                }
+                catch (Exception ex) when (IsUploadTooLarge(ex))
+                {
+                    return PdfTooLarge();
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.UnsupportedMediaType)
+                {
+                    return PdfUnsupported();
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.RequestEntityTooLarge)
+                {
+                    return PdfTooLarge();
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode is null or >= HttpStatusCode.InternalServerError)
+                {
+                    return PdfFailed();
+                }
+                if (upstream is null)
+                    return NotFound();
+                HttpContext.Response.RegisterForDispose(upstream);
+                // Only a PDF is ever served inline; anything else the service could answer is refused.
+                if (!string.Equals(upstream.Content.Headers.ContentType?.MediaType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+                    return PdfFailed();
+                AttachmentResponse.ApplyInlinePdf(Response, upstream.Content.Headers.ContentDisposition?.ToString());
+                if (upstream.Content.Headers.ContentLength is { } length)
+                    Response.ContentLength = length;
+                return File(await upstream.Content.ReadAsStreamAsync(c), "application/pdf", enableRangeProcessing: false);
+            }, ct);
+
+        protected static bool IsUploadTooLarge(Exception? ex)
+        {
+            for (; ex is not null; ex = ex.InnerException)
+                if (ex is LengthLimitedStream.TooLargeException || (ex is BadHttpRequestException bad && bad.StatusCode == StatusCodes.Status413PayloadTooLarge))
+                    return true;
+            return false;
+        }
+
+        protected ObjectResult PdfUnsupported() =>
+            StatusCode(StatusCodes.Status415UnsupportedMediaType, new { code = "unsupported_type", message = "This file type cannot be converted to PDF." });
+
+        protected IActionResult PdfTooLarge() =>
+            StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The file is larger than the conversion limit." });
+
+        protected ObjectResult PdfFailed() =>
+            StatusCode(StatusCodes.Status502BadGateway, new { code = "conversion_failed", message = "Microsoft 365 could not convert the file." });
     }
 }

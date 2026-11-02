@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
@@ -40,9 +39,9 @@ namespace Schuly.Plugin.Microsoft.Controllers
         public Task<IActionResult> Convert(Guid accountId, [FromQuery] string? name, CancellationToken ct = default)
         {
             if (!PdfPreview.IsConvertibleName(name))
-                return Task.FromResult<IActionResult>(Unsupported());
+                return Task.FromResult<IActionResult>(PdfUnsupported());
             if (Request.ContentLength > PdfPreview.MaxConvertBytes)
-                return Task.FromResult(TooLarge());
+                return Task.FromResult(PdfTooLarge());
             if (Request.ContentLength == 0)
                 return Task.FromResult(Invalid("The body is empty."));
             // Chunked bodies carry no Content-Length, so the cap is also enforced while the body streams on.
@@ -57,58 +56,5 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 return Reader.OpenPostStreamAsync(ids.UserId, accountId, $"convert/pdf?name={Uri.EscapeDataString(name!)}", content, c);
             }, ct);
         }
-
-        private Task<IActionResult> PdfAsync(Guid accountId, Func<IdScope, CancellationToken, Task<HttpResponseMessage?>> open, CancellationToken ct) =>
-            RunAsync(accountId, async (ids, c) =>
-            {
-                HttpResponseMessage? upstream;
-                try
-                {
-                    upstream = await open(ids, c);
-                }
-                catch (Exception ex) when (IsTooLarge(ex))
-                {
-                    return TooLarge();
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.UnsupportedMediaType)
-                {
-                    return Unsupported();
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.RequestEntityTooLarge)
-                {
-                    return TooLarge();
-                }
-                catch (HttpRequestException ex) when (ex.StatusCode is null or >= HttpStatusCode.InternalServerError)
-                {
-                    return ConversionFailed();
-                }
-                if (upstream is null)
-                    return NotFound();
-                HttpContext.Response.RegisterForDispose(upstream);
-                // Only a PDF is ever served inline; anything else the service could answer is refused.
-                if (!string.Equals(upstream.Content.Headers.ContentType?.MediaType, "application/pdf", StringComparison.OrdinalIgnoreCase))
-                    return ConversionFailed();
-                AttachmentResponse.ApplyInlinePdf(Response, upstream.Content.Headers.ContentDisposition?.ToString());
-                if (upstream.Content.Headers.ContentLength is { } length)
-                    Response.ContentLength = length;
-                return File(await upstream.Content.ReadAsStreamAsync(c), "application/pdf", enableRangeProcessing: false);
-            }, ct);
-
-        private static bool IsTooLarge(Exception? ex)
-        {
-            for (; ex is not null; ex = ex.InnerException)
-                if (ex is LengthLimitedStream.TooLargeException || (ex is BadHttpRequestException bad && bad.StatusCode == StatusCodes.Status413PayloadTooLarge))
-                    return true;
-            return false;
-        }
-
-        private ObjectResult Unsupported() =>
-            StatusCode(StatusCodes.Status415UnsupportedMediaType, new { code = "unsupported_type", message = "This file type cannot be converted to PDF." });
-
-        private IActionResult TooLarge() =>
-            StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The file is larger than the conversion limit." });
-
-        private ObjectResult ConversionFailed() =>
-            StatusCode(StatusCodes.Status502BadGateway, new { code = "conversion_failed", message = "Microsoft 365 could not convert the file." });
     }
 }

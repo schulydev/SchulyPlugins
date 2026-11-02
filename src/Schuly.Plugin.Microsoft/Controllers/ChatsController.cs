@@ -260,18 +260,6 @@ namespace Schuly.Plugin.Microsoft.Controllers
             }
         }
 
-        // Images go on the photo lane and its cache; the browser may keep them an hour (this response carries no token).
-        private Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct) =>
-            RunAsync(accountId, async (ids, c) =>
-            {
-                var image = await fetch(ids, c);
-                if (image.Bytes is null)
-                    return NotFound();
-                Response.Headers.CacheControl = "private, max-age=3600";
-                Response.Headers["X-Content-Type-Options"] = "nosniff";
-                return File(image.Bytes, image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && !image.ContentType.Contains("svg", StringComparison.OrdinalIgnoreCase) ? image.ContentType : "image/jpeg");
-            }, ct);
-
         private IActionResult TooLarge() =>
             StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The message is larger than the send limit." });
 
