@@ -155,6 +155,18 @@ var records = lessons.Select(l => new AgendaRecord(ExternalIds.Of("lesson", l.St
 await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
 ```
 
+### Delete a user's data
+
+If your plugin stores anything per user, implement `IPluginEventHandler<PluginUserPurgeEvent>` and
+register it, or deleted accounts leave that data behind:
+
+- Remove everything the user owns, in the plugin's database and its vault.
+- Remove vault secrets before the database rows. The vault can't be searched, so a retry finds secrets
+  only through the row.
+- Make it safe to run twice, and let exceptions reach the host. The host counts a thrown exception as a
+  failed purge and retries it daily. It also redelivers the event for any `ApplicationUserId` column in
+  your database whose owner no longer exists, so name the column that and make it a `uuid`.
+
 ### Run recurring work
 
 Implement `IPluginBackgroundTask`: `Name`, `Schedule`, and `ExecuteAsync`. The host runs `ExecuteAsync`

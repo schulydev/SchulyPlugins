@@ -17,7 +17,16 @@ namespace Schuly.Plugin.Purge.Tests
         public string? Get(string key) => items.GetValueOrDefault(key);
         public bool TryGet(string key, out string? value) => items.TryGetValue(key, out value);
         public bool Contains(string key) => items.ContainsKey(key);
-        public bool Remove(string key) => items.Remove(key);
+        public bool FailNextRemove { get; set; }
+        public bool Remove(string key)
+        {
+            if (FailNextRemove)
+            {
+                FailNextRemove = false;
+                throw new InvalidOperationException("Simulated vault failure");
+            }
+            return items.Remove(key);
+        }
         public void Clear() => items.Clear();
         public int Count => items.Count;
     }
@@ -25,11 +34,12 @@ namespace Schuly.Plugin.Purge.Tests
     public sealed class FakeSchoolData : ISchoolData
     {
         public int StudentsEnsured { get; private set; }
+        public Func<Task>? DuringEnsureStudent { get; set; }
         public Task<Guid> EnsureSchoolAsync(SchoolRecord school, CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid());
         public Task<Guid> EnsureStudentAsync(Guid schoolId, Guid applicationUserId, StudentRecord student, CancellationToken cancellationToken = default)
         {
             StudentsEnsured++;
-            return Task.FromResult(Guid.NewGuid());
+            return DuringEnsureStudent is { } during ? during().ContinueWith(_ => Guid.NewGuid(), cancellationToken) : Task.FromResult(Guid.NewGuid());
         }
         public Task<SyncResult> SyncAgendaAsync(Guid schoolUserId, IReadOnlyCollection<AgendaRecord> entries, CancellationToken cancellationToken = default) => Task.FromResult(new SyncResult(0, 0));
         public Task<SyncResult> SyncGradesAsync(Guid schoolUserId, IReadOnlyCollection<GradeRecord> grades, CancellationToken cancellationToken = default) => Task.FromResult(new SyncResult(0, 0));

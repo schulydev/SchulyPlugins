@@ -106,6 +106,22 @@ namespace Schuly.Plugin.Purge.Tests
         }
 
         [Test]
+        public async Task A_retry_after_a_vault_failure_still_finds_the_secrets()
+        {
+            var (provider, vault, _) = Start();
+            var owner = Guid.NewGuid();
+            await LinkAsync(provider, vault, owner);
+            vault.FailNextRemove = true;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => PurgeAsync(provider, owner));
+            await PurgeAsync(provider, owner);
+
+            using var scope = provider.CreateScope();
+            await Assert.That(await scope.ServiceProvider.GetRequiredService<OdaOrgDbContext>().Accounts.CountAsync()).IsEqualTo(0);
+            await Assert.That(vault.Count).IsEqualTo(0);
+        }
+
+        [Test]
         public async Task Unlinking_also_removes_the_avatar_entry()
         {
             var (provider, vault, _) = Start();

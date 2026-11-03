@@ -54,6 +54,13 @@ namespace Schuly.Plugin.Purge.Tests
             return account.Id;
         }
 
+        private static async Task PurgeAsync(IServiceProvider provider, Guid owner)
+        {
+            using var scope = provider.CreateScope();
+            foreach (var handler in scope.ServiceProvider.GetServices<IPluginEventHandler<PluginUserPurgeEvent>>())
+                await handler.HandleAsync(new PluginUserPurgeEvent(owner));
+        }
+
         private static string DaysAgo(int days) => DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-days).ToString("yyyy-MM-dd");
 
         [Test]
@@ -63,11 +70,40 @@ namespace Schuly.Plugin.Purge.Tests
             var owner = Guid.NewGuid();
             await LinkAsync(provider, owner);
 
-            using var scope = provider.CreateScope();
-            foreach (var handler in scope.ServiceProvider.GetServices<IPluginEventHandler<PluginUserPurgeEvent>>())
-                await handler.HandleAsync(new PluginUserPurgeEvent(owner));
+            await PurgeAsync(provider, owner);
 
+            using var scope = provider.CreateScope();
             await Assert.That(await scope.ServiceProvider.GetRequiredService<SchulwareDbContext>().Accounts.CountAsync()).IsEqualTo(0);
+            await Assert.That(vault.Count).IsEqualTo(0);
+        }
+
+        [Test]
+        public async Task A_retry_after_a_vault_failure_still_finds_the_secrets()
+        {
+            var (provider, vault, _) = Start(DaysAgo(1));
+            var owner = Guid.NewGuid();
+            await LinkAsync(provider, owner);
+            vault.FailNextRemove = true;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => PurgeAsync(provider, owner));
+            await PurgeAsync(provider, owner);
+
+            using var scope = provider.CreateScope();
+            await Assert.That(await scope.ServiceProvider.GetRequiredService<SchulwareDbContext>().Accounts.CountAsync()).IsEqualTo(0);
+            await Assert.That(vault.Count).IsEqualTo(0);
+        }
+
+        [Test]
+        public async Task A_sync_running_during_a_purge_does_not_bring_the_secrets_back()
+        {
+            var (provider, vault, schoolData) = Start(DaysAgo(1));
+            var owner = Guid.NewGuid();
+            var accountId = await LinkAsync(provider, owner);
+            schoolData.DuringEnsureStudent = () => PurgeAsync(provider, owner);
+
+            try { await provider.GetRequiredService<SchulwareSyncTask>().SyncAccountAsync(accountId, provider); }
+            catch (DbUpdateConcurrencyException) { }
+
             await Assert.That(vault.Count).IsEqualTo(0);
         }
 
