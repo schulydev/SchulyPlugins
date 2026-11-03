@@ -34,7 +34,6 @@ server downloads the plugins listed in its `plugins.yml` and loads them at start
 | `src/Shared/` | Helpers compiled into plugins that opt in: `ExternalIds`, `SwissTime`, `DataUri`, and `Provisioning/InstanceUrl`. |
 | `tests/` | `Schuly.Plugin.Microsoft.Tests` and `Schuly.Plugins.Linking.Tests`. |
 | `.github/workflows/build_push.yml` | Finds each plugin project, builds it, and publishes DLLs and the index to the `repo` branch. |
-| `.github/workflows/sync-version-on-release.yml` | Version sync on release. |
 | `.github/workflows/sync-docs.yml` | Copies `docs/` to the docs site. |
 
 ## Inside a plugin folder
