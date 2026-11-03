@@ -64,7 +64,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             secretStore.Save(account);
 
             try { await syncTask.SyncAccountAsync(account.Id, services, cancellationToken); }
-            catch (Exception ex) { logger.LogWarning(ex, "Initial OdAOrg sync failed for {AccountId}", account.Id); }
+            catch (Exception ex) { logger.LogWarning("Initial OdAOrg sync failed for {AccountId} ({Error})", account.Id, ex.GetType().Name); }
 
             if (!autoRefresh)
                 secretStore.Remove(account.Id);

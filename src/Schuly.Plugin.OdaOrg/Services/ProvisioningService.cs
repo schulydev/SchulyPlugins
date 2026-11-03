@@ -73,7 +73,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "OdaOrg avatar upload failed; leaving previous value");
+                logger.LogWarning("OdaOrg avatar upload failed; leaving previous value ({Error})", ex.GetType().Name);
                 return null;
             }
         }

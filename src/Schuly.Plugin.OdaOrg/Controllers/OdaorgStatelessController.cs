@@ -32,7 +32,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                logger.LogWarning(ex, "OdaOrg stateless scrape failed");
+                logger.LogWarning("OdaOrg stateless scrape failed ({Error})", ex.GetType().Name);
                 return StatusCode(StatusCodes.Status502BadGateway, ApiError.Unreachable());
             }
             if (scrape is null)

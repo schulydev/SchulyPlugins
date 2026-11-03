@@ -115,7 +115,9 @@ jobs:
             --arg description '${{ steps.meta.outputs.desc }}' \
             --arg authors '${{ steps.meta.outputs.authors }}' \
             --arg contract "$contract" \
-            '{name: $name, pkg: $pkg, dll: $dll, deps: $deps, version: $version, contract: $contract, description: $description, authors: $authors}' \
+            --arg sha256 "$(sha256sum "staging/dll/${dll_name}" | cut -d' ' -f1)" \
+            --arg depsSha256 "$(sha256sum "staging/dll/${deps_name}" | cut -d' ' -f1)" \
+            '{name: $name, pkg: $pkg, dll: $dll, deps: $deps, version: $version, contract: $contract, sha256: $sha256, depsSha256: $depsSha256, description: $description, authors: $authors}' \
             > 'staging/${{ steps.meta.outputs.pkg }}.json'
 
       - uses: actions/upload-artifact@v4

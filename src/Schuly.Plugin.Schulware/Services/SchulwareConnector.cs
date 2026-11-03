@@ -29,7 +29,7 @@ namespace Schuly.Plugin.Schulware.Services
             if (!BaseUrlGuard.IsAllowed(baseUrl))
                 return Fail(ConnectFailure.Invalid, "baseUrl is not an allowed target");
 
-            var apiBaseUrl = configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+            var apiBaseUrl = SchulwareApiUrl.Required(configuration);
 
             List<LoginRequestDto_session_cookies>? linkedSession = null;
             if (linkedAccountId is { } linkedId)

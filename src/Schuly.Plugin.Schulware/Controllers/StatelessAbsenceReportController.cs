@@ -18,7 +18,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     public class StatelessAbsenceReportController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<StatelessAbsenceReportController> logger) : ControllerBase
     {
         private string ProxyBaseUrl =>
-            configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+            SchulwareApiUrl.Required(configuration);
 
         [HttpGet("reported")]
         public Task<IActionResult> Reported(CancellationToken ct) =>

@@ -89,7 +89,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                     fragment = await GetStringAsync(
                         http, $"{baseUrl}/modules.php?name={Uri.EscapeDataString(module)}&a={Uri.EscapeDataString(source)}&caction=00&api=box", ct);
                 }
-                catch (Exception ex) { logger.LogDebug(ex, "box {Module}/{Source} fetch failed", module, source); continue; }
+                catch (Exception ex) { logger.LogDebug("box {Module}/{Source} fetch failed ({Error})", module, source, ex.GetType().Name); continue; }
 
                 var doc = Parser.ParseDocument(fragment);
                 CollectFields(doc, fields);
@@ -122,7 +122,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
                     var grade = ParseGrade(page);
                     if (grade is not null) result.Grades.Add(grade);
                 }
-                catch (Exception ex) { logger.LogDebug(ex, "grade page {Url} failed", url); }
+                catch (Exception ex) { logger.LogDebug("A grade page failed ({Error})", ex.GetType().Name); }
             }
 
             logger.LogInformation("OdaOrg scrape: profile={HasProfile} grades={Grades} courseDays={Days}",

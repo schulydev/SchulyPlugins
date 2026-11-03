@@ -95,7 +95,7 @@ namespace Schuly.Plugin.Schulware.Services
                 syncState.LastSyncStatus = run.Status;
                 syncState.LastSyncError = run.FirstError;
                 syncState.LastSyncDetails = run.Details;
-                logger.LogInformation("Synced account {AccountId} ({Url}): {Details}", account.Id, account.SchulnetzBaseUrl, run.Details);
+                logger.LogInformation("Synced account {AccountId}: {Details}", account.Id, run.Details);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {

@@ -19,7 +19,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             running.GetOrAdd(accountId, id => Task.Run(async () =>
             {
                 try { await syncTask.SyncAccountAsync(id, root, CancellationToken.None); }
-                catch (Exception ex) { logger.LogWarning(ex, "Initial OdAOrg sync failed for {AccountId}", id); }
+                catch (Exception ex) { logger.LogWarning("Initial OdAOrg sync failed for {AccountId} ({Error})", id, ex.GetType().Name); }
                 finally { running.TryRemove(id, out _); }
             }));
         }
