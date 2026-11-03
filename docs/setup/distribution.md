@@ -28,26 +28,8 @@ Plugins follow the **Aniyomi-style** two-branch model:
 `AssemblyName`, `Version`, `Description`, and `Authors` therefore come straight from each
 plugin's `.csproj` `PropertyGroup` - keep them current.
 
-## Installing (operators)
+## Installing
 
-Prebuilt artifacts are served from `raw.githubusercontent.com/schulydev/SchulyPlugins/repo`.
-Download into the backend's `/app/plugins/` folder:
-
-```sh
-BASE=https://raw.githubusercontent.com/schulydev/SchulyPlugins/repo
-NAME=Schuly.Plugin.Schulware
-VERSION=2.4.2
-
-# 1. Plugin DLL
-curl -L "$BASE/dll/$NAME-v$VERSION.dll" -o /app/plugins/$NAME.dll
-
-# 2. Its third-party dependencies
-curl -L "$BASE/dll/$NAME-v$VERSION-deps.zip" -o /tmp/deps.zip
-unzip -o /tmp/deps.zip -d /app/plugins/
-
-# 3. Drop the plugin's Schuly.Plugin.<Name>.yml into the backend's plugins-config/
-```
-
-The backend already provides framework + host-shared assemblies, so only the plugin DLL and
-its bundled third-party deps need to land in `plugins/`. `index.min.json` is the catalog
-clients read to discover available plugins and versions.
+Servers download plugins from this branch automatically. Operators list the plugins they want in
+`plugins.yml`. See [Plugin management](/SchulyServer/plugin-management). `index.min.json` is the
+catalog servers read to find plugins and versions.
