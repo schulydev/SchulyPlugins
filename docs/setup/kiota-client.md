@@ -1,7 +1,7 @@
 # Kiota client
 
 Use this page to regenerate the client the Schulware plugin uses to call
-[SchulwareAPI](https://github.com/schulydev/SchulwareAPI). It's a
+[SchulwareAPI](https://github.com/PianoNic/SchulwareAPI). It's a
 [Kiota](https://learn.microsoft.com/openapi/kiota/)-generated client in
 `src/Schuly.Plugin.Schulware/Client/`.
 
