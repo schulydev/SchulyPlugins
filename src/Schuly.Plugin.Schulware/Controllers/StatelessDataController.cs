@@ -77,6 +77,6 @@ namespace Schuly.Plugin.Schulware.Controllers
             e.Id, e.CourseName ?? e.Text ?? e.TimetableText, e.StartDate, e.EndDate, e.RoomToken, e.EventType, e.Comment);
 
         private static StatelessUserInfoDto MapUserInfo(UserInfoDto? u) => new(
-            u?.FirstName, u?.LastName, u?.Email, u?.Birthday, u?.EntryDate);
+            u?.FirstName, u?.LastName, u?.Email, u?.EntryDate);
     }
 }

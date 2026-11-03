@@ -194,14 +194,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             {
                 FirstName = first,
                 LastName = last,
-                Gender = Get("Geschlecht"),
-                Birthday = ParseDate(Get("Geburtsdatum")),
                 Email = Get("E-Mail", "E-Mail Adresse", "Email"),
-                PrivateEmail = Get("E-Mail Privat"),
-                PhoneNumber = Get("Telefonnummer Mobil", "Telefonnummer Privat", "Telefonnummer Geschäft"),
-                Street = Get("Strasse"),
-                Zip = Get("PLZ"),
-                City = Get("Ort"),
                 ProfilePictureUrl = string.IsNullOrWhiteSpace(photo) ? null : photo,
             };
         }

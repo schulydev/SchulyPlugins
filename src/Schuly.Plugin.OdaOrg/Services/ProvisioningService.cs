@@ -27,12 +27,6 @@ namespace Schuly.Plugin.OdaOrg.Services
             FirstName = p.FirstName,
             LastName = p.LastName,
             Email = p.Email,
-            PrivateEmail = p.PrivateEmail,
-            PhoneNumber = p.PhoneNumber,
-            Street = p.Street,
-            City = p.City,
-            Zip = p.Zip,
-            Birthday = p.Birthday,
             ProfilePictureUrl = avatar,
         };
 

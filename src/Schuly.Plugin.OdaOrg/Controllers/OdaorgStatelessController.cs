@@ -66,8 +66,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
             var userInfo = p is null
                 ? null
                 : new OdaorgStatelessUserInfo(
-                    p.FirstName, p.LastName, p.Email,
-                    p.Birthday?.ToString("o", CultureInfo.InvariantCulture));
+                    p.FirstName, p.LastName, p.Email);
 
             return new OdaorgStatelessData(userInfo, grades, exams, agenda);
         }
@@ -77,7 +76,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
 
     public record OdaorgStatelessData(OdaorgStatelessUserInfo? UserInfo, List<OdaorgStatelessGrade> Grades, List<OdaorgStatelessExam> Exams, List<OdaorgStatelessAgendaEvent> Agenda);
 
-    public record OdaorgStatelessUserInfo(string? FirstName, string? LastName, string? Email, string? Birthday);
+    public record OdaorgStatelessUserInfo(string? FirstName, string? LastName, string? Email);
 
     public record OdaorgStatelessGrade(string? Id, string? ExamId, string? Subject, double? Score);
 
