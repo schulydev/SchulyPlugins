@@ -115,7 +115,7 @@ namespace Schuly.Plugin.Microsoft.Tests
             await Cached(h).Mail(h.Account);
             h.Service.Failures["mail"] = (HttpStatusCode.BadGateway, null);
             h.Clock.Advance(TimeSpan.FromSeconds(600 + 3600 + 1));
-            await Assert.ThrowsAsync<HttpRequestException>(() => Cached(h).Mail(h.Account));
+            Assert.Equal(502, Assert.IsType<ObjectResult>(await Cached(h).Mail(h.Account)).StatusCode);
         }
 
         [Fact]

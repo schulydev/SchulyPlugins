@@ -62,6 +62,11 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 Response.Headers.RetryAfter = (ex is MicrosoftThrottledException throttled ? Math.Max(1, (long)Math.Ceiling(throttled.RetryAfter.TotalSeconds)) : 60).ToString();
                 return StatusCode(429, new { code = "throttled", message = "Microsoft is limiting requests for this account. Try again in a minute." });
             }
+            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.BadGateway)
+            {
+                // Microsoft refused or failed the call. That is its failure and not a bug here, so it is no 500.
+                return StatusCode(502, new { code = "microsoft_error", message = "Microsoft 365 could not answer this request." });
+            }
             catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Forbidden)
             {
                 // Writing to a notebook the user may only read.
