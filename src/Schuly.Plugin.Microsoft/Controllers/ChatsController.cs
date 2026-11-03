@@ -88,7 +88,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             }, ct);
         }
 
-        /// <summary>Teams' emoji catalogue: <c>{locale, version, assetBase, sizes, fps, categories: [{id, title, emojis: [{id, shortcuts, unicode, title, keywords, diverse, animated, staticUrl, animatedUrl, frames, frameMs, firstFrame, etag}]}], custom}</c>. The service caches it for 24 hours; it carries no token, so the browser may keep it too.</summary>
+        /// <summary>Teams' emoji catalogue: <c>{locale, version, assetBase, sizes, fps, categories: [{id, title, emojis: [{id, shortcuts, unicode, title, keywords, diverse, animated, staticUrl, animatedUrl, frames, frameMs, firstFrame, etag}]}], custom}</c>. The service caches it for 24 hours; it is public and carries no token, so the browser keeps it as long. Private only because the route is per account.</summary>
         [HttpGet("emojis/catalogue")]
         public async Task<IActionResult> EmojiCatalogue(Guid accountId, [FromQuery] string locale = "default", CancellationToken ct = default)
         {
@@ -96,7 +96,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 return Invalid("Invalid locale.");
             var result = await ReadAsync(accountId, $"emojis/catalogue?locale={Uri.EscapeDataString(locale)}", IdShape.None, ct);
             if (result is OkObjectResult)
-                Response.Headers.CacheControl = "private, max-age=3600";
+                Response.Headers.CacheControl = $"private, max-age={EmojiRequests.CatalogueMaxAgeSeconds}";
             return result;
         }
 
@@ -109,7 +109,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 if (!EmojiRequests.IsDocumentId(document))
                     throw new UnsafeIdException();
                 return Reader.GetImageAsync(ids.UserId, accountId, $"emoji|{document}|{animated}", $"emojis/custom/{Uri.EscapeDataString(document)}?animated={animated.ToString().ToLowerInvariant()}", c);
-            }, ct);
+            }, ct, EmojiRequests.CustomEmojiMaxAgeSeconds);
 
         /// <summary>Sends a chat message. JSON <c>{content, contentType: "text"|"html", importance, mentions, gif}</c> (legacy <c>{text}</c> still works), or multipart/form-data with the same fields (mentions and gif as JSON strings) plus <c>images</c> (inline, PNG/JPEG/GIF/WEBP, 3 MB total) and <c>files</c> parts (up to 100 MB each).</summary>
         [HttpPost("chats/{chatId}/messages")]

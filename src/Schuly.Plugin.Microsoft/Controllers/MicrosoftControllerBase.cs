@@ -84,8 +84,8 @@ namespace Schuly.Plugin.Microsoft.Controllers
         /// <summary>An opened id that failed the path-safety check; <see cref="RunAsync"/> answers 400.</summary>
         protected sealed class UnsafeIdException() : Exception("Invalid id.");
 
-        /// <summary>Images go on the photo lane and its cache; the browser may keep them an hour (this response carries no token).</summary>
-        protected Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct) =>
+        /// <summary>Images go on the photo lane and its cache; the browser may keep them for <paramref name="maxAgeSeconds"/>, an hour unless the picture can't change (this response carries no token).</summary>
+        protected Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct, int maxAgeSeconds = 3600) =>
             RunAsync(accountId, async (ids, c) =>
             {
                 var image = await fetch(ids, c);
@@ -94,7 +94,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
                     Response.Headers.CacheControl = $"private, max-age={MicrosoftAccountReader.MissMaxAgeSeconds}";
                     return NotFound();
                 }
-                Response.Headers.CacheControl = "private, max-age=3600";
+                Response.Headers.CacheControl = $"private, max-age={maxAgeSeconds}";
                 Response.Headers["X-Content-Type-Options"] = "nosniff";
                 return File(image.Bytes, image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && !image.ContentType.Contains("svg", StringComparison.OrdinalIgnoreCase) ? image.ContentType : "image/jpeg");
             }, ct);

@@ -382,5 +382,22 @@ namespace Schuly.Plugin.Microsoft.Tests
                     break;
             }
         }
+
+        [Fact]
+        public async Task The_browser_keeps_the_emoji_catalogue_a_day_and_a_custom_emoji_a_month()
+        {
+            var h = new Harness();
+            h.Service.Answers["emojis/catalogue"] = """{"categories":[]}""";
+            h.Service.Answers[$"emojis/custom/{EmojiDoc}"] = "bytes:png";
+
+            var chats = Chats(h);
+            Assert.IsType<OkObjectResult>(await chats.EmojiCatalogue(h.Account));
+            Assert.Equal("private, max-age=86400", chats.Response.Headers.CacheControl.ToString());
+
+            var again = Chats(h);
+            var ids = new IdScope(h.Sealer, h.User, h.Account);
+            Assert.IsType<FileContentResult>(await again.CustomEmoji(h.Account, ids.Seal(IdKinds.Emoji, EmojiDoc)));
+            Assert.Equal("private, max-age=2592000", again.Response.Headers.CacheControl.ToString());
+        }
     }
 }

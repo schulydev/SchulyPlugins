@@ -7,6 +7,11 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
     {
         public static readonly string[] ThumbnailSizes = ["small", "medium", "large"];
 
+        public const int CatalogueMaxAgeSeconds = 24 * 3600;
+
+        /// <summary>A custom emoji's document id names one picture, which never changes.</summary>
+        public const int CustomEmojiMaxAgeSeconds = 30 * 24 * 3600;
+
         [GeneratedRegex("^(?:default|[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8}){0,2})$")]
         private static partial Regex LocalePattern();
 
