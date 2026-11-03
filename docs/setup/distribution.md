@@ -1,35 +1,41 @@
 # Distribution
 
-Plugins follow the **Aniyomi-style** two-branch model:
+This page explains how plugins get from `main` to a server. Plugins use the Aniyomi-style two-branch
+model:
 
-- `main` - the C# plugin source projects.
-- `repo` - built DLLs plus a machine-readable index, all auto-generated.
+- `main` holds the C# plugin source projects.
+- `repo` holds built DLLs and a machine-readable index, all auto-generated.
 
-## The build + publish workflow
+## The build and publish workflow
 
-`.github/workflows/build_push.yml` runs on pushes to `main` that touch
-`src/Schuly.Plugin.*/**` (or the workflow itself), and on manual dispatch. It has three jobs:
+[`build_push.yml`](https://github.com/schulydev/SchulyPlugins/blob/main/.github/workflows/build_push.yml)
+runs on pushes to `main` that touch `src/Schuly.Plugin.*/**` or the workflow itself, and on manual
+dispatch. A change only in `src/Shared/` doesn't trigger it.
 
-1. **discover** - globs `src/**/Schuly.Plugin.*.csproj` and emits a build matrix. Adding a new
-   plugin folder with a csproj is picked up with no workflow change.
-2. **build** (per plugin) - `dotnet publish -c Release`, then stages:
-   - `dll/<AssemblyName>-v<Version>.dll` - the plugin assembly, shipped standalone so
-     operators can pin/swap it independently.
-   - `dll/<AssemblyName>-v<Version>-deps.zip` - its third-party dependencies. Host-provided
-     assemblies are dropped (ASP.NET Core, EF Core, Npgsql, Mediator, and the Schuly host
-     assemblies including `Schuly.Plugin.Abstractions`); only true third-party NuGet deps
-     (Kiota, AngleSharp, …) are bundled. A plugin with none gets a marker-only zip so the
-     index schema stays uniform.
-   - a per-plugin metadata JSON (`name`, `pkg`, `dll`, `deps`, `version`, `description`,
-     `authors`), read from the csproj via `dotnet msbuild -getProperty`.
-3. **publish** - merges the per-plugin JSONs into `index.json` (sorted by name) and a minified
-   `index.min.json`, copies the DLLs + dep zips, and commits everything to the `repo` branch.
+It has three jobs:
 
-`AssemblyName`, `Version`, `Description`, and `Authors` therefore come straight from each
-plugin's `.csproj` `PropertyGroup` - keep them current.
+1. **discover** finds each `src/<folder>/Schuly.Plugin.*.csproj` and emits a build matrix. A new plugin
+   folder with a csproj needs no workflow change.
+2. **build** runs `dotnet publish -c Release` for each plugin, then stages:
+   - `dll/<AssemblyName>-v<Version>.dll`: the plugin assembly.
+   - `dll/<AssemblyName>-v<Version>-deps.zip`: its third-party dependencies, such as Kiota or AngleSharp.
+     The zip leaves out `Microsoft.AspNetCore.*`, `Microsoft.Extensions.*`,
+     `Microsoft.EntityFrameworkCore.*`, `Npgsql.*`, `Mediator.*`, and `Schuly.Plugin.Abstractions.dll`,
+     which the server provides. A plugin with no dependencies gets a marker-only zip, so the index schema
+     stays uniform.
+   - A metadata JSON for the plugin with `name`, `pkg`, `dll`, `deps`, `version`, `contract`,
+     `description`, and `authors`. `contract` is the MAJOR.MINOR of `Schuly.Plugin.Abstractions` the
+     plugin resolved. `name`, `version`, `description`, and `authors` come from the csproj through
+     `dotnet msbuild -getProperty`.
+3. **publish** merges the JSON files into `index.json`, sorted by name, and a minified `index.min.json`.
+   It then replaces `dll/` and both index files on the `repo` branch and commits. The branch holds only
+   the builds from the latest run.
 
-## Installing
+`AssemblyName`, `Version`, `Description`, and `Authors` come from each plugin's csproj, so keep them
+current.
 
-Servers download plugins from this branch automatically. Operators list the plugins they want in
-`plugins.yml`. See [Plugin management](/SchulyServer/plugin-management). `index.min.json` is the
-catalog servers read to find plugins and versions.
+## Install a plugin
+
+Servers download plugins from the `repo` branch automatically. Operators list the plugins they want in
+`plugins.yml`. See [Plugin management](/SchulyServer/plugin-management). `index.min.json` is the catalog
+servers read to find plugins and versions.
