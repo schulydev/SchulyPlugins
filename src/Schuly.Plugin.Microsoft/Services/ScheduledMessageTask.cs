@@ -21,6 +21,7 @@ namespace Schuly.Plugin.Microsoft.Services
             var store = scope.ServiceProvider.GetRequiredService<ScheduledMessageStore>();
             var reader = scope.ServiceProvider.GetRequiredService<MicrosoftAccountReader>();
             var linkedAccounts = scope.ServiceProvider.GetRequiredService<ILinkedAccounts>();
+            var cache = scope.ServiceProvider.GetRequiredService<MicrosoftResponseCache>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<ScheduledMessageTask>>();
 
             var now = DateTimeOffset.UtcNow;
@@ -33,6 +34,7 @@ namespace Schuly.Plugin.Microsoft.Services
                         continue;
                     object body = message.Importance is null ? new { content = message.Content, contentType = message.ContentType } : new { content = message.Content, contentType = message.ContentType, importance = message.Importance };
                     await reader.PostAsync(message.UserId, message.AccountId, $"chats/{Uri.EscapeDataString(message.ChatId)}/messages", body, cancellationToken);
+                    cache.AfterChatWrite(message.UserId, message.AccountId);
                 }
                 catch (Exception ex) when (Transient(ex) && message.Attempts + 1 < MaxAttempts && now - message.SendAt < GiveUpAfter)
                 {

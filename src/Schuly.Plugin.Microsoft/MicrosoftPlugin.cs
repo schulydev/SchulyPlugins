@@ -34,6 +34,8 @@ namespace Schuly.Plugin.Microsoft
             services.AddScoped<MicrosoftAccountReader>();
             services.AddScoped<ScheduledMessageStore>();
             services.AddSingleton<IPluginBackgroundTask, ScheduledMessageTask>();
+            services.AddSingleton(sp => new MicrosoftResponseCache(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<global::Microsoft.Extensions.Configuration.IConfiguration>(), TimeProvider.System));
+            services.AddSingleton<IPluginBackgroundTask, MicrosoftResponseCacheSweepTask>();
             services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>, MicrosoftUserPurgeHandler>();
         }
 

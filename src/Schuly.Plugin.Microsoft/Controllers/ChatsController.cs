@@ -17,7 +17,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/accounts/{accountId:guid}")]
-    public class ChatsController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, ScheduledMessageStore scheduled, IdSealer sealer) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
+    public class ChatsController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, ScheduledMessageStore scheduled, IdSealer sealer, MicrosoftResponseCache cache) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
     {
         /// <summary>A whole send: one 100 MB file plus the text and inline images (the service enforces the same cap).</summary>
         public const long MaxSendBytes = 105L * 1024 * 1024;
@@ -152,7 +152,13 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 return Invalid("The body must be a JSON object.");
             if (CheckFields(Str(body, "content") ?? Str(body, "text"), Str(body, "contentType"), Str(body, "importance")) is { } error)
                 return Invalid(error);
-            return await RunAsync(accountId, async (ids, c) => Ok(ResponseSealer.Seal(await Reader.PostAsync(ids.UserId, accountId, MessagesPath(ids, chatId), OpenMentions(ids, JsonNode.Parse(body.GetRawText())!.AsObject()), c), IdShape.ChatMessages, ids)), ct);
+            return await RunAsync(accountId, async (ids, c) => Sent(ids, await Reader.PostAsync(ids.UserId, accountId, MessagesPath(ids, chatId), OpenMentions(ids, JsonNode.Parse(body.GetRawText())!.AsObject()), c)), ct);
+        }
+
+        private OkObjectResult Sent(IdScope ids, JsonElement created)
+        {
+            cache.AfterChatWrite(ids.UserId, ids.AccountId);
+            return Ok(ResponseSealer.Seal(created, IdShape.ChatMessages, ids));
         }
 
         // ASP.NET spools form files above 64 KB to temporary files (deleted after the request), so nothing large sits in memory; each part is streamed on from there.
@@ -193,7 +199,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
                     part.Headers.ContentLength = file.Length;
                     content.Add(part, file.Name, file.FileName);
                 }
-                return Ok(ResponseSealer.Seal(await Reader.PostContentAsync(ids.UserId, accountId, MessagesPath(ids, chatId), content, c), IdShape.ChatMessages, ids));
+                return Sent(ids, await Reader.PostContentAsync(ids.UserId, accountId, MessagesPath(ids, chatId), content, c));
             }, ct);
         }
 
@@ -204,7 +210,12 @@ namespace Schuly.Plugin.Microsoft.Controllers
         {
             if (request is null || string.IsNullOrWhiteSpace(request.Subject) || request.Subject.Length > 255 || request.End <= request.Start || (request.Description?.Length ?? 0) > 4000)
                 return Task.FromResult(Invalid("A meeting needs a subject (up to 255 characters) and an end after its start."));
-            return RunAsync(accountId, async (ids, c) => StatusCode(StatusCodes.Status201Created, ResponseSealer.Seal(await Reader.PostAsync(ids.UserId, accountId, $"chats/{Uri.EscapeDataString(Chat(ids, chatId))}/meeting", new { subject = request.Subject.Trim(), start = request.Start, end = request.End, description = request.Description }, c), IdShape.CalendarEvents, ids)), ct);
+            return RunAsync(accountId, async (ids, c) =>
+            {
+                var meeting = await Reader.PostAsync(ids.UserId, accountId, $"chats/{Uri.EscapeDataString(Chat(ids, chatId))}/meeting", new { subject = request.Subject.Trim(), start = request.Start, end = request.End, description = request.Description }, c);
+                cache.AfterChatWrite(ids.UserId, accountId);
+                return StatusCode(StatusCodes.Status201Created, ResponseSealer.Seal(meeting, IdShape.CalendarEvents, ids));
+            }, ct);
         }
 
         /// <summary>Schedules a text/HTML message: <c>{content, contentType, importance?, sendAt}</c>, sendAt within 7 days. Kept encrypted in the plugin vault until sent, then deleted.</summary>

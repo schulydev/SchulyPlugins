@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Abstractions.Linking;
 using Schuly.Plugin.Microsoft.Infrastructure;
@@ -41,7 +42,8 @@ namespace Schuly.Plugin.Microsoft.Tests
 
         public Task<LinkedAccount> SaveAsync(Guid applicationUserId, LinkedAccountRecord account, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<bool> RemoveAsync(Guid applicationUserId, Guid linkedAccountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> RemoveAsync(Guid applicationUserId, Guid linkedAccountId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Rows.RemoveAll(r => r.UserId == applicationUserId && r.Account.Id == linkedAccountId) > 0);
 
         public Task<string?> GetSecretAsync(Guid applicationUserId, Guid linkedAccountId, string name, CancellationToken cancellationToken = default) => Task.FromResult<string?>("refresh-token");
 
@@ -59,19 +61,41 @@ namespace Schuly.Plugin.Microsoft.Tests
     {
         public readonly Dictionary<string, string> Answers = new();
         public readonly List<(string Method, string PathAndQuery, string? Body)> Calls = new();
+        /// <summary>Upstream failures by path, with an optional Retry-After in seconds.</summary>
+        public readonly Dictionary<string, (HttpStatusCode Status, int? RetryAfter)> Failures = new();
+        /// <summary>When set, answers wait for it, for a read that is still running.</summary>
+        public TaskCompletionSource? Hold;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             var path = Uri.UnescapeDataString(request.RequestUri!.AbsolutePath);
-            Calls.Add((request.Method.Method, Uri.UnescapeDataString(request.RequestUri.PathAndQuery), body));
+            lock (Calls)
+                Calls.Add((request.Method.Method, Uri.UnescapeDataString(request.RequestUri.PathAndQuery), body));
             var key = path.StartsWith("/api/") ? path[5..] : path;
+            if (Failures.TryGetValue(key, out var failure))
+            {
+                var failed = new HttpResponseMessage(failure.Status);
+                if (failure.RetryAfter is { } seconds)
+                    failed.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(seconds));
+                return failed;
+            }
             if (!Answers.TryGetValue(key, out var json))
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
+            // The answer is taken before the wait, so a held read returns what was true when it started.
+            if (Hold is { } hold)
+                await hold.Task;
             if (json.StartsWith("bytes:"))
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes(json[6..])) { Headers = { ContentType = new("image/png") } } };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         }
+    }
+
+    public sealed class FakeClock : TimeProvider
+    {
+        private DateTimeOffset now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => now;
+        public void Advance(TimeSpan by) => now += by;
     }
 
     public sealed class FakeFactory(HttpMessageHandler handler) : IHttpClientFactory
@@ -111,5 +135,17 @@ namespace Schuly.Plugin.Microsoft.Tests
         }
 
         public ScheduledMessageStore Scheduled() => new(Vault);
+
+        public IConfiguration Config => config;
+
+        /// <summary>The app's container as far as background refreshes need it: they read through their own scope.</summary>
+        public IServiceScopeFactory Scopes() => new ServiceCollection()
+            .AddScoped(_ => Reader())
+            .BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+
+        public readonly FakeClock Clock = new();
+
+        public MicrosoftResponseCache ResponseCache => responseCache ??= new MicrosoftResponseCache(Scopes(), config, Clock);
+        private MicrosoftResponseCache? responseCache;
     }
 }

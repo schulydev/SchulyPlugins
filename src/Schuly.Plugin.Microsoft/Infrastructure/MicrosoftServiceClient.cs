@@ -34,6 +34,12 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
 
     public class MicrosoftSignInExpiredException() : Exception("The Microsoft sign-in expired; link the account again.");
 
+    /// <summary>Microsoft is throttling the account; <see cref="RetryAfter"/> is how long it (or the plugin's own limit) asks to wait.</summary>
+    public sealed class MicrosoftThrottledException(TimeSpan retryAfter) : HttpRequestException("Microsoft is throttling this account.", null, HttpStatusCode.TooManyRequests)
+    {
+        public TimeSpan RetryAfter => retryAfter;
+    }
+
     /// <summary>Client for SchulyMicrosoft (`MicrosoftApi:BaseUrl`). The service is stateless; this plugin keeps the tokens.</summary>
     public class MicrosoftServiceClient(IHttpClientFactory httpClientFactory, IConfiguration configuration) : IMicrosoftSignInApi
     {
@@ -156,6 +162,8 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
             using var response = await Client().SendAsync(request, ct);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
                 throw new MicrosoftSignInExpiredException();
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                throw new MicrosoftThrottledException(RetryAfter(response));
             response.EnsureSuccessStatusCode();
             var data = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
             var rotated = response.Headers.TryGetValues(RefreshTokenHeader, out var values) ? values.FirstOrDefault() : null;
@@ -273,6 +281,13 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                 throw new HttpRequestException($"SchulyMicrosoft answered {(int)status}.", null, status);
             }
             return (response, rotated);
+        }
+
+        private static TimeSpan RetryAfter(HttpResponseMessage response)
+        {
+            var header = response.Headers.RetryAfter;
+            var wait = header?.Delta ?? (header?.Date is { } date ? date - DateTimeOffset.UtcNow : null);
+            return wait > TimeSpan.Zero ? wait.Value : TimeSpan.FromSeconds(60);
         }
 
         private static string Rotated(HttpResponseMessage response, string current)

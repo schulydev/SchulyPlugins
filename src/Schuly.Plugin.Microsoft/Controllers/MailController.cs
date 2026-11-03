@@ -11,7 +11,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/accounts/{accountId:guid}/mail")]
-    public class MailController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
+    public class MailController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer, MicrosoftResponseCache cache) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
     {
         private const int MaxRecipients = 100;
         private const int MaxRequestBytes = 5 * 1024 * 1024;
@@ -58,6 +58,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             RunAsync(accountId, async (ids, c) =>
             {
                 await Reader.PostEmptyAsync(ids.UserId, accountId, $"mail/drafts/{MessageSegment(ids, messageId)}/send", c);
+                cache.AfterMailWrite(ids.UserId, accountId);
                 return NoContent();
             }, ct);
 
@@ -85,13 +86,19 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [HttpPost("{messageId:regex(^(?!(folders|send|drafts)$).+$)}/move")]
         public Task<IActionResult> Move(Guid accountId, string messageId, [FromBody] MailMoveRequest? request, CancellationToken ct = default) =>
             string.IsNullOrEmpty(request?.Folder) ? Task.FromResult(Invalid("Invalid folder.")) :
-            RunAsync(accountId, async (ids, c) => Ok(ResponseSealer.Seal(await Reader.PostAsync(ids.UserId, accountId, $"mail/{MessageSegment(ids, messageId)}/move", new MailMoveRequest(AccountsController.OpenFolder(ids, request.Folder)), c), IdShape.MailMessages, ids)), ct);
+            RunAsync(accountId, async (ids, c) =>
+            {
+                var moved = await Reader.PostAsync(ids.UserId, accountId, $"mail/{MessageSegment(ids, messageId)}/move", new MailMoveRequest(AccountsController.OpenFolder(ids, request.Folder)), c);
+                cache.AfterMailWrite(ids.UserId, accountId);
+                return Ok(ResponseSealer.Seal(moved, IdShape.MailMessages, ids));
+            }, ct);
 
         [HttpDelete("{messageId:regex(^(?!(folders|send|drafts)$).+$)}")]
         public Task<IActionResult> Delete(Guid accountId, string messageId, CancellationToken ct = default) =>
             RunAsync(accountId, async (ids, c) =>
             {
                 await Reader.DeleteAsync(ids.UserId, accountId, $"mail/{MessageSegment(ids, messageId)}", c);
+                cache.AfterMailWrite(ids.UserId, accountId);
                 return NoContent();
             }, ct);
 
@@ -111,12 +118,18 @@ namespace Schuly.Plugin.Microsoft.Controllers
         private static string AttachmentSegment(IdScope ids, string attachmentId) => Uri.EscapeDataString(OpenSafe(ids, IdKinds.MailAttachment, attachmentId, IdPattern));
 
         private Task<IActionResult> PostAsync(Guid accountId, Func<IdScope, string> path, object body, CancellationToken ct) =>
-            RunAsync(accountId, async (ids, c) => Ok(ResponseSealer.Seal(await Reader.PostAsync(ids.UserId, accountId, path(ids), body, c), IdShape.MailMessages, ids)), ct);
+            RunAsync(accountId, async (ids, c) =>
+            {
+                var answer = await Reader.PostAsync(ids.UserId, accountId, path(ids), body, c);
+                cache.AfterMailWrite(ids.UserId, accountId);
+                return Ok(ResponseSealer.Seal(answer, IdShape.MailMessages, ids));
+            }, ct);
 
         private Task<IActionResult> NoContentAsync(Guid accountId, Func<IdScope, string> path, object body, CancellationToken ct) =>
             RunAsync(accountId, async (ids, c) =>
             {
                 await Reader.PostAsync(ids.UserId, accountId, path(ids), body, c);
+                cache.AfterMailWrite(ids.UserId, accountId);
                 return NoContent();
             }, ct);
     }
