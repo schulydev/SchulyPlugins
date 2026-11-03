@@ -1,3 +1,4 @@
+using Schuly.Plugin.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,8 @@ namespace Schuly.Plugin.Schulware.Services
 
             if (!BaseUrlGuard.IsAllowed(baseUrl))
                 return Fail(ConnectFailure.Invalid, "baseUrl is not an allowed target");
+            if (!SwissInstances.Allows(configuration, baseUrl) && !await db.Accounts.AnyAsync(a => a.ApplicationUserId == userId && a.SchulnetzBaseUrl == baseUrl, cancellationToken))
+                return Fail(ConnectFailure.Invalid, SwissInstances.Refused);
 
             var apiBaseUrl = SchulwareApiUrl.Required(configuration);
 

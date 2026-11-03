@@ -1,3 +1,4 @@
+using Schuly.Plugin.Shared;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,6 +34,8 @@ namespace Schuly.Plugin.Schulware.Controllers
         {
             if (string.IsNullOrWhiteSpace(baseUrl) || !BaseUrlGuard.IsAllowed(baseUrl))
                 return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
+            if (!SwissInstances.Allows(configuration, baseUrl))
+                return BadRequest(ApiError.InvalidRequest(SwissInstances.Refused));
 
             try
             {
@@ -57,6 +60,8 @@ namespace Schuly.Plugin.Schulware.Controllers
         {
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
                 return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
+            if (!SwissInstances.Allows(configuration, request.BaseUrl))
+                return BadRequest(ApiError.InvalidRequest(SwissInstances.Refused));
 
             BrowserLoginStartDto? start;
             try
@@ -111,6 +116,8 @@ namespace Schuly.Plugin.Schulware.Controllers
         {
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
                 return Ok(new StatelessRefreshResponse(false, "baseUrl is not an allowed target", null, null, null, null, null, null));
+            if (!SwissInstances.Allows(configuration, request.BaseUrl))
+                return BadRequest(ApiError.InvalidRequest(SwissInstances.Refused));
 
             LoginResponseDto? result;
             try

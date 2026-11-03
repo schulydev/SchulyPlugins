@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -11,7 +13,7 @@ namespace Schuly.Plugin.OdaOrg.Controllers
     [ApiController]
     [AllowAnonymous]
     [Route("api/plugins/odaorg/stateless")]
-    public class OdaorgStatelessController(OdaOrgScraper scraper, ILogger<OdaorgStatelessController> logger) : ControllerBase
+    public class OdaorgStatelessController(OdaOrgScraper scraper, ILogger<OdaorgStatelessController> logger, IConfiguration? configuration = null) : ControllerBase
     {
         [HttpPost("data")]
         [ProducesResponseType(typeof(OdaorgStatelessData), StatusCodes.Status200OK)]
@@ -24,6 +26,8 @@ namespace Schuly.Plugin.OdaOrg.Controllers
 
             if (!BaseUrlGuard.IsAllowed(request.BaseUrl))
                 return BadRequest(ApiError.InvalidRequest("baseUrl is not an allowed target"));
+            if (!SwissInstances.Allows(configuration, request.BaseUrl))
+                return BadRequest(ApiError.InvalidRequest(SwissInstances.Refused));
 
             OdaScrape? scrape;
             try
