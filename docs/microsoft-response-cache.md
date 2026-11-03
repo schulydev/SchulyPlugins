@@ -54,7 +54,7 @@ Set these under `MicrosoftApi:Cache` in the plugin's configuration. Times are in
 | `Lists`: mail and chat lists | 30 | 600 |
 | `ChatMessages`: an open chat | 10 | 600 |
 | `Message`: one mail | 300 | 3600 |
-| `Folders` | 600 | 86400 |
+| `Folders` | 300 | 86400 |
 
 | Setting | Default | What it does |
 |---|---|---|

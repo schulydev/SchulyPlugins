@@ -18,7 +18,7 @@ namespace Schuly.Plugin.Microsoft.Services
         /// <summary>The messages of an open chat. The guide has no row for these; its list time would make a reply take up to a minute to show.</summary>
         public static readonly CacheTimes ChatMessages = new(nameof(ChatMessages), 10, 600);
         public static readonly CacheTimes Message = new(nameof(Message), 300, 3600);
-        public static readonly CacheTimes Folders = new(nameof(Folders), 600, 86400);
+        public static readonly CacheTimes Folders = new(nameof(Folders), 300, 86400);
     }
 
     /// <summary>
