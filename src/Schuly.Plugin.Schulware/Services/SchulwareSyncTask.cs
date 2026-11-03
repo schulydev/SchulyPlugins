@@ -73,7 +73,16 @@ namespace Schuly.Plugin.Schulware.Services
                 if (useMobile && TokenExpired(account) && !await refresh.RefreshAsync(account, ct))
                     return await FailAsync(db, syncState, "TokenExpired", "Token expired and refresh failed. User needs to re-authenticate.", ct);
 
-                if (await provisioning.EnsureAsync(account, account.ApplicationUserId) is { } problem && account.SchoolUserId is null)
+                var problem = await provisioning.EnsureAsync(account, account.ApplicationUserId);
+                if (problem == SchoolProvisioningService.LeftSchool)
+                {
+                    if (db.Entry(syncState).State == EntityState.Added)
+                        db.Entry(syncState).State = EntityState.Detached;
+                    await sp.GetRequiredService<SchulwareUserPurgeHandler>().RemoveAccountsAsync([account], ct);
+                    logger.LogInformation("Removed a Schulnetz account whose student left longer ago than the retention period");
+                    return syncState;
+                }
+                if (problem is not null && account.SchoolUserId is null)
                     return await FailAsync(db, syncState, "Failed", problem, ct);
                 await db.SaveChangesAsync(ct);
 
@@ -97,7 +106,9 @@ namespace Schuly.Plugin.Schulware.Services
                 logger.LogError(ex, "Failed to sync account {AccountId}", account.Id);
             }
 
-            secretStore.Save(account);
+            // A purge may have run during this long sync; saving then would leave secrets no account row leads to.
+            if (await db.Accounts.AsNoTracking().AnyAsync(a => a.Id == account.Id, ct))
+                secretStore.Save(account);
             await db.SaveChangesAsync(ct);
             return syncState;
         }

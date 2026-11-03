@@ -44,6 +44,16 @@ namespace Schuly.Plugin.Purge.Tests
         public Task<StoredFile> SaveAsync(Stream content, string fileName, string? contentType, CancellationToken cancellationToken = default) => Task.FromResult(new StoredFile(Guid.NewGuid().ToString("N"), content.Length));
     }
 
+    public sealed class NoLinkedAccounts : ILinkedAccounts
+    {
+        public Task<IReadOnlyList<LinkedAccount>> ListAsync(Guid applicationUserId, string provider, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<LinkedAccount>>([]);
+        public Task<LinkedAccount?> GetAsync(Guid applicationUserId, Guid linkedAccountId, CancellationToken cancellationToken = default) => Task.FromResult<LinkedAccount?>(null);
+        public Task<LinkedAccount> SaveAsync(Guid applicationUserId, LinkedAccountRecord account, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> RemoveAsync(Guid applicationUserId, Guid linkedAccountId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<string?> GetSecretAsync(Guid applicationUserId, Guid linkedAccountId, string name, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+        public Task SetSecretAsync(Guid applicationUserId, Guid linkedAccountId, string name, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     public sealed class FakeUserContext : IPluginUserContext
     {
         public Task<Guid> GetCurrentUserIdAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("No request in a background test.");
@@ -68,6 +78,7 @@ namespace Schuly.Plugin.Purge.Tests
             services.AddSingleton<ISchoolData>(schoolData);
             services.AddSingleton<IPluginFileStore, FakeFileStore>();
             services.AddSingleton<IPluginUserContext, FakeUserContext>();
+            services.AddSingleton<ILinkedAccounts, NoLinkedAccounts>();
         }
     }
 }
