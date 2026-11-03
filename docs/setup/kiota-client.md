@@ -1,11 +1,26 @@
 # Kiota client
 
-The Schulware plugin talks to [SchulwareAPI](https://github.com/schulydev/SchulwareAPI) through
-a [Kiota](https://learn.microsoft.com/openapi/kiota/)-generated client under
-`src/Schuly.Plugin.Schulware/Client/`. The generated code is committed; the **OpenAPI JSON is
-not** - always regenerate directly from the live URL.
+Use this page to regenerate the client the Schulware plugin uses to call
+[SchulwareAPI](https://github.com/schulydev/SchulwareAPI). It's a
+[Kiota](https://learn.microsoft.com/openapi/kiota/)-generated client in
+`src/Schuly.Plugin.Schulware/Client/`.
 
-## First generation
+The generated code is committed. The OpenAPI JSON is not, so you always regenerate from the live URL.
+
+## Update after the API changes
+
+Run this from inside `Client/`:
+
+```sh
+cd src/Schuly.Plugin.Schulware/Client
+kiota update --output .
+```
+
+`kiota update` reads `kiota-lock.json` and regenerates against the same `descriptionLocation`, the live
+OpenAPI URL, with the recorded options. It gives the same result as running `kiota generate` again.
+Without `--output .`, it looks in `./output` and fails.
+
+## Generate from scratch
 
 ```sh
 cd src/Schuly.Plugin.Schulware
@@ -17,27 +32,14 @@ kiota generate \
   --class-name SchulwareApiClient
 ```
 
-This produces `Client/SchulwareApiClient.cs`, the request builders under `Client/Api/`, the
-DTOs under `Client/Models/`, and a `Client/kiota-lock.json` recording the source URL, the
-generator version, and the serializer/deserializer set.
-
-## Updating after the API changes
-
-Once the lockfile exists, re-run from inside `Client/`:
-
-```sh
-cd src/Schuly.Plugin.Schulware/Client
-kiota update
-```
-
-`kiota update` reads `kiota-lock.json` and regenerates against the same `descriptionLocation`
-(the live OpenAPI URL) with the recorded options - equivalent to re-running `kiota generate`.
+This produces `Client/SchulwareApiClient.cs`, the request builders in `Client/Api/`, the DTOs in
+`Client/Models/`, and `Client/kiota-lock.json`. The lock file records the source URL, the generator
+version, and the serializer and deserializer set.
 
 ## Rules
 
-- **Never commit the OpenAPI JSON** locally. Generation always reads it from the live URL so
-  the client tracks the deployed API.
-- The Kiota runtime packages (`Microsoft.Kiota.*`) are `PackageReference`s in
-  `Schuly.Plugin.Schulware.csproj`; keep their versions compatible with the generator.
-- Regeneration is a code change like any other - follow the [contributing](../contributing.md)
-  workflow.
+- **Never commit the OpenAPI JSON.** Generation always reads it from the live URL, so the client tracks
+  the deployed API.
+- Keep the Kiota runtime packages (`Microsoft.Kiota.*`) compatible with the generator. They're
+  `PackageReference`s in `Schuly.Plugin.Schulware.csproj`.
+- Treat regeneration as a code change. Follow the [shared workflow](/contribute/).
