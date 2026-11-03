@@ -20,4 +20,9 @@
     <ProjectReference Include="..\..\src\Schuly.Plugin.Schulware\Schuly.Plugin.Schulware.csproj" />
   </ItemGroup>
 
+  <!-- The shared helpers are compiled into each plugin and internal to it. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Shared\SwissInstances.cs" Link="SwissInstances.cs" />
+  </ItemGroup>
+
 </Project>

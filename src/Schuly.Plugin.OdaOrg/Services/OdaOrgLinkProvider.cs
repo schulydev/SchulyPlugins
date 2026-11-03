@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -26,7 +28,7 @@ namespace Schuly.Plugin.OdaOrg.Services
     }
 
     /// <summary>Links OdA Org accounts: one credentials form, verified against the portal before the account is saved.</summary>
-    public class OdaOrgLinkProvider(OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgScraper scraper, OdaOrgSyncLauncher launcher) : ILinkProvider
+    public class OdaOrgLinkProvider(OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgScraper scraper, OdaOrgSyncLauncher launcher, IConfiguration? configuration = null) : ILinkProvider
     {
         public const string ProviderId = "odaorg";
         public const string FlowId = "credentials";
@@ -80,6 +82,8 @@ namespace Schuly.Plugin.OdaOrg.Services
                 return new LinkStepResult(Form(baseUrl, "Enter your username and password."), null);
             if (!BaseUrlGuard.IsAllowed(baseUrl))
                 return new LinkStepResult(Form(baseUrl, "That portal address is not allowed."), null);
+            if (!SwissInstances.Allows(configuration, baseUrl) && !await db.Accounts.AnyAsync(a => a.ApplicationUserId == context.ApplicationUserId && a.BaseUrl == baseUrl, cancellationToken))
+                return new LinkStepResult(Form(baseUrl, SwissInstances.Refused), null);
 
             var ok = await scraper.CheckLoginAsync(baseUrl, username, password, cancellationToken);
             if (ok is null)

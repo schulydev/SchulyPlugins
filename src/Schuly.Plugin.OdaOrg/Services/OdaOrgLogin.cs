@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
@@ -6,7 +8,7 @@ using Schuly.Plugin.OdaOrg.Infrastructure;
 
 namespace Schuly.Plugin.OdaOrg.Services
 {
-    public class OdaOrgLogin(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgSyncTask syncTask, IServiceProvider services, ILogger<OdaOrgLogin> logger) : IPluginLogin
+    public class OdaOrgLogin(IPluginUserContext userContext, OdaOrgDbContext db, OdaOrgSecretStore secretStore, OdaOrgSyncTask syncTask, IServiceProvider services, ILogger<OdaOrgLogin> logger, IConfiguration? configuration = null) : IPluginLogin
     {
         public SchoolSystemDescriptor SchoolSystem => new()
         {
@@ -42,6 +44,8 @@ namespace Schuly.Plugin.OdaOrg.Services
             var account = await db.Accounts.FirstOrDefaultAsync(
                 a => a.ApplicationUserId == userId && a.BaseUrl == baseUrl, cancellationToken);
             var isNew = account is null;
+            if (isNew && !SwissInstances.Allows(configuration, baseUrl))
+                return new PluginLoginResult(false, null, SwissInstances.Refused);
             account ??= new OdaOrgAccount
             {
                 ApplicationUserId = userId,

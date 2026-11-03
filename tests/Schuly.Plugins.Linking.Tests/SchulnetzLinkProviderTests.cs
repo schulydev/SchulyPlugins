@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -43,13 +45,53 @@ namespace Schuly.Plugins.Linking.Tests
             public FakeVault Vault = new();
             public SchulwareDbContext Db = new(new DbContextOptionsBuilder<SchulwareDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
             public SchulwareSyncLauncher Launcher = new(new ServiceCollection().BuildServiceProvider(), new SchulwareSyncTask(), NullLogger<SchulwareSyncLauncher>.Instance);
-            public SchulnetzLinkProvider Provider => new(Db, Connector, Methods, Linked, new AccountSecretStore(Vault), Launcher, null!);
+            public IConfiguration? Configuration;
+            public SchulnetzLinkProvider Provider => new(Db, Connector, Methods, Linked, new AccountSecretStore(Vault), Launcher, null!, Configuration);
         }
 
         private static async Task<LinkStepResult> ToMethod(SchulnetzLinkProvider p, LinkPlatform platform = LinkPlatform.Web)
         {
             var school = await p.StartAsync(new LinkStartContext(User, "schulnetz", platform, null, "x"));
             return await p.SubmitAsync(StepAssert.Submit(User, "schulnetz", school, new() { ["baseUrl"] = School }, platform: platform));
+        }
+
+        private static IConfiguration SwitzerlandOnly() => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["SignUp:SwitzerlandOnly"] = "true" }).Build();
+
+        [Fact]
+        public async Task With_the_swiss_limit_a_school_abroad_is_refused()
+        {
+            var env = new Env { Configuration = SwitzerlandOnly() };
+            var p = env.Provider;
+            var first = await p.StartAsync(new LinkStartContext(User, "schulnetz", LinkPlatform.Web, null, "x"));
+
+            var refused = await p.SubmitAsync(StepAssert.Submit(User, "schulnetz", first, new() { ["baseUrl"] = "https://schulnetz.example.de" }));
+
+            Assert.Equal(SwissInstances.Refused, refused.Step.Error);
+            Assert.NotEqual(SwissInstances.Refused, (await p.SubmitAsync(StepAssert.Submit(User, "schulnetz", first, new() { ["baseUrl"] = School }))).Step.Error);
+        }
+
+        [Fact]
+        public async Task An_account_already_linked_abroad_can_still_sign_in_again()
+        {
+            var env = new Env { Configuration = SwitzerlandOnly() };
+            env.Db.Accounts.Add(new SchulwareAccount { Id = Guid.NewGuid(), ApplicationUserId = User, SchulnetzBaseUrl = "https://schulnetz.example.de", SchulwareApiBaseUrl = "http://api" });
+            await env.Db.SaveChangesAsync();
+            var first = await env.Provider.StartAsync(new LinkStartContext(User, "schulnetz", LinkPlatform.Web, null, "x"));
+
+            var result = await env.Provider.SubmitAsync(StepAssert.Submit(User, "schulnetz", first, new() { ["baseUrl"] = "https://schulnetz.example.de" }));
+
+            Assert.NotEqual(SwissInstances.Refused, result.Step.Error);
+        }
+
+        [Fact]
+        public async Task Without_the_setting_a_self_hoster_keeps_any_school()
+        {
+            var env = new Env();
+            var first = await env.Provider.StartAsync(new LinkStartContext(User, "schulnetz", LinkPlatform.Web, null, "x"));
+
+            var result = await env.Provider.SubmitAsync(StepAssert.Submit(User, "schulnetz", first, new() { ["baseUrl"] = "https://schulnetz.example.de" }));
+
+            Assert.NotEqual(SwissInstances.Refused, result.Step.Error);
         }
 
         [Fact]

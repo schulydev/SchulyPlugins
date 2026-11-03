@@ -73,18 +73,9 @@ namespace Schuly.Plugin.Schulware.Services
             FirstName = info.FirstName,
             LastName = info.LastName,
             Email = info.Email,
-            PrivateEmail = Trim(info.EmailPrivate),
-            PhoneNumber = Trim(info.Phone) ?? Trim(info.Mobile),
-            Street = Trim(info.Street),
-            City = Trim(info.City),
-            Zip = Trim(info.Zip),
-            Birthday = ParseDate(info.Birthday),
             EntryDate = ParseDate(info.EntryDate),
             LeaveDate = ParseDate(info.ExitDate),
         };
-
-        private static string? Trim(string? value) =>
-            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         private static DateOnly? ParseDate(string? raw) =>
             DateOnly.TryParse(raw, out var d) ? d : null;

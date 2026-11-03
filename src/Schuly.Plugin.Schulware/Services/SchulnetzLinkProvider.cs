@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Schuly.Plugin.Abstractions;
@@ -8,7 +10,7 @@ using Schuly.Plugin.Schulware.Infrastructure;
 namespace Schuly.Plugin.Schulware.Services
 {
     /// <summary>Links Schulnetz accounts: school, then credentials, a linked Microsoft account or the school's browser sign-in.</summary>
-    public class SchulnetzLinkProvider(SchulwareDbContext db, ISchulwareConnector connector, ISchulnetzLoginMethods loginMethods, ILinkedAccounts linkedAccounts, AccountSecretStore secretStore, SchulwareSyncLauncher launcher, PushRegistrationService push) : ILinkProvider
+    public class SchulnetzLinkProvider(SchulwareDbContext db, ISchulwareConnector connector, ISchulnetzLoginMethods loginMethods, ILinkedAccounts linkedAccounts, AccountSecretStore secretStore, SchulwareSyncLauncher launcher, PushRegistrationService push, IConfiguration? configuration = null) : ILinkProvider
     {
         public const string ProviderId = "schulnetz";
         public const string FlowId = "schulnetz";
@@ -65,6 +67,8 @@ namespace Schuly.Plugin.Schulware.Services
                 var url = Value(context.Values, "baseUrl")?.Trim().TrimEnd('/');
                 if (string.IsNullOrEmpty(url) || !BaseUrlGuard.IsAllowed(url))
                     return new LinkStepResult(SchoolForm(url, "Enter a valid https Schulnetz address."), null);
+                if (!SwissInstances.Allows(configuration, url) && !await db.Accounts.AnyAsync(a => a.ApplicationUserId == context.ApplicationUserId && a.SchulnetzBaseUrl == url, cancellationToken))
+                    return new LinkStepResult(SchoolForm(url, SwissInstances.Refused), null);
                 return await MethodStepAsync(context.ApplicationUserId, context.Platform, url, null, cancellationToken);
             }
 

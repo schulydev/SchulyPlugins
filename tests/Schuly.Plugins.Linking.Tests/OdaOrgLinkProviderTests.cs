@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,17 +28,34 @@ namespace Schuly.Plugins.Linking.Tests
             }
         }
 
-        private static (OdaOrgLinkProvider Provider, FakeScraper Scraper, OdaOrgDbContext Db, FakeVault Vault) Create()
+        private static (OdaOrgLinkProvider Provider, FakeScraper Scraper, OdaOrgDbContext Db, FakeVault Vault) Create(IConfiguration? configuration = null)
         {
             var db = new OdaOrgDbContext(new DbContextOptionsBuilder<OdaOrgDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
             var vault = new FakeVault();
             var scraper = new FakeScraper();
             var launcher = new OdaOrgSyncLauncher(new ServiceCollection().BuildServiceProvider(), new OdaOrgSyncTask(), NullLogger<OdaOrgSyncLauncher>.Instance);
-            return (new OdaOrgLinkProvider(db, new OdaOrgSecretStore(vault), scraper, launcher), scraper, db, vault);
+            return (new OdaOrgLinkProvider(db, new OdaOrgSecretStore(vault), scraper, launcher, configuration), scraper, db, vault);
         }
 
         private static async Task<LinkStepResult> Start(OdaOrgLinkProvider p, string? reauth = null) =>
             await p.StartAsync(new LinkStartContext(User, "credentials", LinkPlatform.Web, reauth, "x"));
+
+        [Fact]
+        public async Task With_the_swiss_limit_a_portal_abroad_is_refused_unless_already_linked()
+        {
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["SignUp:SwitzerlandOnly"] = "true" }).Build();
+            var (p, _, db, _) = Create(configuration);
+            var form = await Start(p);
+            var values = new Dictionary<string, string> { ["username"] = "u", ["password"] = Password, ["baseUrl"] = "https://portal.example.de" };
+
+            var refused = await p.SubmitAsync(StepAssert.Submit(User, "credentials", form, values));
+            Assert.Equal(SwissInstances.Refused, refused.Step.Error);
+
+            db.Accounts.Add(new OdaOrgAccount { ApplicationUserId = User, BaseUrl = "https://portal.example.de" });
+            await db.SaveChangesAsync();
+            var again = await p.SubmitAsync(StepAssert.Submit(User, "credentials", form, values));
+            Assert.NotEqual(SwissInstances.Refused, again.Step?.Error);
+        }
 
         [Fact]
         public async Task Start_ShowsTheCredentialsForm_WithTheDefaultPortal()
