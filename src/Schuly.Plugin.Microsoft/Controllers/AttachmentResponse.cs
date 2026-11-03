@@ -11,8 +11,24 @@ namespace Schuly.Plugin.Microsoft.Controllers
         [GeneratedRegex(@"^[A-Za-z0-9][\w.+-]{0,126}/[A-Za-z0-9][\w.+-]{0,126}$")]
         private static partial Regex MediaType();
 
+        [GeneratedRegex(@"^bytes=\d{1,15}-\d{0,15}$")]
+        private static partial Regex ByteRange();
+
+        [GeneratedRegex(@"^bytes (?:\d{1,15}-\d{1,15}|\*)/(\d{1,15}|\*)$")]
+        private static partial Regex ContentRange();
+
         [GeneratedRegex("[\x00-\x1f\x7f\\/:*?\"<>|]")]
         private static partial Regex UnsafeNameChars();
+
+        /// <summary>The one kind of <c>Range</c> a media player needs, or null, which HTTP allows a server to treat as no range at all. Nothing else is passed on.</summary>
+        public static string? SafeRange(string? range) => range is not null && ByteRange().IsMatch(range) ? range : null;
+
+        /// <summary>The upstream <c>Content-Range</c> when it is well formed.</summary>
+        public static string? SafeContentRange(string? value) => value is not null && ContentRange().IsMatch(value) ? value : null;
+
+        /// <summary>The whole file's size in a <c>Content-Range</c>, when it says.</summary>
+        public static long? TotalOf(string? contentRange) =>
+            contentRange is not null && ContentRange().Match(contentRange) is { Success: true } m && long.TryParse(m.Groups[1].Value, out var total) ? total : null;
 
         /// <summary>The upstream type when it is a well-formed, non-active media type; otherwise application/octet-stream.</summary>
         public static string SafeContentType(string? upstream)

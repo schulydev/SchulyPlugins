@@ -57,20 +57,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
             return ImageAsync(accountId, (ids, c) => Reader.GetPeoplePhotoAsync(ids.UserId, accountId, email, size, c), ct);
         }
 
-        /// <summary>A file shared in a message (<c>files[].id</c>), streamed through as a download. Video and audio keep their type so a blob can play in &lt;video&gt;.</summary>
+        /// <summary>A file shared in a message (<c>files[].id</c>), streamed through as a download, whole or one range. Video and audio keep their type so a blob can play in &lt;video&gt;.</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}")]
         public Task<IActionResult> ChatFile(Guid accountId, string chatId, string messageId, string attachmentId, CancellationToken ct = default) =>
-            RunAsync(accountId, async (ids, c) =>
-            {
-                var upstream = await Reader.OpenStreamAsync(ids.UserId, accountId, FilePath(ids, chatId, messageId, attachmentId), c);
-                if (upstream is null)
-                    return NotFound();
-                HttpContext.Response.RegisterForDispose(upstream);
-                AttachmentResponse.Apply(Response, upstream.Content.Headers.ContentDisposition?.ToString());
-                if (upstream.Content.Headers.ContentLength is { } length)
-                    Response.ContentLength = length;
-                return File(await upstream.Content.ReadAsStreamAsync(c), AttachmentResponse.SafeContentType(upstream.Content.Headers.ContentType?.MediaType), enableRangeProcessing: false);
-            }, ct);
+            RunAsync(accountId, (ids, c) => StreamFileAsync(ids.UserId, accountId, FilePath(ids, chatId, messageId, attachmentId), c), ct);
 
         /// <summary>The preview image of a file shared in a message (<c>files[].id</c>, only when <c>hasThumbnail</c>): JPEG, PNG or WEBP, 404 when there is none. <paramref name="size"/> is small, medium or large.</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}/thumbnail")]

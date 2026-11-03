@@ -28,7 +28,41 @@ namespace Schuly.Plugin.Microsoft.Services
         private static readonly MemoryCache Photos = new(new MemoryCacheOptions { SizeLimit = 32 * 1024 * 1024 });
         private static readonly ConcurrentDictionary<string, Lazy<Task<PhotoResult>>> PhotosInFlight = new();
         private static readonly TimeSpan PhotoTtl = TimeSpan.FromHours(1);
-        private static readonly TimeSpan MissTtl = TimeSpan.FromMinutes(10);
+        private static readonly TimeSpan MissTtl = TimeSpan.FromHours(1);
+
+        /// <summary>How long a browser may remember that a picture has none. Most people have no photo, and without this each page load asks for them all again.</summary>
+        public static readonly int MissMaxAgeSeconds = (int)MissTtl.TotalSeconds;
+
+        // Until when, per account and kind of call, Microsoft asked to wait: asking again sooner only extends the wait. Files and thumbnails, and photos, are told apart because Microsoft throttles them apart.
+        private static readonly ConcurrentDictionary<(Guid Account, string Lane), DateTimeOffset> WaitUntil = new();
+        private const string FileLane = "files";
+        private const string PhotoLane = "photos";
+        private static readonly TimeSpan LongestWait = TimeSpan.FromMinutes(5);
+
+        private static void CheckWait(Guid accountId, string lane)
+        {
+            if (WaitUntil.TryGetValue((accountId, lane), out var until))
+            {
+                var left = until - DateTimeOffset.UtcNow;
+                if (left > TimeSpan.Zero)
+                    throw new MicrosoftThrottledException(left);
+                WaitUntil.TryRemove((accountId, lane), out _);
+            }
+        }
+
+        private static async Task<T> InLaneAsync<T>(Guid accountId, string lane, Func<Task<T>> call)
+        {
+            CheckWait(accountId, lane);
+            try
+            {
+                return await call();
+            }
+            catch (MicrosoftThrottledException ex)
+            {
+                WaitUntil[(accountId, lane)] = DateTimeOffset.UtcNow + (ex.RetryAfter < LongestWait ? ex.RetryAfter : LongestWait);
+                throw;
+            }
+        }
 
         public Task<JsonElement> ReadAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
             WithTokenAsync(userId, accountId, async token =>
@@ -88,11 +122,11 @@ namespace Schuly.Plugin.Microsoft.Services
                 return hit;
 
             // One upstream fetch per key: concurrent misses share the task. It runs detached from any single caller's token, callers just stop waiting when theirs is cancelled.
-            var fetch = PhotosInFlight.GetOrAdd(key, _ => new Lazy<Task<PhotoResult>>(() => FetchImageAsync(key, userId, accountId, path)));
+            var fetch = PhotosInFlight.GetOrAdd(key, _ => new Lazy<Task<PhotoResult>>(() => FetchImageAsync(key, kind, userId, accountId, path)));
             return await fetch.Value.WaitAsync(ct);
         }
 
-        private async Task<PhotoResult> FetchImageAsync(string key, Guid userId, Guid accountId, string path)
+        private async Task<PhotoResult> FetchImageAsync(string key, string kind, Guid userId, Guid accountId, string path)
         {
             try
             {
@@ -103,11 +137,12 @@ namespace Schuly.Plugin.Microsoft.Services
                 await gates.Photos.WaitAsync();
                 try
                 {
-                    var (binary, _) = await WithTokenAsync(userId, accountId, gates, async token =>
+                    var lane = kind.StartsWith("thumb|", StringComparison.Ordinal) || kind.StartsWith("drive", StringComparison.Ordinal) ? FileLane : PhotoLane;
+                    var (binary, _) = await InLaneAsync(accountId, lane, () => WithTokenAsync(userId, accountId, gates, async token =>
                     {
                         var read = await service.GetBytesAsync(path, token, CancellationToken.None);
                         return (read, read.RefreshToken);
-                    }, CancellationToken.None);
+                    }, CancellationToken.None));
 
                     var result = new PhotoResult(binary.Bytes, binary.ContentType);
                     Photos.Set(key, result, new MemoryCacheEntryOptions { Size = Math.Max(1, binary.Bytes?.Length ?? 1), AbsoluteExpirationRelativeToNow = binary.Bytes is null ? MissTtl : PhotoTtl });
@@ -133,8 +168,8 @@ namespace Schuly.Plugin.Microsoft.Services
             }, ct);
 
         /// <summary>Opens a streamed download; the lane is held only until the headers arrive, and the rotated token is persisted before the body is read. Null on 404.</summary>
-        public Task<HttpResponseMessage?> OpenStreamAsync(Guid userId, Guid accountId, string path, CancellationToken ct) =>
-            WithTokenAsync(userId, accountId, token => service.OpenStreamAsync(path, token, ct), ct);
+        public Task<HttpResponseMessage?> OpenStreamAsync(Guid userId, Guid accountId, string path, CancellationToken ct, string? byteRange = null) =>
+            InLaneAsync(accountId, FileLane, () => WithTokenAsync(userId, accountId, token => service.OpenStreamAsync(path, token, ct, byteRange), ct));
 
         /// <summary>POSTs <paramref name="content"/> (streamed) and opens the answer for streaming, like <see cref="OpenStreamAsync"/>; the lane is held until the headers arrive.</summary>
         public Task<HttpResponseMessage?> OpenPostStreamAsync(Guid userId, Guid accountId, string path, HttpContent content, CancellationToken ct) =>
