@@ -49,7 +49,7 @@ namespace Schuly.Plugin.Schulware.Services
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Storing document {File} failed", fileName);
+                logger.LogWarning("Storing a document failed ({Error})", ex.GetType().Name);
                 return null;
             }
         }

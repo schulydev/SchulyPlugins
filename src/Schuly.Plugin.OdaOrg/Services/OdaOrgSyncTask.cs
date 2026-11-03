@@ -85,7 +85,7 @@ namespace Schuly.Plugin.OdaOrg.Services
                 state.LastSyncAt = DateTime.UtcNow;
                 state.LastSyncStatus = "Failed";
                 state.LastSyncError = ex is HttpRequestException or TaskCanceledException ? ApiError.UnreachableMessage : ex.Message;
-                logger.LogError(ex, "Failed to sync OdaOrg account {Account}", account.Id);
+                logger.LogError("Failed to sync OdaOrg account {Account} ({Error})", account.Id, ex.GetType().Name);
             }
 
             await db.SaveChangesAsync(ct);

@@ -25,7 +25,7 @@ namespace Schuly.Plugin.Schulware.Controllers
         private const string StatelessPath = "/api/plugins/schulware/stateless";
 
         private string BaseUrl =>
-            configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+            SchulwareApiUrl.Required(configuration);
 
         /// <summary>The descriptor's <c>LoginMethodPath</c>: a Microsoft-SSO school signs in with a linked Microsoft account.</summary>
         [HttpGet("login-method")]

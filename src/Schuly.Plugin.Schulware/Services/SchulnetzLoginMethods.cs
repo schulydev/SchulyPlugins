@@ -19,7 +19,7 @@ namespace Schuly.Plugin.Schulware.Services
     /// <summary>Asks SchulwareAPI how a school signs in. Shared by the stateless endpoint and the link provider.</summary>
     public class SchulnetzLoginMethods(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<SchulnetzLoginMethods> logger) : ISchulnetzLoginMethods
     {
-        private string ApiBaseUrl => configuration["SchulwareApi:BaseUrl"] ?? "https://schlwr.pianonic.ch";
+        private string ApiBaseUrl => SchulwareApiUrl.Required(configuration);
 
         public async Task<SchulnetzLoginMethod> DetectAsync(string baseUrl, CancellationToken cancellationToken = default)
         {
