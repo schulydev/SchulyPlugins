@@ -45,7 +45,7 @@ namespace Schuly.Plugin.OdaOrg.Infrastructure
             }
         }
 
-        public async Task<OdaScrape?> ScrapeAsync(string baseUrl, string username, string password, CancellationToken ct)
+        public virtual async Task<OdaScrape?> ScrapeAsync(string baseUrl, string username, string password, CancellationToken ct)
         {
             baseUrl = baseUrl.TrimEnd('/');
             if (!BaseUrlGuard.IsAllowed(baseUrl)) throw new HttpRequestException("Target is not allowed.");

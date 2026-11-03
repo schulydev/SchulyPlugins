@@ -55,7 +55,8 @@ namespace Schuly.Plugin.Schulware
             // The account auth secrets live in this plugin's encrypted vault instead of the database.
             services.AddScoped<AccountSecretStore>();
 
-            services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>, SchulwareUserPurgeHandler>();
+            services.AddScoped<SchulwareUserPurgeHandler>();
+            services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>>(sp => sp.GetRequiredService<SchulwareUserPurgeHandler>());
             services.AddSingleton<SchulwareSyncLauncher>();
             services.AddScoped<ISchulwareConnector, SchulwareConnector>();
             services.AddScoped<ISchulnetzLoginMethods, SchulnetzLoginMethods>();

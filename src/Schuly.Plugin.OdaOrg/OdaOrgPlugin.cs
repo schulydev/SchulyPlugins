@@ -35,6 +35,7 @@ namespace Schuly.Plugin.OdaOrg
             // Credentials live in this plugin's encrypted vault instead of the database.
             services.AddScoped<OdaOrgSecretStore>();
 
+            services.AddScoped<IPluginEventHandler<PluginUserPurgeEvent>, OdaOrgUserPurgeHandler>();
             services.AddScoped<IPluginLogin, OdaOrgLogin>();
             services.AddSingleton<OdaOrgSyncLauncher>();
             services.AddScoped<ILinkProvider, OdaOrgLinkProvider>();

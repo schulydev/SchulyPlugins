@@ -14,23 +14,26 @@ namespace Schuly.Plugin.Schulware.Services
             if (accounts.Count == 0)
                 return;
 
+            await RemoveAccountsAsync(accounts, cancellationToken);
+            logger.LogInformation("Purged {Count} Schulnetz account(s) for a deleted user", accounts.Count);
+        }
+
+        /// <summary>Removes the accounts with everything that belongs to them. Secrets go before the rows: the vault can't be searched, so a retry only finds them through the account row.</summary>
+        public async Task RemoveAccountsAsync(IReadOnlyCollection<SchulwareAccount> accounts, CancellationToken cancellationToken)
+        {
             var accountIds = accounts.Select(a => a.Id).ToList();
             foreach (var account in accounts)
             {
                 secretStore.Hydrate(account);
                 try { await push.RemoveAsync(account, cancellationToken); }
-                catch (Exception ex) { logger.LogWarning(ex, "Failed to remove push registration for account {AccountId} during user purge", account.Id); }
+                catch (Exception ex) { logger.LogWarning("Failed to remove a push registration during a purge ({ExceptionType})", ex.GetType().Name); }
+                secretStore.Remove(account.Id);
             }
 
             var syncStates = await db.SyncStates.Where(s => accountIds.Contains(s.AccountId)).ToListAsync(cancellationToken);
             db.SyncStates.RemoveRange(syncStates);
             db.Accounts.RemoveRange(accounts);
             await db.SaveChangesAsync(cancellationToken);
-
-            foreach (var accountId in accountIds)
-                secretStore.Remove(accountId);
-
-            logger.LogInformation("Purged {Count} Schulnetz account(s) for a deleted user", accounts.Count);
         }
     }
 }
