@@ -283,7 +283,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
 
         private static readonly TimeSpan UploadTimeout = TimeSpan.FromMinutes(15);
 
-        private HttpClient Client() => Client(TimeSpan.FromSeconds(60));
+        private HttpClient Client() => Client(TimeSpan.FromSeconds(90));
 
         private HttpClient Client(TimeSpan timeout)
         {
