@@ -16,7 +16,7 @@
 `Schuly.Plugin.Abstractions` is a NuGet **`PackageReference`**, not a project reference:
 
 ```xml
-<PackageReference Include="Schuly.Plugin.Abstractions" Version="0.4.*" />
+<PackageReference Include="Schuly.Plugin.Abstractions" Version="0.11.*" />
 ```
 
 It supplies the whole contract: `ISchulyPlugin`, `IPluginBackgroundTask`, `IPluginUserContext`,
@@ -68,5 +68,5 @@ the container) and reads each plugin's YAML config from its plugins-config direc
    → `MigrateAsync` (which runs `db.Database.MigrateAsync()` to create/upgrade the plugin's
    dedicated Postgres database), then schedules any `IPluginBackgroundTask` on its `Schedule`.
 
-For real distribution (downloading prebuilt DLLs via `curl`) see
+For how plugins are published, see
 [setup/distribution.md](distribution.md).
