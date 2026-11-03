@@ -222,6 +222,8 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                 throw new MicrosoftSignInExpiredException();
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return new ServiceBinary(null, "", rotated);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                throw new MicrosoftThrottledException(RetryAfter(response));
             response.EnsureSuccessStatusCode();
             var disposition = response.Content.Headers.TryGetValues("Content-Disposition", out var dispositions) ? dispositions.FirstOrDefault() : null;
             return new ServiceBinary(await response.Content.ReadAsByteArrayAsync(ct), response.Content.Headers.ContentType?.MediaType ?? "", rotated, disposition);
@@ -254,14 +256,16 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         }
 
         /// <summary>GETs `api/{path}` and hands back the open response (headers read, body not yet) for streaming; null on 404. The caller disposes it.</summary>
-        public Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct) =>
-            OpenStreamAsync(HttpMethod.Get, path, null, refreshToken, ct);
+        public Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(string path, string refreshToken, CancellationToken ct, string? byteRange = null) =>
+            OpenStreamAsync(HttpMethod.Get, path, null, refreshToken, ct, byteRange);
 
         /// <summary>Sends <paramref name="content"/> to `api/{path}` with <paramref name="method"/> and hands back the open response for streaming, as <see cref="OpenStreamAsync(string, string, CancellationToken)"/> does.</summary>
-        public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(HttpMethod method, string path, HttpContent? content, string refreshToken, CancellationToken ct)
+        public async Task<(HttpResponseMessage? Response, string RefreshToken)> OpenStreamAsync(HttpMethod method, string path, HttpContent? content, string refreshToken, CancellationToken ct, string? byteRange = null)
         {
             var request = new HttpRequestMessage(method, PathIds.Upstream(new Uri(BaseUrl), path)) { Content = content };
             request.Headers.Add(RefreshTokenHeader, refreshToken);
+            if (byteRange is not null)
+                request.Headers.TryAddWithoutValidation("Range", byteRange);
             var response = await Client(UploadTimeout).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             var rotated = Rotated(response, refreshToken);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -274,7 +278,13 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                 response.Dispose();
                 return (null, rotated);
             }
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                var wait = RetryAfter(response);
+                response.Dispose();
+                throw new MicrosoftThrottledException(wait);
+            }
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.RequestedRangeNotSatisfiable)
             {
                 var status = response.StatusCode;
                 response.Dispose();

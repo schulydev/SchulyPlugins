@@ -36,7 +36,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         private static string E(string value) => Uri.EscapeDataString(value);
 
-        private static string DriveItemPath(IdScope ids, string driveId, string itemId) => $"drives/{E(Drive(ids, driveId))}/items/{E(Item(ids, itemId))}";
+        internal static string DriveItemPath(IdScope ids, string driveId, string itemId) => $"drives/{E(Drive(ids, driveId))}/items/{E(Item(ids, itemId))}";
 
         private static string ChannelMessages(IdScope ids, string teamId, string channelId) => $"teams/{E(Team(ids, teamId))}/channels/{E(Channel(ids, channelId))}/messages";
 
@@ -78,23 +78,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
         public Task<IActionResult> Children(Guid accountId, string driveId, string itemId, [FromQuery] int? top = null, CancellationToken ct = default) =>
             ReadAsync(accountId, ids => $"{DriveItemPath(ids, driveId, itemId)}/children?top={Top(top, TeamsFileRequests.DefaultListTop)}", IdShape.DriveItemsInDrive, ct);
 
-        /// <summary>A drive file's bytes, streamed through as a download (100 MB cap).</summary>
+        /// <summary>A drive file's bytes, streamed through as a download, whole or one range (100 MB cap).</summary>
         [HttpGet("drives/{driveId}/items/{itemId}/content")]
         public Task<IActionResult> Content(Guid accountId, string driveId, string itemId, CancellationToken ct = default) =>
-            RunAsync(accountId, async (ids, c) =>
-            {
-                var upstream = await Reader.OpenStreamAsync(ids.UserId, accountId, $"{DriveItemPath(ids, driveId, itemId)}/content", c);
-                if (upstream is null)
-                    return NotFound();
-                HttpContext.Response.RegisterForDispose(upstream);
-                if (upstream.Content.Headers.ContentLength > TeamsFileRequests.MaxContentBytes)
-                    return StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The file is larger than the download limit." });
-                AttachmentResponse.Apply(Response, upstream.Content.Headers.ContentDisposition?.ToString());
-                if (upstream.Content.Headers.ContentLength is { } length)
-                    Response.ContentLength = length;
-                var body = new LengthLimitedStream(await upstream.Content.ReadAsStreamAsync(c), TeamsFileRequests.MaxContentBytes);
-                return File(body, AttachmentResponse.SafeContentType(upstream.Content.Headers.ContentType?.MediaType), enableRangeProcessing: false);
-            }, ct);
+            RunAsync(accountId, (ids, c) => StreamFileAsync(ids.UserId, accountId, $"{DriveItemPath(ids, driveId, itemId)}/content", c), ct);
 
         /// <summary>A drive Office file as PDF, like <c>files/{itemId}/pdf</c>.</summary>
         [HttpGet("drives/{driveId}/items/{itemId}/pdf")]

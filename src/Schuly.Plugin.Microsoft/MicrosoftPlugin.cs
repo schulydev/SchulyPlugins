@@ -30,6 +30,7 @@ namespace Schuly.Plugin.Microsoft
             services.AddScoped<IMicrosoftSignInApi>(sp => sp.GetRequiredService<MicrosoftServiceClient>());
             services.AddScoped<MicrosoftAccountLinker>();
             services.AddSingleton(new PasswordAttemptLimiter(TimeProvider.System));
+            services.AddSingleton(new MediaTickets());
             services.AddScoped<ILinkProvider, MicrosoftLinkProvider>();
             services.AddScoped<MicrosoftAccountReader>();
             services.AddScoped<ScheduledMessageStore>();

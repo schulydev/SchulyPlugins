@@ -24,6 +24,12 @@ namespace Schuly.Plugin.Microsoft.Controllers
         protected async Task<IActionResult> RunAsync(Guid accountId, Func<IdScope, CancellationToken, Task<IActionResult>> action, CancellationToken ct)
         {
             var userId = await userContext.GetCurrentUserIdAsync(ct);
+            return await RunForAsync(userId, accountId, action, ct);
+        }
+
+        /// <summary><see cref="RunAsync"/> for a user already known, for the route a media element reaches without the session.</summary>
+        protected async Task<IActionResult> RunForAsync(Guid userId, Guid accountId, Func<IdScope, CancellationToken, Task<IActionResult>> action, CancellationToken ct)
+        {
             var account = await linkedAccounts.GetAsync(userId, accountId, ct);
             if (account is null || account.Provider != LinkedProviders.Microsoft)
                 return NotFound();
@@ -84,11 +90,39 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 var image = await fetch(ids, c);
                 if (image.Bytes is null)
+                {
+                    Response.Headers.CacheControl = $"private, max-age={MicrosoftAccountReader.MissMaxAgeSeconds}";
                     return NotFound();
+                }
                 Response.Headers.CacheControl = "private, max-age=3600";
                 Response.Headers["X-Content-Type-Options"] = "nosniff";
                 return File(image.Bytes, image.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && !image.ContentType.Contains("svg", StringComparison.OrdinalIgnoreCase) ? image.ContentType : "image/jpeg");
             }, ct);
+
+        /// <summary>Streams a file through, whole or the one range asked for: never held here, capped, and an attachment that can't run however it is reached. A <c>&lt;video&gt;</c> plays it all the same.</summary>
+        protected async Task<IActionResult> StreamFileAsync(Guid userId, Guid accountId, string path, CancellationToken ct, Func<string, bool>? allowType = null)
+        {
+            var upstream = await Reader.OpenStreamAsync(userId, accountId, path, ct, AttachmentResponse.SafeRange(Request.Headers.Range));
+            if (upstream is null)
+                return NotFound();
+            HttpContext.Response.RegisterForDispose(upstream);
+            var contentRange = AttachmentResponse.SafeContentRange(upstream.Content.Headers.ContentRange?.ToString());
+            if (upstream.Content.Headers.ContentLength > TeamsFileRequests.MaxContentBytes || AttachmentResponse.TotalOf(contentRange) > TeamsFileRequests.MaxContentBytes)
+                return StatusCode(StatusCodes.Status413PayloadTooLarge, new { code = "invalid_request", message = "The file is larger than the download limit." });
+            var type = AttachmentResponse.SafeContentType(upstream.Content.Headers.ContentType?.MediaType);
+            if (allowType is not null && !allowType(type))
+                return StatusCode(StatusCodes.Status415UnsupportedMediaType, new { code = "unsupported_type", message = "This file cannot be played." });
+            AttachmentResponse.Apply(Response, upstream.Content.Headers.ContentDisposition?.ToString());
+            Response.Headers.AcceptRanges = "bytes";
+            if (contentRange is not null)
+                Response.Headers.ContentRange = contentRange;
+            if (upstream.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
+                return StatusCode(StatusCodes.Status416RangeNotSatisfiable);
+            Response.StatusCode = (int)upstream.StatusCode;
+            if (upstream.Content.Headers.ContentLength is { } length)
+                Response.ContentLength = length;
+            return File(new LengthLimitedStream(await upstream.Content.ReadAsStreamAsync(ct), TeamsFileRequests.MaxContentBytes), type, enableRangeProcessing: false);
+        }
 
         protected Task<IActionResult> PdfAsync(Guid accountId, Func<IdScope, CancellationToken, Task<HttpResponseMessage?>> open, CancellationToken ct) =>
             RunAsync(accountId, async (ids, c) =>
