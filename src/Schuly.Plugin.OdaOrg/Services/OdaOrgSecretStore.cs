@@ -29,6 +29,10 @@ namespace Schuly.Plugin.OdaOrg.Services
 
         public bool Has(Guid id) => vault.Contains(Key(id));
 
-        public void Remove(Guid id) => vault.Remove(Key(id));
+        public void Remove(Guid id)
+        {
+            vault.Remove(Key(id));
+            vault.Remove($"avatar:{id}");
+        }
     }
 }

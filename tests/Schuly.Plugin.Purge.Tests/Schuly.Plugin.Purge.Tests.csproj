@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
+    <PackageReference Include="TUnit" Version="1.76.28" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Schuly.Plugin.OdaOrg\Schuly.Plugin.OdaOrg.csproj" />
+    <ProjectReference Include="..\..\src\Schuly.Plugin.Schulware\Schuly.Plugin.Schulware.csproj" />
+  </ItemGroup>
+
+</Project>
