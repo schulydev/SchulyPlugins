@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Abstractions.Linking;
 using Schuly.Plugin.Microsoft.Infrastructure;
@@ -41,13 +43,15 @@ namespace Schuly.Plugins.Linking.Tests
 
         private static PasswordSignInState Complete(string oid = "oid-1", string email = "a@school.ch") => S("complete", refresh: "refresh-x", oid: oid, email: email);
 
+        private static MicrosoftResponseCache NoCache() => new(new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), new ConfigurationBuilder().Build(), TimeProvider.System);
+
         private static (MicrosoftLinkProvider Provider, FakeApi Api, FakeLinkedAccounts Accounts, CapturingLogger<MicrosoftLinkProvider> Log, PasswordAttemptLimiter Limiter) Create()
         {
             var api = new FakeApi();
             var accounts = new FakeLinkedAccounts();
             var log = new CapturingLogger<MicrosoftLinkProvider>();
             var limiter = new PasswordAttemptLimiter(TimeProvider.System);
-            return (new MicrosoftLinkProvider(api, new MicrosoftAccountLinker(accounts), accounts, limiter, log), api, accounts, log, limiter);
+            return (new MicrosoftLinkProvider(api, new MicrosoftAccountLinker(accounts), accounts, limiter, NoCache(), log), api, accounts, log, limiter);
         }
 
         private static Task<LinkStepResult> Credentials(MicrosoftLinkProvider p, LinkStepResult form, string pw = Password) =>
@@ -347,7 +351,7 @@ namespace Schuly.Plugins.Linking.Tests
         {
             var accounts = new FakeLinkedAccounts();
             var log = new CapturingLogger<MicrosoftLinkProvider>();
-            var p = new MicrosoftLinkProvider(new ThrowingApi(), new MicrosoftAccountLinker(accounts), accounts, new PasswordAttemptLimiter(TimeProvider.System), log);
+            var p = new MicrosoftLinkProvider(new ThrowingApi(), new MicrosoftAccountLinker(accounts), accounts, new PasswordAttemptLimiter(TimeProvider.System), NoCache(), log);
             var form = await StartPassword(p);
             var result = await Credentials(p, form);
             Assert.Equal(LinkStepKind.Error, result.Step.Kind);

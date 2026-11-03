@@ -53,7 +53,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.TooManyRequests)
             {
                 // Microsoft is throttling this account. The service's own wait already ran out, so the caller should back off.
-                Response.Headers.RetryAfter = "60";
+                Response.Headers.RetryAfter = (ex is MicrosoftThrottledException throttled ? Math.Max(1, (long)Math.Ceiling(throttled.RetryAfter.TotalSeconds)) : 60).ToString();
                 return StatusCode(429, new { code = "throttled", message = "Microsoft is limiting requests for this account. Try again in a minute." });
             }
             catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Forbidden)

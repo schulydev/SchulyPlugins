@@ -9,6 +9,7 @@ Use these pages to build, test, and ship plugins for the
 | [Development setup](setup/development.md) | Install the tools, build a plugin, and run it on a local server |
 | [EF Core migrations](migrations.md) | Give a plugin its own database and evolve its schema |
 | [Kiota client](setup/kiota-client.md) | Regenerate the Schulware API client |
+| [Microsoft response cache](microsoft-response-cache.md) | See what the Microsoft plugin keeps in memory, and set its times |
 | [Distribution](setup/distribution.md) | See how plugins get built and shipped to the `repo` branch |
 | [Contributing](contributing.md) | Follow this repo's own rules |
 

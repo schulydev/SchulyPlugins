@@ -94,9 +94,9 @@ namespace Schuly.Plugin.Microsoft.Tests
 
         private static string J(object o) => JsonSerializer.Serialize(o).Replace("\"odata_context\"", "\"@odata.context\"");
 
-        private static AccountsController Accounts(Harness h, Guid? asUser = null) => h.Controller((u, l, r) => new AccountsController(u, l, r, h.Sealer), asUser);
-        private static MailController Mail(Harness h) => h.Controller((u, l, r) => new MailController(u, l, r, h.Sealer));
-        private static ChatsController Chats(Harness h) => h.Controller((u, l, r) => new ChatsController(u, l, r, h.Scheduled(), h.Sealer));
+        private static AccountsController Accounts(Harness h, Guid? asUser = null) => h.Controller((u, l, r) => new AccountsController(u, l, r, h.Sealer, h.ResponseCache), asUser);
+        private static MailController Mail(Harness h) => h.Controller((u, l, r) => new MailController(u, l, r, h.Sealer, h.ResponseCache));
+        private static ChatsController Chats(Harness h) => h.Controller((u, l, r) => new ChatsController(u, l, r, h.Scheduled(), h.Sealer, h.ResponseCache));
         private static OneNoteController OneNote(Harness h) => h.Controller((u, l, r) => new OneNoteController(u, l, r, h.Sealer));
 
         private static JsonNode Body(IActionResult result)
@@ -355,7 +355,7 @@ namespace Schuly.Plugin.Microsoft.Tests
         {
             var h = Create();
             var store = h.Scheduled();
-            var chats = h.Controller((u, l, r) => new ChatsController(u, l, r, store, h.Sealer));
+            var chats = h.Controller((u, l, r) => new ChatsController(u, l, r, store, h.Sealer, h.ResponseCache));
             var created = Body(await chats.Schedule(h.Account, h.Seal(IdKinds.Chat, Chat), new ScheduleMessageRequest("hi", "text", null, DateTimeOffset.UtcNow.AddHours(1))));
             Assert.Equal(Chat, h.Scope().Open(IdKinds.Chat, (string?)created["chatId"]));
             var id = (string)created["id"]!;

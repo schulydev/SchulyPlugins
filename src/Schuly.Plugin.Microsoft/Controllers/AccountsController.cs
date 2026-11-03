@@ -11,7 +11,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/microsoft/accounts")]
-    public class AccountsController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
+    public class AccountsController(IPluginUserContext userContext, ILinkedAccounts linkedAccounts, MicrosoftAccountReader reader, IdSealer sealer, MicrosoftResponseCache cache) : MicrosoftControllerBase(userContext, linkedAccounts, reader, sealer)
     {
         private static readonly Regex ChatIdPattern = new("^[A-Za-z0-9:@._=-]{1,300}$", RegexOptions.Compiled);
         private static readonly Regex FolderPattern = new("^[A-Za-z0-9=_\\-+/.]{1,512}$", RegexOptions.Compiled);
@@ -29,7 +29,11 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("{accountId:guid}/mail")]
         public Task<IActionResult> Mail(Guid accountId, [FromQuery] string folder = "inbox", [FromQuery] int top = 25, [FromQuery] int skip = 0, [FromQuery] bool unread = false, [FromQuery] string? search = null, CancellationToken ct = default) =>
-            ReadAsync(accountId, ids => $"mail?folder={Uri.EscapeDataString(OpenFolder(ids, folder))}&top={Math.Clamp(top, 1, 500)}&skip={Math.Clamp(skip, 0, 10000)}&unread={unread.ToString().ToLowerInvariant()}" + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}"), IdShape.MailMessages, ct);
+            ReadAsync(accountId, ids => MailPath(OpenFolder(ids, folder), Math.Clamp(top, 1, 500), Math.Clamp(skip, 0, 10000), unread, search), IdShape.MailMessages, ct);
+
+        /// <summary>The upstream mail list, for an opened folder.</summary>
+        public static string MailPath(string folder, int top, int skip, bool unread, string? search) =>
+            $"mail?folder={Uri.EscapeDataString(folder)}&top={top}&skip={skip}&unread={unread.ToString().ToLowerInvariant()}" + (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}");
 
         [HttpGet("{accountId:guid}/calendar")]
         public Task<IActionResult> Calendar(Guid accountId, [FromQuery] int top = 25, [FromQuery] DateTimeOffset? start = null, [FromQuery] DateTimeOffset? end = null, CancellationToken ct = default) =>
@@ -61,6 +65,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             RunAsync(accountId, async (ids, c) =>
             {
                 await Reader.PostEmptyAsync(ids.UserId, accountId, $"chats/{Uri.EscapeDataString(OpenSafe(ids, IdKinds.Chat, chatId, ChatIdPattern))}/read", c);
+                cache.AfterChatWrite(ids.UserId, accountId);
                 return NoContent();
             }, ct);
 

@@ -11,7 +11,7 @@ namespace Schuly.Plugin.Microsoft.Services
     /// Links Microsoft 365 accounts. Flow "password" (web): email and password, then Microsoft's second factor when it asks for one.
     /// Flow "browser" (mobile): the WebView sign-in. The password is read from the submitted values, sent once and never kept, logged or put in the step state.
     /// </summary>
-    public class MicrosoftLinkProvider(IMicrosoftSignInApi api, MicrosoftAccountLinker linker, ILinkedAccounts linkedAccounts, PasswordAttemptLimiter limiter, ILogger<MicrosoftLinkProvider> logger) : ILinkProvider
+    public class MicrosoftLinkProvider(IMicrosoftSignInApi api, MicrosoftAccountLinker linker, ILinkedAccounts linkedAccounts, PasswordAttemptLimiter limiter, MicrosoftResponseCache cache, ILogger<MicrosoftLinkProvider> logger) : ILinkProvider
     {
         public const string ProviderId = "microsoft";
         public const string PasswordFlow = "password";
@@ -153,8 +153,13 @@ namespace Schuly.Plugin.Microsoft.Services
             return result;
         }
 
-        public Task<bool> UnlinkAsync(Guid applicationUserId, string accountId, CancellationToken cancellationToken = default) =>
-            Guid.TryParse(accountId, out var id) ? linkedAccounts.RemoveAsync(applicationUserId, id, cancellationToken) : Task.FromResult(false);
+        public async Task<bool> UnlinkAsync(Guid applicationUserId, string accountId, CancellationToken cancellationToken = default)
+        {
+            if (!Guid.TryParse(accountId, out var id) || !await linkedAccounts.RemoveAsync(applicationUserId, id, cancellationToken))
+                return false;
+            cache.ClearAccount(applicationUserId, id);
+            return true;
+        }
 
         private async Task<LinkStepResult> SubmitCredentialsAsync(LinkSubmitContext context, CancellationToken ct)
         {
