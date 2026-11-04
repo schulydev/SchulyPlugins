@@ -250,6 +250,19 @@ namespace Schuly.Plugin.Microsoft.Tests
             Assert.IsType<FileContentResult>(thumb);
         }
 
+        [Fact]
+        public async Task A_missing_photo_or_preview_is_an_empty_answer_and_no_error()
+        {
+            var h = Create();
+            var chat = h.Seal(IdKinds.Chat, Chat);
+            h.Service.Failures[$"users/{User2}/photo"] = (System.Net.HttpStatusCode.NotFound, null);
+            h.Service.Failures[$"chats/{Chat}/photo"] = (System.Net.HttpStatusCode.NotFound, null);
+            h.Service.Failures[$"chats/{Chat}/messages/{Msg}/files/{FileAtt}/thumbnail"] = (System.Net.HttpStatusCode.NotFound, null);
+            Assert.IsType<OkResult>(await Accounts(h).Photo(h.Account, h.Seal(IdKinds.User, User2)));
+            Assert.IsType<OkResult>(await Chats(h).ChatPhoto(h.Account, chat));
+            Assert.IsType<OkResult>(await Chats(h).ChatFileThumbnail(h.Account, chat, h.Seal(IdKinds.ChatMessage, Msg), h.Seal(IdKinds.ChatFile, FileAtt)));
+        }
+
         public static TheoryData<string> Refusals => new() { "wrong user", "wrong account", "wrong kind", "tampered", "raw", "garbage" };
 
         [Theory]

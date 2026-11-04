@@ -98,7 +98,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 var path = DriveItemPath(ids, driveId, itemId);
                 return Reader.GetImageAsync(ids.UserId, accountId, $"driveitemthumb|{path}|{size}", $"{path}/thumbnail?size={size}", c);
-            }, ct);
+            }, ct, optional: true);
         }
 
         /// <summary>The text of a drive file (docx, xlsx, pptx, pdf, plain text...), paged: <c>{name, kind, text, offset, nextOffset, totalChars, truncated, notes, ...}</c>. 415 <c>unsupported_type</c> and 413 <c>too_large</c> like the PDF routes.</summary>
