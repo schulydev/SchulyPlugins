@@ -37,6 +37,11 @@ namespace Schuly.Plugin.Microsoft.Controllers
         private static readonly Regex EmailPattern = new("^[^@\\s<>(),;:\\\\\"\\[\\]']{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\\.[A-Za-z]{2,}$", RegexOptions.Compiled);
         private static readonly int[] PhotoSizes = [48, 64, 96, 120, 240];
 
+        /// <summary>The Teams status of the other person in a 1:1 chat: <c>{availability, activity}</c>, both null when there is none to show.</summary>
+        [HttpGet("chats/{chatId}/presence")]
+        public Task<IActionResult> ChatPresence(Guid accountId, string chatId, CancellationToken ct = default) =>
+            ReadAsync(accountId, ids => $"chats/{Uri.EscapeDataString(Chat(ids, chatId))}/presence", IdShape.None, ct);
+
         [HttpGet("chats/{chatId}/photo")]
         public Task<IActionResult> ChatPhoto(Guid accountId, string chatId, CancellationToken ct = default) =>
             ImageAsync(accountId, (ids, c) => Reader.GetChatPhotoAsync(ids.UserId, accountId, Chat(ids, chatId), c), ct, optional: true);
