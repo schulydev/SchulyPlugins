@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
+using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Shared;
 
@@ -14,20 +15,34 @@ namespace Schuly.Plugin.Schulware.Services
         {
             var absences = await client.Api.Mobile.Absences.GetAsync(cancellationToken: ct) ?? [];
             var lateness = await client.Api.Mobile.Lateness.GetAsync(cancellationToken: ct) ?? [];
-            var records = new List<AbsenceRecord>();
-            var usedIds = new HashSet<string>();
+            var notices = await NoticesAsync(client, ct);
+            var entries = new List<AbsenceEntry>();
 
-            foreach (var absence in absences.OrderBy(a => a.Id, StringComparer.Ordinal))
+            foreach (var absence in absences)
             {
                 if (!TryDate(absence.DateFrom, out var from) || !TryDate(absence.DateTo, out var to))
                     continue;
 
-                var id = ExternalIds.Of("absence", from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"));
-                if (!usedIds.Add(id))
-                    id = ExternalIds.Of("absence", from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), absence.Id);
-                var reason = Blank(absence.Reason) ?? Blank(absence.Category) ?? "Imported from Schulnetz";
-                records.Add(new AbsenceRecord(id, SwissTime.UtcDate(from), SwissTime.UtcDate(to), reason) { IsExcused = absence.IsExcused });
+                var notice = absence.Id is not null && notices.TryGetValue(absence.Id, out var found) ? found : null;
+                var start = AbsenceMerge.Time(absence.HourFrom);
+                var end = AbsenceMerge.Time(absence.HourTo);
+                entries.Add(new AbsenceEntry(from, to, Blank(absence.Reason) ?? Blank(absence.Category) ?? "Imported from Schulnetz")
+                {
+                    IsExcused = absence.IsExcused,
+                    StartTime = start is not null && end is not null ? start : null,
+                    EndTime = start is not null && end is not null ? end : null,
+                    ParentStatus = Blank(absence.StatusEAE),
+                    ParentStatusDate = AbsenceMerge.Date(absence.DateEAE),
+                    TrainerStatus = Blank(absence.StatusEAB) ?? Blank(notice?.TrainerAcknowledgement),
+                    TrainerStatusDate = AbsenceMerge.Date(absence.DateEAB) ?? AbsenceMerge.Date(notice?.TrainerCommentTimestamp),
+                    TrainerComment = Blank(absence.CommentEAB) ?? Blank(notice?.TrainerComment),
+                    Comment = Blank(absence.Comment),
+                    Lessons = AbsenceMerge.Lessons(absence.Lessons),
+                });
             }
+
+            var records = AbsenceMerge.ToRecords(entries);
+            LogStatusValues(entries);
 
             foreach (var late in lateness)
             {
@@ -45,6 +60,39 @@ namespace Schuly.Plugin.Schulware.Services
             return records.Count;
         }
 
+        /// <summary>Which notice holds the training company's answer, per absence. Absences still sync when this list fails.</summary>
+        private async Task<Dictionary<string, AbsenceNoticeDto>> NoticesAsync(SchulwareApiClient client, CancellationToken ct)
+        {
+            try
+            {
+                var rows = await client.Api.Mobile.Absencenotices.GetAsync(cancellationToken: ct) ?? [];
+                return rows
+                    .Where(n => n.AbsenceId is not null && (Blank(n.TrainerAcknowledgement) ?? Blank(n.TrainerComment)) is not null)
+                    .GroupBy(n => n.AbsenceId!)
+                    .ToDictionary(g => g.Key, g => g.First());
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning("Absence notices could not be read: {Error}", ex.GetType().Name);
+                return [];
+            }
+        }
+
+        /// <summary>The words each school uses for these steps haven't been seen yet. This shows them without any reason or comment: only short plain words get through.</summary>
+        private void LogStatusValues(List<AbsenceEntry> entries)
+        {
+            var parents = Words(entries.Select(e => e.ParentStatus));
+            var trainers = Words(entries.Select(e => e.TrainerStatus));
+            if (parents.Count + trainers.Count > 0)
+                logger.LogInformation("Absence status values: StatusEAE {Parents}, trainer {Trainers}", parents, trainers);
+        }
+
+        private static List<string> Words(IEnumerable<string?> values) => values
+            .OfType<string>()
+            .Select(v => v.Length <= 20 && v.All(c => char.IsLetter(c) || c == ' ') ? v : "(other)")
+            .Distinct()
+            .ToList();
+
         private static bool TryDate(string? raw, out DateOnly date)
         {
             date = default;
@@ -60,6 +108,6 @@ namespace Schuly.Plugin.Schulware.Services
             return TimeOnly.TryParse(raw, CultureInfo.InvariantCulture, out var time) && SwissTime.TryToUtc(day.ToDateTime(time), out utc);
         }
 
-        private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        private static string? Blank(string? value) => AbsenceMerge.Blank(value);
     }
 }
