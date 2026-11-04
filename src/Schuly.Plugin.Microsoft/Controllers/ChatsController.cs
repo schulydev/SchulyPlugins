@@ -39,7 +39,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
 
         [HttpGet("chats/{chatId}/photo")]
         public Task<IActionResult> ChatPhoto(Guid accountId, string chatId, CancellationToken ct = default) =>
-            ImageAsync(accountId, (ids, c) => Reader.GetChatPhotoAsync(ids.UserId, accountId, Chat(ids, chatId), c), ct);
+            ImageAsync(accountId, (ids, c) => Reader.GetChatPhotoAsync(ids.UserId, accountId, Chat(ids, chatId), c), ct, optional: true);
 
         /// <summary>An image pasted into a message. <paramref name="hostedId"/> is the message's <c>media[].hostedContentId</c>; it may contain "/", so it is a catch-all.</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/media/{**hostedId}")]
@@ -54,7 +54,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
                 return Task.FromResult(Invalid("Invalid email."));
             if (!PhotoSizes.Contains(size))
                 return Task.FromResult(Invalid("size must be one of 48, 64, 96, 120, 240."));
-            return ImageAsync(accountId, (ids, c) => Reader.GetPeoplePhotoAsync(ids.UserId, accountId, email, size, c), ct);
+            return ImageAsync(accountId, (ids, c) => Reader.GetPeoplePhotoAsync(ids.UserId, accountId, email, size, c), ct, optional: true);
         }
 
         /// <summary>A file shared in a message (<c>files[].id</c>), streamed through as a download, whole or one range. Video and audio keep their type so a blob can play in &lt;video&gt;.</summary>
@@ -62,7 +62,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
         public Task<IActionResult> ChatFile(Guid accountId, string chatId, string messageId, string attachmentId, CancellationToken ct = default) =>
             RunAsync(accountId, (ids, c) => StreamFileAsync(ids.UserId, accountId, FilePath(ids, chatId, messageId, attachmentId), c), ct);
 
-        /// <summary>The preview image of a file shared in a message (<c>files[].id</c>, only when <c>hasThumbnail</c>): JPEG, PNG or WEBP, 404 when there is none. <paramref name="size"/> is small, medium or large.</summary>
+        /// <summary>The preview image of a file shared in a message (<c>files[].id</c>, only when <c>hasThumbnail</c>): JPEG, PNG or WEBP, an empty answer when there is none. <paramref name="size"/> is small, medium or large.</summary>
         [HttpGet("chats/{chatId}/messages/{messageId}/files/{attachmentId}/thumbnail")]
         public Task<IActionResult> ChatFileThumbnail(Guid accountId, string chatId, string messageId, string attachmentId, [FromQuery] string size = "medium", CancellationToken ct = default)
         {
@@ -72,10 +72,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 var path = FilePath(ids, chatId, messageId, attachmentId);
                 return Reader.GetImageAsync(ids.UserId, accountId, $"thumb|{path}|{size}", $"{path}/thumbnail?size={size}", c);
-            }, ct);
+            }, ct, optional: true);
         }
 
-        /// <summary>The preview image of a OneDrive item (an <c>id</c> from the files list): JPEG, PNG or WEBP, 404 when there is none.</summary>
+        /// <summary>The preview image of a OneDrive item (an <c>id</c> from the files list): JPEG, PNG or WEBP, an empty answer when there is none.</summary>
         [HttpGet("files/{itemId}/thumbnail")]
         public Task<IActionResult> DriveThumbnail(Guid accountId, string itemId, [FromQuery] string size = "medium", CancellationToken ct = default)
         {
@@ -85,7 +85,7 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 var item = DriveItemId(ids, itemId);
                 return Reader.GetImageAsync(ids.UserId, accountId, $"drivethumb|{item}|{size}", $"files/{Uri.EscapeDataString(item)}/thumbnail?size={size}", c);
-            }, ct);
+            }, ct, optional: true);
         }
 
         /// <summary>Teams' emoji catalogue: <c>{locale, version, assetBase, sizes, fps, categories: [{id, title, emojis: [{id, shortcuts, unicode, title, keywords, diverse, animated, staticUrl, animatedUrl, frames, frameMs, firstFrame, etag}]}], custom}</c>. The service caches it for 24 hours; it is public and carries no token, so the browser keeps it as long. Private only because the route is per account.</summary>

@@ -90,14 +90,15 @@ namespace Schuly.Plugin.Microsoft.Controllers
         protected sealed class UnsafeIdException() : Exception("Invalid id.");
 
         /// <summary>Images go on the photo lane and its cache; the browser may keep them for <paramref name="maxAgeSeconds"/>, an hour unless the picture can't change (this response carries no token).</summary>
-        protected Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct, int maxAgeSeconds = 3600) =>
+        protected Task<IActionResult> ImageAsync(Guid accountId, Func<IdScope, CancellationToken, Task<PhotoResult>> fetch, CancellationToken ct, int maxAgeSeconds = 3600, bool optional = false) =>
             RunAsync(accountId, async (ids, c) =>
             {
                 var image = await fetch(ids, c);
                 if (image.Bytes is null)
                 {
                     Response.Headers.CacheControl = $"private, max-age={MicrosoftAccountReader.MissMaxAgeSeconds}";
-                    return NotFound();
+                    // Most people have no photo and many files no preview. That is an answer, so an empty one, and browsers log no error for it.
+                    return optional ? Ok() : NotFound();
                 }
                 Response.Headers.CacheControl = $"private, max-age={maxAgeSeconds}";
                 Response.Headers["X-Content-Type-Options"] = "nosniff";

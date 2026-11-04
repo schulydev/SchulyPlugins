@@ -76,7 +76,10 @@ namespace Schuly.Plugin.Microsoft.Controllers
             {
                 var photo = await Reader.GetPhotoAsync(ids.UserId, accountId, OpenSafe(ids, IdKinds.User, userId, UserIdPattern), Math.Clamp(size, 16, 648), c);
                 if (photo.Bytes is null)
-                    return NotFound();
+                {
+                    Response.Headers.CacheControl = $"private, max-age={MicrosoftAccountReader.MissMaxAgeSeconds}";
+                    return Ok(); // an empty answer: see ImageAsync
+                }
                 Response.Headers.CacheControl = "private, max-age=3600";
                 Response.Headers["X-Content-Type-Options"] = "nosniff";
                 return File(photo.Bytes, photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? photo.ContentType : "image/jpeg");
