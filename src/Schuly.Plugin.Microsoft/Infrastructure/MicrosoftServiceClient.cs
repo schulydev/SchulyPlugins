@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Schuly.Plugin.Microsoft.Services;
 
 namespace Schuly.Plugin.Microsoft.Infrastructure
 {
@@ -16,7 +17,7 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
     public sealed record ServiceBinary(byte[]? Bytes, string ContentType, string RefreshToken, string? ContentDisposition = null);
 
     /// <summary>One answer of SchulyMicrosoft's password sign-in. Status: complete, mfa_required, push_pending, otp_required, otp_invalid, denied, timed_out, error.</summary>
-    public sealed record PasswordSignInState(string Status, string? SignInId, IReadOnlyList<string> Methods, string? Number, int? ExpiresInSeconds, int? AttemptsLeft, string? RefreshToken, string? MicrosoftUserId, string? Email, string? Name, string? ErrorCode, string? Message);
+    public sealed record PasswordSignInState(string Status, string? SignInId, IReadOnlyList<string> Methods, string? Number, int? ExpiresInSeconds, int? AttemptsLeft, string? RefreshToken, string? MicrosoftUserId, string? Email, string? Name, string? ErrorCode, string? Message, string? SessionCookiesJson = null);
 
     /// <summary>What the link provider needs from SchulyMicrosoft: the browser sign-in and the password sign-in. Implemented once, by <see cref="MicrosoftServiceClient"/>.</summary>
     public interface IMicrosoftSignInApi
@@ -135,7 +136,8 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
                 Str(account, "email"),
                 Str(account, "name"),
                 Str(json, "code"),
-                Str(json, "message"));
+                Str(json, "message"),
+                SessionCookiesOf(json));
         }
 
         /// <summary>SchulyMicrosoft status codes: 401/503 service misconfigured, 404 unknown job, 409 wrong state, 422 malformed, 429 rate limited.</summary>
@@ -150,6 +152,18 @@ namespace Schuly.Plugin.Microsoft.Infrastructure
         };
 
         private static PasswordSignInState PasswordError(string code, string message) => new("error", null, [], null, null, null, null, null, null, null, code, message);
+
+        /// <summary>The Microsoft sign-in session of a completed password sign-in, in the stored form; null when it carries none.</summary>
+        private static string? SessionCookiesOf(JsonElement json)
+        {
+            if (!json.TryGetProperty("session_cookies", out var cookies) || cookies.ValueKind != JsonValueKind.Array)
+                return null;
+            var parsed = cookies.EnumerateArray()
+                .Where(c => c.ValueKind == JsonValueKind.Object)
+                .Select(c => new MicrosoftSession.Cookie(Str(c, "domain") ?? "", Str(c, "name") ?? "", Str(c, "path") ?? "/", Str(c, "value")!))
+                .Where(c => c.Value is not null);
+            return MicrosoftSession.ToStored(parsed);
+        }
 
         private static int? Int(JsonElement element, string name) =>
             element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var n) ? n : null;

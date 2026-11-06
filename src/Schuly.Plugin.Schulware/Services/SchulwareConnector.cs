@@ -11,6 +11,8 @@ namespace Schuly.Plugin.Schulware.Services
 {
     public class SchulwareConnector(SchulwareDbContext db, IHttpClientFactory httpClientFactory, IConfiguration configuration, SchoolProvisioningService provisioning, AccountSecretStore secretStore, ILinkedAccounts linkedAccounts, SchulwareSyncTask syncTask, SchulwareSyncLauncher launcher, IServiceProvider services, ILogger<SchulwareConnector> logger) : ISchulwareConnector
     {
+        public const string MicrosoftSignInExpired = "The Microsoft sign-in of that account has expired. Sign in to Microsoft again.";
+
         public async Task<SchulwareConnectOutcome> ConnectAsync(Guid userId, SchulwareConnectRequest request, CancellationToken cancellationToken = default)
         {
             var baseUrl = request.BaseUrl?.TrimEnd('/');
@@ -42,7 +44,7 @@ namespace Schuly.Plugin.Schulware.Services
                     return Fail(ConnectFailure.Invalid, "The selected Microsoft account is not linked to your Schuly account");
                 linkedSession = SessionCookies.FromJson(await linkedAccounts.GetSecretAsync(userId, linkedId, LinkedSecrets.SessionCookies, cancellationToken));
                 if (linkedSession is null || linkedSession.Count == 0)
-                    return Fail(ConnectFailure.SignInExpired, "The Microsoft sign-in of that account has expired. Link it again in Settings.");
+                    return Fail(ConnectFailure.SignInExpired, MicrosoftSignInExpired);
             }
 
             var account = await db.Accounts.FirstOrDefaultAsync(
@@ -80,7 +82,7 @@ namespace Schuly.Plugin.Schulware.Services
 
             if (res is null || res.Success != true || string.IsNullOrEmpty(res.AccessToken))
                 return linkedSession is not null
-                    ? Fail(ConnectFailure.SignInExpired, "The Microsoft sign-in of that account has expired. Link it again in Settings.")
+                    ? Fail(ConnectFailure.SignInExpired, MicrosoftSignInExpired)
                     : Fail(ConnectFailure.Credentials, ApiError.LoginFailedMessage);
 
             account.LinkedAccountId = linkedAccountId;

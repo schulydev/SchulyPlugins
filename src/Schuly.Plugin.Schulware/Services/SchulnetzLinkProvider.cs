@@ -20,6 +20,7 @@ namespace Schuly.Plugin.Schulware.Services
         public const string LinkedAction = "linked"; // "refresh" is reserved by the host and may not be declared on a step.
         public const string BrowserStep = "browser";
         public const string LinkNewOption = "link-new";
+        public const string ExpiredDetail = "Sign-in expired, sign in again";
         public const string MobileOnlyMessage = "This school's sign-in needs the Schuly mobile app.";
         private static readonly TimeSpan NewAccountSyncWindow = TimeSpan.FromMinutes(10);
 
@@ -90,7 +91,9 @@ namespace Schuly.Plugin.Schulware.Services
                         if (context.Action is LinkStepValidator.RefreshAction or LinkedAction || selected == LinkNewOption || !Guid.TryParse(selected, out var linkedId))
                             return await MicrosoftSelectAsync(context.ApplicationUserId, state, null, cancellationToken);
                         var outcome = await connector.ConnectAsync(context.ApplicationUserId, new SchulwareConnectRequest(state.BaseUrl, null, null, null, true, null, null, linkedId, null, true), cancellationToken);
-                        return outcome.Success ? Done(outcome.AccountId!.Value, state.BaseUrl) : await MicrosoftSelectAsync(context.ApplicationUserId, state, outcome.Message, cancellationToken);
+                        if (outcome.Success)
+                            return Done(outcome.AccountId!.Value, state.BaseUrl);
+                        return await MicrosoftSelectAsync(context.ApplicationUserId, state, outcome.Message, cancellationToken, outcome.Failure == ConnectFailure.SignInExpired ? linkedId : null);
                     }
                 case BrowserStep:
                     {
@@ -172,10 +175,17 @@ namespace Schuly.Plugin.Schulware.Services
             }
         }
 
-        private async Task<LinkStepResult> MicrosoftSelectAsync(Guid userId, PluginState state, string? error, CancellationToken ct)
+        private async Task<LinkStepResult> MicrosoftSelectAsync(Guid userId, PluginState state, string? error, CancellationToken ct, Guid? expiredId = null)
         {
             var linked = await linkedAccounts.ListAsync(userId, LinkedProviders.Microsoft, ct);
-            var options = linked.Select(a => new LinkOption(a.Id.ToString(), a.DisplayName ?? a.Email, a.Email)).ToList();
+            var options = new List<LinkOption>();
+            foreach (var a in linked)
+            {
+                var expired = a.Id == expiredId || string.IsNullOrEmpty(await linkedAccounts.GetSecretAsync(userId, a.Id, LinkedSecrets.SessionCookies, ct));
+                options.Add(expired
+                    ? new LinkOption(a.Id.ToString(), a.DisplayName ?? a.Email, ExpiredDetail) { LinkProviderId = LinkedProviders.Microsoft }
+                    : new LinkOption(a.Id.ToString(), a.DisplayName ?? a.Email, a.Email));
+            }
             options.Add(new LinkOption(LinkNewOption, "Link a new Microsoft account") { LinkProviderId = LinkedProviders.Microsoft });
             var step = new LinkStep
             {

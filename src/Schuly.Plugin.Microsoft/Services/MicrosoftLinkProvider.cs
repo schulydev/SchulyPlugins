@@ -29,6 +29,8 @@ namespace Schuly.Plugin.Microsoft.Services
         public const string FailedMessage = "The Microsoft sign-in failed. Start again.";
         public const string ExhaustedMessage = "Too many wrong codes. Start again.";
         public const string ExpiredMessage = "The sign-in expired. Start again.";
+        public const string PasswordExpiredMessage = "Your Microsoft password has expired. Change it at office.com, then try again.";
+        public const string NoPasswordMessage = "This Microsoft account has no password. Use the Schuly mobile app to link it.";
         private const int PollIntervalSeconds = 2;
 
         private sealed record State(string? SignInId, List<string>? Methods, string? Number, DateTimeOffset? ExpiresAt, string? CodeVerifier);
@@ -125,7 +127,7 @@ namespace Schuly.Plugin.Microsoft.Services
                     case "working":
                         return new LinkStepResult(PushForm(state, null), context.State);
                     case "complete":
-                        return await CompleteAsync(context.ApplicationUserId, status, null, cancellationToken);
+                        return await CompleteAsync(context.ApplicationUserId, status, cancellationToken);
                     case "denied":
                         return MethodSelect(WithMethods(state, status.Methods), "The sign-in was denied on your device. Choose a method to try again.");
                     case "timed_out":
@@ -176,7 +178,7 @@ namespace Schuly.Plugin.Microsoft.Services
             {
                 case "complete":
                     limiter.Reset(userId);
-                    return await CompleteAsync(userId, result, null, ct);
+                    return await CompleteAsync(userId, result, ct);
                 case "mfa_required":
                     var methods = Supported(result.Methods);
                     if (result.SignInId is null || methods.Count == 0)
@@ -194,6 +196,10 @@ namespace Schuly.Plugin.Microsoft.Services
                     }
                     if (result.ErrorCode == "rate_limited")
                         return new LinkStepResult(CredentialsForm(email, RateLimitedMessage), null);
+                    if (result.ErrorCode == "password_expired")
+                        return new LinkStepResult(CredentialsForm(email, PasswordExpiredMessage), null);
+                    if (result.ErrorCode == "no_password")
+                        return LinkStepResult.Fail(NoPasswordMessage);
                     if (result.ErrorCode == "invalid")
                         return new LinkStepResult(CredentialsForm(email, "Check the email and password and try again."), null);
                     return Terminal(result) ?? LinkStepResult.Fail(FailedMessage);
@@ -233,7 +239,7 @@ namespace Schuly.Plugin.Microsoft.Services
             switch (result.Status)
             {
                 case "complete":
-                    return await CompleteAsync(context.ApplicationUserId, result, null, ct);
+                    return await CompleteAsync(context.ApplicationUserId, result, ct);
                 case "otp_invalid" when result.AttemptsLeft == 0:
                     return MethodSelect(WithMethods(state, result.Methods), "Too many wrong codes. Choose a method to try again.");
                 case "otp_invalid":
@@ -264,7 +270,7 @@ namespace Schuly.Plugin.Microsoft.Services
                 case "otp_required":
                     return new LinkStepResult(OtpForm(state, null), Write(state));
                 case "complete":
-                    return await CompleteAsync(userId, result, null, ct);
+                    return await CompleteAsync(userId, result, ct);
                 default:
                     if (result.ErrorCode == "rate_limited")
                         return MethodSelect(state, RateLimitedMessage);
@@ -272,11 +278,11 @@ namespace Schuly.Plugin.Microsoft.Services
             }
         }
 
-        private async Task<LinkStepResult> CompleteAsync(Guid userId, PasswordSignInState result, string? cookiesJson, CancellationToken ct)
+        private async Task<LinkStepResult> CompleteAsync(Guid userId, PasswordSignInState result, CancellationToken ct)
         {
             if (string.IsNullOrEmpty(result.RefreshToken) || string.IsNullOrEmpty(result.Email))
                 return LinkStepResult.Fail("The Microsoft sign-in failed.");
-            var account = await linker.SaveAsync(userId, result.MicrosoftUserId, result.Email, result.Name, result.RefreshToken, cookiesJson, ct);
+            var account = await linker.SaveAsync(userId, result.MicrosoftUserId, result.Email, result.Name, result.RefreshToken, result.SessionCookiesJson, ct);
             return LinkStepResult.Done(account.Id.ToString(), account.DisplayName ?? account.Email);
         }
 
