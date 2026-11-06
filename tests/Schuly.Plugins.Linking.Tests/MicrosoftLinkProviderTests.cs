@@ -96,6 +96,31 @@ namespace Schuly.Plugins.Linking.Tests
         }
 
         [Fact]
+        public async Task ExpiredPassword_StaysOnCredentials_AndNoPasswordFails()
+        {
+            var (p, api, _, _, limiter) = Create();
+            api.Start.Enqueue(S("error", null, code: "password_expired"));
+            var expired = await Credentials(p, await StartPassword(p));
+            Assert.Equal("credentials", expired.Step.Id);
+            Assert.Equal(MicrosoftLinkProvider.PasswordExpiredMessage, expired.Step.Error);
+            Assert.False(limiter.IsBlocked(User));
+
+            api.Start.Enqueue(S("error", null, code: "no_password"));
+            var none = await Credentials(p, await StartPassword(p));
+            Assert.Equal(LinkStepKind.Error, none.Step.Kind);
+            Assert.Equal(MicrosoftLinkProvider.NoPasswordMessage, none.Step.Error);
+        }
+
+        [Fact]
+        public async Task PasswordSignIn_StoresTheMicrosoftSessionItReturns()
+        {
+            var (p, api, accounts, _, _) = Create();
+            api.Start.Enqueue(Complete() with { SessionCookiesJson = "[{\"domain\":\"login.microsoftonline.com\",\"name\":\"ESTSAUTH\",\"path\":\"/\",\"value\":\"v\"}]" });
+            await Credentials(p, await StartPassword(p));
+            Assert.True(accounts.Secrets.ContainsKey((accounts.Rows[0].Account.Id, LinkedSecrets.SessionCookies)));
+        }
+
+        [Fact]
         public async Task RateLimited_StaysOnCredentialsWithAFixedError()
         {
             var (p, api, _, _, _) = Create();

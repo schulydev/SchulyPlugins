@@ -107,5 +107,19 @@ namespace Schuly.Plugins.Linking.Tests
             var state = await client.StartPasswordAsync(User, "a@b.ch", "pw", default);
             Assert.Equal("invalid_credentials", state.ErrorCode);
         }
+
+        [Fact]
+        public async Task CompletedSignIn_KeepsOnlyTheSignInHostCookies()
+        {
+            var (client, handler) = Create();
+            handler.Body = "{\"status\":\"complete\",\"refresh_token\":\"r\",\"session_cookies\":[{\"domain\":\"login.microsoftonline.com\",\"name\":\"ESTSAUTH\",\"path\":\"/\",\"value\":\"v\"},{\"domain\":\"evil.example\",\"name\":\"x\",\"path\":\"/\",\"value\":\"y\"}]}";
+            var state = await client.StartPasswordAsync(User, "a@b.ch", "pw", default);
+            Assert.NotNull(state.SessionCookiesJson);
+            Assert.Contains("ESTSAUTH", state.SessionCookiesJson);
+            Assert.DoesNotContain("evil.example", state.SessionCookiesJson);
+
+            handler.Body = "{\"status\":\"complete\",\"refresh_token\":\"r\"}";
+            Assert.Null((await client.StartPasswordAsync(User, "a@b.ch", "pw", default)).SessionCookiesJson);
+        }
     }
 }

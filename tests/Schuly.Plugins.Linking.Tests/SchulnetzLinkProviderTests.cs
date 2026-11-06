@@ -160,6 +160,7 @@ namespace Schuly.Plugins.Linking.Tests
         {
             var env = new Env();
             var existing = await env.Linked.SaveAsync(User, new LinkedAccountRecord(LinkedProviders.Microsoft, "oid-1", "a@school.ch", "Alex"));
+            await env.Linked.SetSecretAsync(User, existing.Id, LinkedSecrets.SessionCookies, "[{\"domain\":\"login.microsoftonline.com\",\"name\":\"ESTSAUTH\",\"path\":\"/\",\"value\":\"v\"}]");
             env.Methods.Method = SchulnetzLoginMethod.Microsoft;
             var p = env.Provider;
             var select = await ToMethod(p);
@@ -169,6 +170,18 @@ namespace Schuly.Plugins.Linking.Tests
             var link = Assert.Single(select.Step.Options, o => o.LinkProviderId == "microsoft");
             Assert.Equal("Link a new Microsoft account", link.Label);
             Assert.Contains(select.Step.Actions, a => a.Id == "linked");
+        }
+
+        [Fact]
+        public async Task LinkedAccountWithoutASession_IsMarkedExpired_AndPickingItSignsInToMicrosoft()
+        {
+            var env = new Env();
+            var account = await env.Linked.SaveAsync(User, new LinkedAccountRecord(LinkedProviders.Microsoft, "oid-1", "a@school.ch", "Alex"));
+            env.Methods.Method = SchulnetzLoginMethod.Microsoft;
+            var select = await ToMethod(env.Provider);
+            var option = Assert.Single(select.Step.Options, o => o.Value == account.Id.ToString());
+            Assert.Equal(SchulnetzLinkProvider.ExpiredDetail, option.Detail);
+            Assert.Equal("microsoft", option.LinkProviderId);
         }
 
         [Fact]
@@ -195,10 +208,11 @@ namespace Schuly.Plugins.Linking.Tests
             var p = env.Provider;
             var select = await ToMethod(p);
 
-            env.Connector.Outcome = new(false, null, "The Microsoft sign-in of that account has expired. Link it again in Settings.", ConnectFailure.SignInExpired);
+            env.Connector.Outcome = new(false, null, SchulwareConnector.MicrosoftSignInExpired, ConnectFailure.SignInExpired);
             var expired = await p.SubmitAsync(StepAssert.Submit(User, "schulnetz", select, new() { ["value"] = account.Id.ToString() }));
             Assert.Equal("microsoft-account", expired.Step.Id);
             Assert.NotNull(expired.Step.Error);
+            Assert.Equal("microsoft", Assert.Single(expired.Step.Options, o => o.Value == account.Id.ToString()).LinkProviderId);
 
             env.Connector.Outcome = new(true, Guid.NewGuid(), "Connected", ConnectFailure.None);
             var done = await p.SubmitAsync(StepAssert.Submit(User, "schulnetz", expired, new() { ["value"] = account.Id.ToString() }));
