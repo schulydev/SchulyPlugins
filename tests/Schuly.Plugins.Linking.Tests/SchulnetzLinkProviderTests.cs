@@ -168,7 +168,7 @@ namespace Schuly.Plugins.Linking.Tests
             Assert.Contains(select.Step.Options, o => o.Value == existing.Id.ToString());
             var link = Assert.Single(select.Step.Options, o => o.LinkProviderId == "microsoft");
             Assert.Equal("Link a new Microsoft account", link.Label);
-            Assert.Contains(select.Step.Actions, a => a.Id == "refresh") ;
+            Assert.Contains(select.Step.Actions, a => a.Id == "linked");
         }
 
         [Fact]

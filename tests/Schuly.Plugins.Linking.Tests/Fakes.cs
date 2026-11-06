@@ -77,7 +77,12 @@ namespace Schuly.Plugins.Linking.Tests
         /// <summary>Everything a client or the host could see or persist from a result, as text.</summary>
         public static string Dump(LinkStepResult result) => JsonSerializer.Serialize(result.Step) + "|" + result.State;
 
-        public static LinkSubmitContext Submit(Guid user, string flow, LinkStepResult previous, Dictionary<string, string>? values = null, string? action = null, LinkPlatform platform = LinkPlatform.Web, string? reauth = null) =>
-            new(user, flow, platform, previous.Step.Id, previous.State, values ?? new Dictionary<string, string>(), action, reauth, "https://host/callback");
+        // Every step a test walks through must pass the host's own check, or the host would reject it in production.
+        public static LinkSubmitContext Submit(Guid user, string flow, LinkStepResult previous, Dictionary<string, string>? values = null, string? action = null, LinkPlatform platform = LinkPlatform.Web, string? reauth = null)
+        {
+            var check = LinkDescriptorValidator.ValidateStep(previous.Step, platform);
+            Xunit.Assert.True(check.IsValid, $"Step '{previous.Step.Id}' is invalid: {string.Join("; ", check.Errors)}");
+            return new(user, flow, platform, previous.Step.Id, previous.State, values ?? new Dictionary<string, string>(), action, reauth, "https://host/callback");
+        }
     }
 }
