@@ -222,6 +222,7 @@ namespace Schuly.Plugin.Schulware.Services
             Id = SchoolStep,
             Kind = LinkStepKind.Form,
             Title = "Choose your school",
+            Description = "Search by name, town or canton.",
             Error = error,
             SubmitLabel = "Continue",
             Fields =
@@ -229,7 +230,7 @@ namespace Schuly.Plugin.Schulware.Services
                 new LinkField
                 {
                     Key = "baseUrl",
-                    Label = "Schulnetz URL",
+                    Label = "School",
                     Type = LinkFieldType.Select,
                     Placeholder = "https://your-schulnetz.example.ch",
                     DefaultValue = current,

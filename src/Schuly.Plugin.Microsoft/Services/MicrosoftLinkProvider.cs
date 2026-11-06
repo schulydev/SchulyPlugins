@@ -382,13 +382,14 @@ namespace Schuly.Plugin.Microsoft.Services
         {
             Id = CredentialsStep,
             Kind = LinkStepKind.Form,
-            Title = "Sign in to Microsoft",
+            Title = "Sign in to Microsoft 365",
+            Description = "Use your school account, usually your school email.",
             Error = error,
             SubmitLabel = "Sign in",
             Fields =
             [
-                new LinkField { Key = "email", Label = "Email", Type = LinkFieldType.Email, DefaultValue = email },
-                new LinkField { Key = "password", Label = "Password", Type = LinkFieldType.Password, Secret = true },
+                new LinkField { Key = "email", Label = "School email", Type = LinkFieldType.Email, DefaultValue = email, Placeholder = "firstname.lastname@school.ch" },
+                new LinkField { Key = "password", Label = "Password", Type = LinkFieldType.Password, Secret = true, Help = "Used once to sign in, never stored. Microsoft may ask you to approve it in the Authenticator app next." },
             ],
         };
 

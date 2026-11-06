@@ -159,11 +159,12 @@ namespace Schuly.Plugin.OdaOrg.Services
             Id = CredentialsStep,
             Kind = LinkStepKind.Form,
             Title = "Sign in to OdA Org",
+            Description = "The portal for your ÜK courses and Lehrbetrieb.",
             Error = error,
             SubmitLabel = "Sign in",
             Fields =
             [
-                new LinkField { Key = "baseUrl", Label = "Portal URL", Type = LinkFieldType.Url, DefaultValue = baseUrl ?? DefaultBaseUrl, Required = false },
+                new LinkField { Key = "baseUrl", Label = "Portal address", Type = LinkFieldType.Url, DefaultValue = baseUrl ?? DefaultBaseUrl, Required = false, Help = "Filled in for ICT Berufsbildung AG. Change it only if your portal is a different one." },
                 new LinkField { Key = "username", Label = "Username", Type = LinkFieldType.Text },
                 new LinkField { Key = "password", Label = "Password", Type = LinkFieldType.Password, Secret = true },
             ],
