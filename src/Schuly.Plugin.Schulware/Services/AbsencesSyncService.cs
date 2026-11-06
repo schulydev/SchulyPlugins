@@ -30,15 +30,25 @@ namespace Schuly.Plugin.Schulware.Services
             var absences = result?.Absences?.Absences;
             if (absences is null || absences.Count == 0) return;
 
-            var records = new List<AbsenceRecord>();
+            var entries = new List<AbsenceEntry>();
             foreach (var absence in absences)
             {
                 if (!TryParseDate(absence.DateFrom, out var from) || !TryParseDate(absence.DateTo, out var to))
                     continue;
 
-                records.Add(new AbsenceRecord(ExternalIds.Of("absence", from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd")), SwissTime.UtcDate(from), SwissTime.UtcDate(to), absence.Reason ?? "Imported from Schulnetz"));
+                entries.Add(new AbsenceEntry(from, to, AbsenceMerge.Blank(absence.Reason) ?? "Imported from Schulnetz")
+                {
+                    IsExcused = absence.Excused,
+                    ParentStatus = AbsenceMerge.Blank(absence.StatusEae),
+                    TrainerComment = AbsenceMerge.Blank(absence.TrainerComment),
+                    TrainerStatusDate = AbsenceMerge.Date(absence.AcknowledgedAt),
+                    Comment = AbsenceMerge.Blank(absence.Comment),
+                    ExcuseDeadline = AbsenceMerge.Date(absence.ExtensionDeadline),
+                    Lessons = absence.Lessons,
+                });
             }
 
+            var records = AbsenceMerge.ToRecords(entries);
             var synced = await schoolData.SyncAbsencesAsync(account.SchoolUserId!.Value, records, ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced absences for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
