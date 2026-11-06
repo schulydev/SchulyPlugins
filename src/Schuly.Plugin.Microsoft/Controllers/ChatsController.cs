@@ -42,6 +42,55 @@ namespace Schuly.Plugin.Microsoft.Controllers
         public Task<IActionResult> ChatPresence(Guid accountId, string chatId, CancellationToken ct = default) =>
             ReadAsync(accountId, ids => $"chats/{Uri.EscapeDataString(Chat(ids, chatId))}/presence", IdShape.None, ct);
 
+        /// <summary>Live chat events as server-sent events, for as long as the caller stays (the web's chat page): <c>{kind: "connected"}</c>, and <c>{kind: "message"|"message_updated"|"message_deleted", chatId, fromMe}</c>. It says what changed where and nothing else, and drops the cached chat answers before saying so. When it ends, reconnect; until then, poll.</summary>
+        [HttpGet("chats/live")]
+        public Task<IActionResult> ChatsLive(Guid accountId, CancellationToken ct = default) =>
+            RunAsync(accountId, async (ids, c) =>
+            {
+                HttpResponseMessage? upstream;
+                try
+                {
+                    upstream = await Reader.OpenStreamAsync(ids.UserId, accountId, "chats/live", c);
+                }
+                catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.ServiceUnavailable or null)
+                {
+                    Response.Headers.RetryAfter = "60";
+                    return StatusCode(StatusCodes.Status503ServiceUnavailable, new { code = "live_unavailable", message = "Live updates are not available right now." });
+                }
+                if (upstream is null)
+                    return NotFound();
+                using (upstream)
+                    await RelayLiveAsync(upstream, ids, c);
+                return new EmptyResult();
+            }, ct);
+
+        private async Task RelayLiveAsync(HttpResponseMessage upstream, IdScope ids, CancellationToken ct)
+        {
+            Response.ContentType = "text/event-stream";
+            Response.Headers.CacheControl = "no-store";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+            try
+            {
+                await Response.StartAsync(ct);
+                using var lines = new StreamReader(await upstream.Content.ReadAsStreamAsync(ct), Encoding.UTF8);
+                while (await lines.ReadLineAsync(ct) is { } line)
+                {
+                    var relayed = LiveChatEvents.Relay(line, ids);
+                    if (relayed.Changed)
+                        cache.AfterChatWrite(ids.UserId, ids.AccountId);
+                    if (relayed.Sse is null)
+                        continue;
+                    await Response.WriteAsync(relayed.Sse, ct);
+                    await Response.Body.FlushAsync(ct);
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or HttpRequestException)
+            {
+                // The caller left or the feed broke, and the answer has started: ending it is all that's left, and the caller reconnects.
+            }
+        }
+
         [HttpGet("chats/{chatId}/photo")]
         public Task<IActionResult> ChatPhoto(Guid accountId, string chatId, CancellationToken ct = default) =>
             ImageAsync(accountId, (ids, c) => Reader.GetChatPhotoAsync(ids.UserId, accountId, Chat(ids, chatId), c), ct, optional: true);
