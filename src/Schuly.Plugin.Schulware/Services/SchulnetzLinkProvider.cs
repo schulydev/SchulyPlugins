@@ -17,6 +17,7 @@ namespace Schuly.Plugin.Schulware.Services
         public const string SchoolStep = "school";
         public const string CredentialsStep = "credentials";
         public const string MicrosoftStep = "microsoft-account";
+        public const string LinkedAction = "linked"; // "refresh" is reserved by the host and may not be declared on a step.
         public const string BrowserStep = "browser";
         public const string LinkNewOption = "link-new";
         public const string MobileOnlyMessage = "This school's sign-in needs the Schuly mobile app.";
@@ -86,7 +87,7 @@ namespace Schuly.Plugin.Schulware.Services
                 case MicrosoftStep:
                     {
                         var selected = Value(context.Values, "value");
-                        if (context.Action == LinkStepValidator.RefreshAction || selected == LinkNewOption || !Guid.TryParse(selected, out var linkedId))
+                        if (context.Action is LinkStepValidator.RefreshAction or LinkedAction || selected == LinkNewOption || !Guid.TryParse(selected, out var linkedId))
                             return await MicrosoftSelectAsync(context.ApplicationUserId, state, null, cancellationToken);
                         var outcome = await connector.ConnectAsync(context.ApplicationUserId, new SchulwareConnectRequest(state.BaseUrl, null, null, null, true, null, null, linkedId, null, true), cancellationToken);
                         return outcome.Success ? Done(outcome.AccountId!.Value, state.BaseUrl) : await MicrosoftSelectAsync(context.ApplicationUserId, state, outcome.Message, cancellationToken);
@@ -184,7 +185,7 @@ namespace Schuly.Plugin.Schulware.Services
                 Description = "This school signs in with Microsoft. Pick a linked account or link a new one.",
                 Error = error,
                 Options = options,
-                Actions = [new LinkAction(LinkStepValidator.RefreshAction, "I linked an account")],
+                Actions = [new LinkAction(LinkedAction, "I linked an account")],
                 SubmitLabel = "Continue",
             };
             return new LinkStepResult(step, WriteState(state));
