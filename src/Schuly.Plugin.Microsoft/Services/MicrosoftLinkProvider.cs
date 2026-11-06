@@ -49,7 +49,7 @@ namespace Schuly.Plugin.Microsoft.Services
                 new ProviderCapability("chat", "Teams", "messages-square", "/api/plugins/microsoft/accounts"),
                 new ProviderCapability("drive", "OneDrive", "hard-drive", "/api/plugins/microsoft/accounts"),
                 new ProviderCapability("notes", "OneNote", "notebook", "/api/plugins/microsoft/accounts"),
-                new ProviderCapability("calendar", "Calendar", "calendar", "/api/plugins/microsoft/accounts"),
+                new ProviderCapability("calendar", "Calendar", "calendar", "/api/plugins/microsoft/calendar"),
             ],
         };
 

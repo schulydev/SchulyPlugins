@@ -404,7 +404,8 @@ namespace Schuly.Plugins.Linking.Tests
             Assert.Equal(LinkPlatforms.Web, p.Descriptor.Flows.Single(f => f.Id == "password").Platforms);
             Assert.Equal(LinkPlatforms.Mobile, p.Descriptor.Flows.Single(f => f.Id == "browser").Platforms);
             Assert.Equal(["mail", "chat", "drive", "notes", "calendar"], p.Descriptor.Capabilities.Select(c => c.Kind));
-            Assert.All(p.Descriptor.Capabilities, c => Assert.Equal("/api/plugins/microsoft/accounts", c.BasePath));
+            Assert.All(p.Descriptor.Capabilities.Where(c => c.Kind != "calendar"), c => Assert.Equal("/api/plugins/microsoft/accounts", c.BasePath));
+            Assert.Equal("/api/plugins/microsoft/calendar", p.Descriptor.Capabilities.Single(c => c.Kind == "calendar").BasePath);
         }
 
         [Fact]
