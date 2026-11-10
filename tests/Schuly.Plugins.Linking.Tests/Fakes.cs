@@ -54,6 +54,24 @@ namespace Schuly.Plugins.Linking.Tests
             Secrets[(linkedAccountId, name)] = value;
             return Task.CompletedTask;
         }
+
+        public readonly List<(Guid UserId, Guid LinkedAccountId)> Pictures = new();
+        public readonly List<(Guid UserId, Guid SchoolUserId, string? ContentType)> SchoolUserPictures = new();
+        public bool AcceptPictures { get; set; } = true;
+        public Exception? PictureError { get; set; }
+
+        public Task<bool> SetPictureAsync(Guid applicationUserId, Guid linkedAccountId, Stream? content, string? contentType, CancellationToken cancellationToken = default)
+        {
+            Pictures.Add((applicationUserId, linkedAccountId));
+            return Task.FromResult(AcceptPictures);
+        }
+
+        public Task<bool> SetSchoolUserPictureAsync(Guid applicationUserId, Guid schoolUserId, Stream? content, string? contentType, CancellationToken cancellationToken = default)
+        {
+            if (PictureError is not null) throw PictureError;
+            SchoolUserPictures.Add((applicationUserId, schoolUserId, contentType));
+            return Task.FromResult(AcceptPictures);
+        }
     }
 
     public sealed class FakeUser(Guid id) : IPluginUserContext
