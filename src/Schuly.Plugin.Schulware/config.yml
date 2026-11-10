@@ -13,3 +13,7 @@ SchulwareApi:
 
 Sync:
   IntervalMinutes: 30
+
+StudentIdCard:
+  # Schulnetz report that renders the Lernendenausweis (mobile cockpitReport and web pageid).
+  # ReportId: 50505
