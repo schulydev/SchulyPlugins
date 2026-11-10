@@ -262,7 +262,7 @@ namespace Schuly.Plugins.Linking.Tests
                 var factory = new Factory(Handler);
                 var refresh = new TokenRefreshService(factory, Db, new FakeLinkedAccounts(), NullLogger<TokenRefreshService>.Instance);
                 var cards = new StudentIdCardService(new ConfigurationBuilder().Build());
-                return new StudentIdCardController(new FakeUser(user), Db, new AccountSecretStore(Vault), refresh, factory, cards, Logger)
+                return new StudentIdCardController(new FakeUser(user), Db, new AccountSecretStore(Vault), refresh, factory, cards, new SchulnetzAccountPictures(new FakeLinkedAccounts(), NullLogger<SchulnetzAccountPictures>.Instance), Logger)
                 {
                     ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
                 };
