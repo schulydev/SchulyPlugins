@@ -17,13 +17,14 @@ namespace Schuly.Plugin.Schulware.Services
         public static readonly TimeSpan RefreshEvery = TimeSpan.FromDays(1);
         private static readonly ConcurrentDictionary<Guid, DateTimeOffset> Refreshed = new();
 
-        public static bool Due(SchulwareAccount account) =>
-            account.LinkedAccountId is { } id && (!Refreshed.TryGetValue(id, out var at) || DateTimeOffset.UtcNow - at >= RefreshEvery);
+        // Off: SchulwareAccount.LinkedAccountId is the Microsoft account used to sign in to Schulnetz, not this account, so storing
+        // there replaced the Microsoft picture. Needs a host place for a school account's own picture first.
+        public static bool Due(SchulwareAccount account) => false;
 
         /// <summary>Stores the card's photo. Never throws: a picture is decoration. A card without a photo leaves the old picture.</summary>
         public async Task StoreFromCardAsync(SchulwareAccount account, string? cardHtml, CancellationToken ct)
         {
-            if (account.LinkedAccountId is not { } linkedAccountId || StudentIdCardPhoto.Extract(cardHtml) is not { } photo) return;
+            if (!Due(account) || account.LinkedAccountId is not { } linkedAccountId || StudentIdCardPhoto.Extract(cardHtml) is not { } photo) return;
             try
             {
                 if (await StoreAsync(account.ApplicationUserId, linkedAccountId, photo.Bytes, photo.ContentType, ct))
