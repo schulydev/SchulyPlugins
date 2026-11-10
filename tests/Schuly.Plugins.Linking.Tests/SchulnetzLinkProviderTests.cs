@@ -285,6 +285,7 @@ namespace Schuly.Plugins.Linking.Tests
             var expired = Add("expired.example.ch", DateTime.UtcNow.AddDays(-1));
             var failed = Add("failed.example.ch", DateTime.UtcNow.AddDays(-1));
             ok.DisplayName = "My school";
+            ok.SchoolUserId = Guid.NewGuid();
             var lastSync = DateTime.UtcNow.AddMinutes(-3);
             env.Db.SyncStates.Add(new SyncState { Id = Guid.NewGuid(), AccountId = ok.Id, LastSyncAt = lastSync, LastSyncStatus = "Success" });
             env.Db.SyncStates.Add(new SyncState { Id = Guid.NewGuid(), AccountId = failed.Id, LastSyncAt = lastSync, LastSyncStatus = "Failed", LastSyncError = "Grades failed" });
@@ -298,6 +299,9 @@ namespace Schuly.Plugins.Linking.Tests
             Assert.Equal(LinkedAccountStatus.Syncing, Of(fresh).Status);
             Assert.Equal(LinkedAccountStatus.Ok, Of(ok).Status);
             Assert.Equal("My school", Of(ok).Title);
+            Assert.Equal(ok.SchoolUserId, Of(ok).SchoolUserId);
+            Assert.Null(Of(fresh).SchoolUserId);
+            Assert.Null(Of(ok).LinkedAccountId);
             Assert.Equal("ok.example.ch", Of(ok).Detail);
             Assert.NotNull(Of(ok).LastSyncedAt);
             Assert.Equal(LinkedAccountStatus.Expired, Of(expired).Status);

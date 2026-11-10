@@ -153,6 +153,7 @@ namespace Schuly.Plugins.Linking.Tests
             var list = await p.ListAccountsAsync(User);
             var summary = Assert.Single(list);
             Assert.Equal("odaorg.ict-bbag.ch", summary.Title);
+            Assert.Equal(db.Accounts.Single().SchoolUserId, summary.SchoolUserId);
             Assert.True(summary.Status is LinkedAccountStatus.Syncing or LinkedAccountStatus.Ok or LinkedAccountStatus.Error);
 
             Assert.False(await p.UnlinkAsync(Guid.NewGuid(), done.Step.Done!.AccountId));

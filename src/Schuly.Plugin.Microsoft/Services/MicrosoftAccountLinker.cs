@@ -7,7 +7,7 @@ namespace Schuly.Plugin.Microsoft.Services
     /// the identity is the Microsoft object id, and rows stored under the email (older links, or a sign-in that
     /// carried no object id) are matched too, so a re-link never creates a duplicate.
     /// </summary>
-    public class MicrosoftAccountLinker(ILinkedAccounts linkedAccounts)
+    public class MicrosoftAccountLinker(ILinkedAccounts linkedAccounts, MicrosoftAccountPictures? pictures = null)
     {
         public async Task<LinkedAccount> SaveAsync(Guid userId, string? microsoftUserId, string email, string? name, string refreshToken, string? sessionCookiesJson, CancellationToken ct)
         {
@@ -21,6 +21,8 @@ namespace Schuly.Plugin.Microsoft.Services
             await linkedAccounts.SetSecretAsync(userId, account.Id, LinkedSecrets.RefreshToken, refreshToken, ct);
             if (sessionCookiesJson is not null)
                 await linkedAccounts.SetSecretAsync(userId, account.Id, LinkedSecrets.SessionCookies, sessionCookiesJson, ct);
+            if (pictures is not null)
+                await pictures.RefreshAsync(userId, account, force: true, ct);
             return account;
         }
     }

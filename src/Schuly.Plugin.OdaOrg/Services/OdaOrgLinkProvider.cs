@@ -120,7 +120,7 @@ namespace Schuly.Plugin.OdaOrg.Services
             {
                 var sync = states.FirstOrDefault(s => s.AccountId == account.Id);
                 var (status, message) = StatusOf(account, sync);
-                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? HostOf(account.BaseUrl), HostOf(account.BaseUrl), status, Utc(account.CreatedAt), message, sync?.LastSyncAt is { } at ? Utc(at) : null));
+                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? HostOf(account.BaseUrl), HostOf(account.BaseUrl), status, Utc(account.CreatedAt), message, sync?.LastSyncAt is { } at ? Utc(at) : null) { SchoolUserId = account.SchoolUserId });
             }
             return result;
         }

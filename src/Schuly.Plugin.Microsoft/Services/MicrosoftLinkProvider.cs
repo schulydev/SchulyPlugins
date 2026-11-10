@@ -11,7 +11,7 @@ namespace Schuly.Plugin.Microsoft.Services
     /// Links Microsoft 365 accounts. Flow "password" (web): email and password, then Microsoft's second factor when it asks for one.
     /// Flow "browser" (mobile): the WebView sign-in. The password is read from the submitted values, sent once and never kept, logged or put in the step state.
     /// </summary>
-    public class MicrosoftLinkProvider(IMicrosoftSignInApi api, MicrosoftAccountLinker linker, ILinkedAccounts linkedAccounts, PasswordAttemptLimiter limiter, MicrosoftResponseCache cache, ILogger<MicrosoftLinkProvider> logger) : ILinkProvider
+    public class MicrosoftLinkProvider(IMicrosoftSignInApi api, MicrosoftAccountLinker linker, ILinkedAccounts linkedAccounts, PasswordAttemptLimiter limiter, MicrosoftResponseCache cache, ILogger<MicrosoftLinkProvider> logger, MicrosoftAccountPictures? pictures = null) : ILinkProvider
     {
         public const string ProviderId = "microsoft";
         public const string PasswordFlow = "password";
@@ -150,7 +150,9 @@ namespace Schuly.Plugin.Microsoft.Services
             foreach (var account in accounts)
             {
                 var hasToken = !string.IsNullOrEmpty(await linkedAccounts.GetSecretAsync(applicationUserId, account.Id, LinkedSecrets.RefreshToken, cancellationToken));
-                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? account.Email, account.Email, hasToken ? LinkedAccountStatus.Ok : LinkedAccountStatus.Expired, account.CreatedAt, hasToken ? null : "The sign-in expired. Link the account again.", null));
+                if (hasToken && pictures is not null)
+                    await pictures.RefreshAsync(applicationUserId, account, force: false, cancellationToken);
+                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? account.Email, account.Email, hasToken ? LinkedAccountStatus.Ok : LinkedAccountStatus.Expired, account.CreatedAt, hasToken ? null : "The sign-in expired. Link the account again.", null) { LinkedAccountId = account.Id });
             }
             return result;
         }
@@ -160,6 +162,7 @@ namespace Schuly.Plugin.Microsoft.Services
             if (!Guid.TryParse(accountId, out var id) || !await linkedAccounts.RemoveAsync(applicationUserId, id, cancellationToken))
                 return false;
             cache.ClearAccount(applicationUserId, id);
+            MicrosoftAccountPictures.Forget(id);
             return true;
         }
 

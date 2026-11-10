@@ -28,6 +28,7 @@ namespace Schuly.Plugin.Microsoft
             services.AddScoped<PendingLinkStore>();
             services.AddScoped<MicrosoftServiceClient>();
             services.AddScoped<IMicrosoftSignInApi>(sp => sp.GetRequiredService<MicrosoftServiceClient>());
+            services.AddScoped<MicrosoftAccountPictures>();
             services.AddScoped<MicrosoftAccountLinker>();
             services.AddSingleton(new PasswordAttemptLimiter(TimeProvider.System));
             services.AddSingleton(new MediaTickets());
