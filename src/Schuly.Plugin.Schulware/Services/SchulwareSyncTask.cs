@@ -155,6 +155,16 @@ namespace Schuly.Plugin.Schulware.Services
                 return $"{reportSemesters.Count} semesters";
             });
 
+            if (SchulnetzAccountPictures.Due(account))
+            {
+                await run.Section("picture", async () =>
+                {
+                    var html = (await client.Api.Mobile.Studentidcard[sp.GetRequiredService<StudentIdCardService>().ReportId].GetAsync(cancellationToken: ct))?.Html;
+                    await sp.GetRequiredService<SchulnetzAccountPictures>().StoreFromCardAsync(account, html, ct);
+                    return "ok";
+                }, optional: true);
+            }
+
             if (account.DeviceId is null && (account.HistorySyncedAt is null || account.HistorySyncedAt < DateTime.UtcNow - HistoryInterval))
             {
                 var current = Semesters.Current(DateOnly.FromDateTime(DateTime.UtcNow));

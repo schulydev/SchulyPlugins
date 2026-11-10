@@ -124,7 +124,7 @@ namespace Schuly.Plugin.Schulware.Services
             {
                 var sync = states.FirstOrDefault(s => s.AccountId == account.Id);
                 var (status, message) = StatusOf(account, sync);
-                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? HostOf(account.SchulnetzBaseUrl), HostOf(account.SchulnetzBaseUrl), status, new DateTimeOffset(DateTime.SpecifyKind(account.CreatedAt, DateTimeKind.Utc)), message, sync?.LastSyncAt is { } at ? new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Utc)) : null) { SchoolUserId = account.SchoolUserId });
+                result.Add(new LinkedAccountSummary(account.Id.ToString(), account.DisplayName ?? HostOf(account.SchulnetzBaseUrl), HostOf(account.SchulnetzBaseUrl), status, new DateTimeOffset(DateTime.SpecifyKind(account.CreatedAt, DateTimeKind.Utc)), message, sync?.LastSyncAt is { } at ? new DateTimeOffset(DateTime.SpecifyKind(at, DateTimeKind.Utc)) : null) { SchoolUserId = account.SchoolUserId, LinkedAccountId = account.LinkedAccountId });
             }
             return result;
         }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Data;
+using Schuly.Plugin.Schulware.Dtos;
 using Schuly.Plugin.Schulware.Infrastructure;
 using Schuly.Plugin.Schulware.Services;
 
@@ -16,7 +17,7 @@ namespace Schuly.Plugin.Schulware.Controllers
     [ApiController]
     [Authorize]
     [Route("api/plugins/schulware/accounts/{accountId:guid}/student-id-card")]
-    public class StudentIdCardController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore, TokenRefreshService refresh, IHttpClientFactory httpClientFactory, StudentIdCardService cards, ILogger<StudentIdCardController> logger) : ControllerBase
+    public class StudentIdCardController(IPluginUserContext userContext, SchulwareDbContext db, AccountSecretStore secretStore, TokenRefreshService refresh, IHttpClientFactory httpClientFactory, StudentIdCardService cards, SchulnetzAccountPictures pictures, ILogger<StudentIdCardController> logger) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> Get(Guid accountId, CancellationToken ct)
@@ -35,15 +36,19 @@ namespace Schuly.Plugin.Schulware.Controllers
                 if (mobile && account.MobileTokenExpiresAt.HasValue && account.MobileTokenExpiresAt < DateTime.UtcNow)
                     refreshed = await RefreshAsync(account, ct);
 
+                StudentIdCardResponse card;
                 try
                 {
-                    return Ok(await cards.FetchAsync(CreateSource(account, sources), mobile, ct));
+                    card = await cards.FetchAsync(CreateSource(account, sources), mobile, ct);
                 }
                 catch (StudentIdCardException ex) when (ex.Code == "signin_expired" && mobile)
                 {
                     refreshed |= await RefreshAsync(account, ct);
-                    return Ok(await cards.FetchAsync(CreateSource(account, sources), mobile, ct));
+                    card = await cards.FetchAsync(CreateSource(account, sources), mobile, ct);
                 }
+                // Only the photo is kept, as the account's picture; the card itself still never is.
+                await pictures.StoreFromCardAsync(account, card.Html, ct);
+                return Ok(card);
             }
             catch (StudentIdCardException ex)
             {
