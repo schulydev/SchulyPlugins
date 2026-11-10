@@ -160,8 +160,7 @@ namespace Schuly.Plugin.Schulware.Services
                 await run.Section("picture", async () =>
                 {
                     var html = (await client.Api.Mobile.Studentidcard[sp.GetRequiredService<StudentIdCardService>().ReportId].GetAsync(cancellationToken: ct))?.Html;
-                    await sp.GetRequiredService<SchulnetzAccountPictures>().StoreFromCardAsync(account, html, ct);
-                    return "ok";
+                    return await sp.GetRequiredService<SchulnetzAccountPictures>().StoreFromCardAsync(account, html, ct);
                 }, optional: true);
             }
 
