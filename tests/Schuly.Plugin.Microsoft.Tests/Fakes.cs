@@ -48,6 +48,25 @@ namespace Schuly.Plugin.Microsoft.Tests
         public Task<string?> GetSecretAsync(Guid applicationUserId, Guid linkedAccountId, string name, CancellationToken cancellationToken = default) => Task.FromResult<string?>("refresh-token");
 
         public Task SetSecretAsync(Guid applicationUserId, Guid linkedAccountId, string name, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        /// <summary>Pictures handed to the host, per account: the bytes, or null when it was cleared. Off: behaves like a host without picture support.</summary>
+        public readonly Dictionary<Guid, (byte[]? Bytes, string? ContentType)> Pictures = new();
+        public bool SupportsPictures = true;
+
+        public async Task<bool> SetPictureAsync(Guid applicationUserId, Guid linkedAccountId, Stream? content, string? contentType, CancellationToken cancellationToken = default)
+        {
+            if (!SupportsPictures || !Rows.Any(r => r.UserId == applicationUserId && r.Account.Id == linkedAccountId))
+                return false;
+            byte[]? bytes = null;
+            if (content is not null)
+            {
+                using var buffer = new MemoryStream();
+                await content.CopyToAsync(buffer, cancellationToken);
+                bytes = buffer.ToArray();
+            }
+            Pictures[linkedAccountId] = (bytes, contentType);
+            return true;
+        }
     }
 
     public sealed class FakeUser(Guid id) : IPluginUserContext
