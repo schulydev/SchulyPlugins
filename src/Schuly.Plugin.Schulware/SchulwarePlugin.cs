@@ -51,6 +51,7 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<PushRelayClient>();
             services.AddScoped<PushRegistrationService>();
             services.AddScoped<SchoolProvisioningService>();
+            services.AddScoped<StudentIdCardService>();
 
             // The account auth secrets live in this plugin's encrypted vault instead of the database.
             services.AddScoped<AccountSecretStore>();
