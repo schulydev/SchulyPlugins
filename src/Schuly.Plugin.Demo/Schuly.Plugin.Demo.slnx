@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Schuly.Plugin.Demo.csproj" />
+  <Project Path="../../tests/Schuly.Plugin.Demo.Tests/Schuly.Plugin.Demo.Tests.csproj" />
+</Solution>
