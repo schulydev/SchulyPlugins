@@ -183,7 +183,14 @@ namespace Schuly.Plugin.Schulware.Services
 
         private static async Task SyncWebOnlyAsync(IServiceProvider sp, SchulwareAccount account, SectionRunner run, CancellationToken ct)
         {
-            await run.Section("grades", async () => $"{(await ScrapeGradesAsync(sp, account, null, null, ct)).Count} from the web pages");
+            GradesSyncService.Result? grades = null;
+            await run.Section("grades", async () => $"{(grades = await ScrapeGradesAsync(sp, account, null, null, ct)).Count} from the web pages");
+            await run.Section("timetable", async () =>
+            {
+                await EnsureWebSessionAsync(sp, account, ct);
+                var client = SchulwareApiClientFactory.Create(sp.GetRequiredService<IHttpClientFactory>(), account.SchulwareApiBaseUrl, account.SchulnetzBaseUrl, account.MobileAccessToken);
+                return $"{await sp.GetRequiredService<AgendaSyncService>().SyncWebAsync(client, account, grades?.SubjectsByCourse ?? new Dictionary<string, string>(), ct)} entries from the web pages";
+            });
             await run.Section("absences", async () =>
             {
                 await EnsureWebSessionAsync(sp, account, ct);

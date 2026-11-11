@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
+using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Shared;
 
@@ -51,6 +52,54 @@ namespace Schuly.Plugin.Schulware.Services
                 records.Add(new AgendaRecord(ExternalIds.Of("exam", examId), AgendaKind.Test, title, start, end, Blank(exam.RoomToken), Blank(exam.Comment)));
             }
 
+            return await SaveAsync(account, records, ct);
+        }
+
+        /// <summary>Syncs the timetable from the Schulnetz website's scheduler, for schools that refuse the mobile app.</summary>
+        public async Task<int> SyncWebAsync(SchulwareApiClient client, SchulwareAccount account, IReadOnlyDictionary<string, string> subjectNames, CancellationToken ct)
+        {
+            var result = await client.Api.Websession.Scrape.PostAsync(new WebScrapeRequestDto
+            {
+                Page = "schedule",
+                SessionId = account.WebSessionId,
+                Id = account.WebSessionUserId,
+                Transid = account.WebSessionTransId,
+                UserAgent = account.UserAgent,
+            }, cancellationToken: ct);
+            if (result?.Success != true)
+                throw new WebSessionExpiredException(result?.Message);
+            return await SaveAsync(account, FromWeb(result.Schedule ?? [], subjectNames), ct);
+        }
+
+        /// <summary>Scheduler events to agenda records: "*_stp" are lessons, "*_pru" exams; other kinds are skipped.</summary>
+        public static List<AgendaRecord> FromWeb(IEnumerable<ScheduleEventDto> events, IReadOnlyDictionary<string, string> subjectNames)
+        {
+            static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+            var records = new List<AgendaRecord>();
+            foreach (var ev in events)
+            {
+                if (!SwissTime.TryParseToUtc(ev.StartDate, out var start)) continue;
+                DateTimeOffset? end = SwissTime.TryParseToUtc(ev.EndDate, out var e) && e >= start ? e : null;
+                var token = Blank(ev.Kurskuerzel);
+                string? mapped = null;
+                if (token is not null)
+                    subjectNames.TryGetValue(token, out mapped);
+                if (ev.EventType?.EndsWith("_stp", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    var title = Blank(mapped) ?? token ?? Blank(ev.Text) ?? "Lektion";
+                    // Same id as the mobile sync, so a school switching between the two keeps its lessons.
+                    records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), token ?? title), AgendaKind.Lesson, title, start, end, Blank(ev.Zimmer), Blank(ev.Kommentar) ?? Blank(ev.Lehrerkuerzelname)));
+                }
+                else if (ev.EventType?.EndsWith("_pru", StringComparison.OrdinalIgnoreCase) == true && Blank(ev.Text) is { } text)
+                {
+                    records.Add(new AgendaRecord(ExternalIds.Of("exam", "web", start.ToString("O"), text), AgendaKind.Test, $"Prüfung: {text}", start, end, Blank(ev.Zimmer), Blank(ev.Kommentar)));
+                }
+            }
+            return records;
+        }
+
+        private async Task<int> SaveAsync(SchulwareAccount account, List<AgendaRecord> records, CancellationToken ct)
+        {
             if (records.Count == 0) return 0;
             var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
             if (synced.Added + synced.Updated > 0)
