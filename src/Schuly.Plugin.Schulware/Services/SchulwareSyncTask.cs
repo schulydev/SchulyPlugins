@@ -276,5 +276,8 @@ namespace Schuly.Plugin.Schulware.Services
             var (start, half) = today.Month >= 8 ? (today.Year, 1) : today.Month == 1 ? (today.Year - 1, 1) : (today.Year - 1, 2);
             return $"{half}. {start % 100:00}/{(start + 1) % 100:00}";
         }
+
+        /// <summary>First day of the current semester: 1 August for the first half (August to January), 1 February for the second.</summary>
+        public static DateOnly CurrentStart(DateOnly today) => today.Month >= 8 ? new DateOnly(today.Year, 8, 1) : today.Month == 1 ? new DateOnly(today.Year - 1, 8, 1) : new DateOnly(today.Year, 2, 1);
     }
 }
