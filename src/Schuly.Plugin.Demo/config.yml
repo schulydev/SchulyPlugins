@@ -1,0 +1,8 @@
+# Demo plugin config. Copy to the backend's plugins-config/Schuly.Plugin.Demo.yml.
+# Only the Schuly accounts listed here get the fictional demo school; the plugin
+# offers nothing to anyone else. Ids are ApplicationUsers."Id" from the Schuly
+# database. The list is read on every hourly run.
+
+Demo:
+  UserIds:
+    - 00000000-0000-0000-0000-000000000000

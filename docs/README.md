@@ -32,8 +32,9 @@ server downloads the plugins listed in its `plugins.yml` and loads them at start
 | `src/Schuly.Plugin.Schulware/` | Schulnetz integration through [SchulwareAPI](https://github.com/PianoNic/SchulwareAPI). EF Core and Postgres, a Kiota-generated client, a background sync task, and MVC controllers. |
 | `src/Schuly.Plugin.OdaOrg/` | OdaOrg (ICT-BBAG apprenticeship portal) integration. An HttpClient and AngleSharp scraper, EF Core and Postgres, and a background sync task. |
 | `src/Schuly.Plugin.Microsoft/` | Microsoft 365 through the [SchulyMicrosoft](https://github.com/schulydev/SchulyMicrosoft) service. Links a Microsoft account, and reads and writes mail, calendar, OneDrive, Teams, and OneNote data. It has no database of its own. |
+| `src/Schuly.Plugin.Demo/` | Fictional school data for app review accounts. Only a background task that writes to the Schuly user ids under `Demo:UserIds` (see its `config.yml`); no school system, link provider, endpoints or database, so no other user can see or reach it. |
 | `src/Shared/` | Helpers compiled into plugins that opt in: `ExternalIds`, `SwissTime`, `DataUri`, and `Provisioning/InstanceUrl`. |
-| `tests/` | `Schuly.Plugin.Microsoft.Tests` and `Schuly.Plugins.Linking.Tests`. |
+| `tests/` | `Schuly.Plugin.Microsoft.Tests`, `Schuly.Plugin.Demo.Tests` and `Schuly.Plugins.Linking.Tests`. |
 | `.github/workflows/build_push.yml` | Finds each plugin project, builds it, and publishes DLLs and the index to the `repo` branch. |
 | `.github/workflows/sync-docs.yml` | Copies `docs/` to the docs site. |
 

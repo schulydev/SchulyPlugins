@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>1.0.0</Version>
+    <Description>Fictional school data for app review accounts. Fills only the Schuly accounts listed in its config and offers nothing to anyone else.</Description>
+    <Authors>schulydev</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Schuly.Plugin.Abstractions" Version="0.11.*" />
+  </ItemGroup>
+
+  <!-- Shared helpers, compiled into the plugin so it stays standalone (no extra dependency DLL). -->
+  <ItemGroup>
+    <Compile Include="..\Shared\**\*.cs" />
+  </ItemGroup>
+
+</Project>
