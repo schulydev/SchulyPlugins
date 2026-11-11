@@ -147,6 +147,7 @@ namespace Schuly.Plugin.Schulware.Services
             await run.Section("absences", async () => $"{await sp.GetRequiredService<MobileAbsencesSyncService>().SyncAsync(client, account, ct)} entries");
             await run.Section("documents", async () => { await sp.GetRequiredService<DocumentsSyncService>().SyncAsync(client, account, ct); return "ok"; });
             await run.Section("holidays", async () => { await sp.GetRequiredService<VacationsSyncService>().SyncAsync(client, account, ct); return "ok"; });
+            await run.Section("events", () => HomeEventsAsync(sp, account, ct), optional: true);
 
             IReadOnlyList<string> reportSemesters = [];
             await run.Section("reports", async () =>
@@ -191,6 +192,7 @@ namespace Schuly.Plugin.Schulware.Services
                 var client = SchulwareApiClientFactory.Create(sp.GetRequiredService<IHttpClientFactory>(), account.SchulwareApiBaseUrl, account.SchulnetzBaseUrl, account.MobileAccessToken);
                 return $"{await sp.GetRequiredService<AgendaSyncService>().SyncWebAsync(client, account, grades?.SubjectsByCourse ?? new Dictionary<string, string>(), ct)} entries from the web pages";
             });
+            await run.Section("events", () => HomeEventsAsync(sp, account, ct), optional: true);
             await run.Section("absences", async () =>
             {
                 await EnsureWebSessionAsync(sp, account, ct);
@@ -198,6 +200,14 @@ namespace Schuly.Plugin.Schulware.Services
                 await sp.GetRequiredService<AbsencesSyncService>().SyncAsync(client, account, ct);
                 return "ok";
             });
+        }
+
+        /// <summary>The school year's holidays and events from the home page; the mobile agenda only reaches a few weeks ahead.</summary>
+        private static async Task<string> HomeEventsAsync(IServiceProvider sp, SchulwareAccount account, CancellationToken ct)
+        {
+            await EnsureWebSessionAsync(sp, account, ct);
+            var client = SchulwareApiClientFactory.Create(sp.GetRequiredService<IHttpClientFactory>(), account.SchulwareApiBaseUrl, account.SchulnetzBaseUrl, account.MobileAccessToken);
+            return $"{await sp.GetRequiredService<HomeEventsSyncService>().SyncAsync(client, account, ct)} from the home page";
         }
 
         /// <summary>Scrapes grades, signing in for a fresh web session first if needed and once more if the session dies.</summary>

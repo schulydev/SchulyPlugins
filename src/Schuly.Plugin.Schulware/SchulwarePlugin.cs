@@ -47,6 +47,7 @@ namespace Schuly.Plugin.Schulware
             services.AddScoped<AgendaSyncService>();
             services.AddScoped<DocumentsSyncService>();
             services.AddScoped<VacationsSyncService>();
+            services.AddScoped<HomeEventsSyncService>();
             services.AddScoped<SemesterReportsSyncService>();
             services.AddScoped<PushRelayClient>();
             services.AddScoped<PushRegistrationService>();
