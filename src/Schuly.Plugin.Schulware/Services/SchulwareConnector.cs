@@ -13,6 +13,9 @@ namespace Schuly.Plugin.Schulware.Services
     {
         public const string MicrosoftSignInExpired = "The Microsoft sign-in of that account has expired. Sign in to Microsoft again.";
 
+        /// <summary>A login counts with a mobile token or a web session alone: some schools refuse the Schulnetz mobile app, and the web session still serves the web-only sync.</summary>
+        public static bool Connected([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] LoginResponseDto? res) => res?.Success == true && (!string.IsNullOrEmpty(res.AccessToken) || !string.IsNullOrEmpty(res.SessionId));
+
         public async Task<SchulwareConnectOutcome> ConnectAsync(Guid userId, SchulwareConnectRequest request, CancellationToken cancellationToken = default)
         {
             var baseUrl = request.BaseUrl?.TrimEnd('/');
@@ -80,7 +83,8 @@ namespace Schuly.Plugin.Schulware.Services
                 return Fail(ConnectFailure.Unreachable, ApiError.UnreachableMessage);
             }
 
-            if (res is null || res.Success != true || string.IsNullOrEmpty(res.AccessToken))
+            var mobileToken = string.IsNullOrEmpty(res?.AccessToken) ? null : res.AccessToken;
+            if (!Connected(res))
                 return linkedSession is not null
                     ? Fail(ConnectFailure.SignInExpired, MicrosoftSignInExpired)
                     : Fail(ConnectFailure.Credentials, ApiError.LoginFailedMessage);
@@ -90,9 +94,9 @@ namespace Schuly.Plugin.Schulware.Services
             if (linkedAccountId is { } usedLinkedId && SessionCookies.ToJson(res.SessionCookies) is { } rotated)
                 await linkedAccounts.SetSecretAsync(userId, usedLinkedId, LinkedSecrets.SessionCookies, rotated, cancellationToken);
 
-            account.MobileAccessToken = res.AccessToken;
-            account.MobileRefreshToken = res.RefreshToken;
-            account.MobileTokenExpiresAt = DateTime.UtcNow.AddHours(1);
+            account.MobileAccessToken = mobileToken;
+            account.MobileRefreshToken = mobileToken is null ? null : res.RefreshToken;
+            account.MobileTokenExpiresAt = mobileToken is null ? null : DateTime.UtcNow.AddHours(1);
             account.WebSessionId = res.SessionId;
             account.WebSessionUserId = res.WebSessionUserId;
             account.WebSessionTransId = res.WebSessionTransId;
@@ -122,7 +126,7 @@ namespace Schuly.Plugin.Schulware.Services
 
             secretStore.Save(account);
 
-            if (account.SchoolUserId is not null && account.MobileAccessToken is not null)
+            if (account.SchoolUserId is not null)
             {
                 if (request.BackgroundSync && autoRefresh)
                 {
