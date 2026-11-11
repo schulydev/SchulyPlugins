@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Schuly.Plugin.Abstractions;
 using Schuly.Plugin.Schulware.Client;
+using Schuly.Plugin.Schulware.Client.Models;
 using Schuly.Plugin.Schulware.Data;
 using Schuly.Plugin.Shared;
 
@@ -18,26 +19,44 @@ namespace Schuly.Plugin.Schulware.Services
     {
         public async Task SyncAsync(SchulwareApiClient client, SchulwareAccount account, CancellationToken ct)
         {
-            var events = await client.Api.Mobile.Agenda.GetAsync(cancellationToken: ct);
+            var today = DateTime.UtcNow.Date;
+            var events = await client.Api.Mobile.Agenda.GetAsync(config =>
+            {
+                config.QueryParameters.MinDate = today.AddDays(-35).ToString("yyyy-MM-dd");
+                config.QueryParameters.MaxDate = today.AddDays(365).ToString("yyyy-MM-dd");
+            }, ct);
             if (events is null || events.Count == 0) return;
 
+            var records = FromMobile(events);
+            var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
+            if (synced.Added + synced.Updated > 0)
+                logger.LogInformation("Synced holidays and school events for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
+        }
+
+        /// <summary>Course-less "Event" entries: all-day ones are holidays or day events, ones with a time are school events at that time.</summary>
+        public static List<AgendaRecord> FromMobile(IEnumerable<EventDto> events)
+        {
+            static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
             var records = new List<AgendaRecord>();
             foreach (var e in events)
             {
                 if (!string.Equals(e.EventType, "Event", StringComparison.OrdinalIgnoreCase)) continue;
                 if (!string.IsNullOrWhiteSpace(e.CourseName) || !string.IsNullOrWhiteSpace(e.CourseToken)) continue;
-                if (!TryParseDay(e.StartDate, out var from, out var allDay) || !allDay) continue;
+                if (!TryParseDay(e.StartDate, out var from, out var allDay)) continue;
 
-                var title = string.IsNullOrWhiteSpace(e.Text) ? "Ferien" : e.Text!;
-                DateOnly? to = TryParseDay(e.EndDate, out var end, out _) && end > from ? end : null;
-
-                // The id keeps its "holiday" prefix so entries synced before this distinction are updated, not duplicated.
-                records.Add(new AgendaRecord(ExternalIds.Of("holiday", from.ToString("yyyy-MM-dd"), title), IsDayOff(title) ? AgendaKind.Holiday : AgendaKind.Event, title, SwissTime.UtcDate(from), to is { } until ? SwissTime.UtcDate(until) : null));
+                var title = Blank(e.Text) ?? "Ferien";
+                if (allDay)
+                {
+                    DateOnly? to = TryParseDay(e.EndDate, out var end, out _) && end > from ? end : null;
+                    // The id keeps its "holiday" prefix so entries synced before this distinction are updated, not duplicated.
+                    records.Add(new AgendaRecord(ExternalIds.Of("holiday", from.ToString("yyyy-MM-dd"), title), IsDayOff(title) ? AgendaKind.Holiday : AgendaKind.Event, title, SwissTime.UtcDate(from), to is { } until ? SwissTime.UtcDate(until) : null));
+                    continue;
+                }
+                if (!SwissTime.TryParseToUtc(e.StartDate, out var start)) continue;
+                DateTimeOffset? endsAt = SwissTime.TryParseToUtc(e.EndDate, out var stop) && stop >= start ? stop : null;
+                records.Add(new AgendaRecord(ExternalIds.Of("event", start.ToString("O"), title), AgendaKind.Event, title, start, endsAt, Blank(e.RoomToken), Blank(e.Comment)));
             }
-
-            var synced = await schoolData.SyncAgendaAsync(account.SchoolUserId!.Value, records, ct);
-            if (synced.Added + synced.Updated > 0)
-                logger.LogInformation("Synced holidays for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
+            return records;
         }
 
         private static readonly string[] DayOffWords =
