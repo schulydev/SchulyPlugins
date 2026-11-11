@@ -53,7 +53,10 @@ namespace Schuly.Plugin.Schulware.Services
                 }
             }
 
-            var synced = await schoolData.SyncGradesAsync(account.SchoolUserId!.Value, records, ct);
+            // A full read (no semester filter) lists every grade of the current semester, so grades it no longer lists are stale.
+            var synced = semesters is null && skipSemester is null
+                ? await schoolData.ReplaceGradesAsync(account.SchoolUserId!.Value, records, Semesters.CurrentStart(DateOnly.FromDateTime(DateTime.UtcNow)), ct)
+                : await schoolData.SyncGradesAsync(account.SchoolUserId!.Value, records, ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced web grades for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
             return new Result(subjects, records.Count);

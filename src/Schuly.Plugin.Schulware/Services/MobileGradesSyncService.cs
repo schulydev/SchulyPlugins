@@ -37,7 +37,8 @@ namespace Schuly.Plugin.Schulware.Services
                 });
             }
 
-            var synced = await schoolData.SyncGradesAsync(account.SchoolUserId!.Value, records, ct);
+            // The mobile API lists every grade of the current semester, so grades it no longer lists are stale.
+            var synced = await schoolData.ReplaceGradesAsync(account.SchoolUserId!.Value, records, Semesters.CurrentStart(DateOnly.FromDateTime(DateTime.UtcNow)), ct);
             if (synced.Added + synced.Updated > 0)
                 logger.LogInformation("Synced mobile grades for account {AccountId}: {Added} added, {Updated} updated", account.Id, synced.Added, synced.Updated);
             return new Result(subjects, graded, records.Count);
