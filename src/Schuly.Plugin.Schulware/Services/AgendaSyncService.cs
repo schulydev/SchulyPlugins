@@ -88,11 +88,11 @@ namespace Schuly.Plugin.Schulware.Services
                 {
                     var title = Blank(mapped) ?? token ?? Blank(ev.Text) ?? "Lektion";
                     // Same id as the mobile sync, so a school switching between the two keeps its lessons.
-                    records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), token ?? title), AgendaKind.Lesson, title, start, end, Blank(ev.Zimmer), Blank(ev.Kommentar) ?? Blank(ev.Lehrerkuerzelname)));
+                    records.Add(new AgendaRecord(ExternalIds.Of("lesson", start.ToString("O"), token ?? title), AgendaKind.Lesson, title, start, end, Blank(ev.Zimmerkuerzel) ?? Blank(ev.Zimmer), Blank(ev.Kommentar) ?? Blank(ev.Lehrerkuerzelname)));
                 }
                 else if (ev.EventType?.EndsWith("_pru", StringComparison.OrdinalIgnoreCase) == true && Blank(ev.Text) is { } text)
                 {
-                    records.Add(new AgendaRecord(ExternalIds.Of("exam", "web", start.ToString("O"), text), AgendaKind.Test, $"Prüfung: {text}", start, end, Blank(ev.Zimmer), Blank(ev.Kommentar)));
+                    records.Add(new AgendaRecord(ExternalIds.Of("exam", "web", start.ToString("O"), text), AgendaKind.Test, $"Prüfung: {text}", start, end, Blank(ev.Zimmerkuerzel) ?? Blank(ev.Zimmer), Blank(ev.Kommentar)));
                 }
             }
             return records;
